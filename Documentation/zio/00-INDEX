@@ -1,0 +1,10 @@
+00-INDEX
+	- this file
+device.txt
+	- description of what ZIO devices (and csets and channels) are.
+buffer.txt
+	- description of the buffer, it's methods and how it is used.
+trigger.txt
+	- what is a trigger and what's its role in ZIO.
+tools/
+	- useful and simple user-space programs 

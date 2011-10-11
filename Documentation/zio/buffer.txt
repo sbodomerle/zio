@@ -1,0 +1,106 @@
+
+ZIO defines a "buffer" object type, so each device can exploit any
+features it may offer to speed up data transfers.
+
+Each cset in a device can use a different buffer, which is specified
+as an attribute of the cset.  One instance of the buffer type exists
+for each channel, and the char devices (control and data: see
+device.txt) refer to the buffer.
+
+Please read <linux/zio-buffer.h> together with this file.
+
+	Buffer Types
+	============
+
+Buffers may be device-specific or generic. A generic buffer called
+"kmalloc" is provided within zio-core; it uses kmalloc for allocation
+of control and data blocks.  Such buffer is activated by default on
+all new csets being registered but is not special in any other way, you
+can write your own generic buffer (and if it's better than ours, we
+may use it as default buffer in future releases).
+
+A device-specific buffer declares to be such within its attributes.  A
+device-specific buffer can only be used by csets that declare its name
+as preferred buffer type.  When such csets are registered, if the
+buffer is already known to ZIO, it will be activated by default instead
+of "kmalloc".
+
+Sometimes people write drivers for a set of similar devices, with
+similar DMA capabilities. In this case, all of them may refer to the
+same device-specific buffer type; the buffer type will be registered
+as a standalone kernel module.
+
+The ZIO buffer data structures includes two sets of operations:
+file_operations and buffer_operations.
+
+
+	Buffer Operations
+	=================
+
+Each buffer type must provide the following buffer operations. All
+of them are implemented in zio-buf-kmalloc.c, which may be used as
+reference to better understand the role of each method:
+
+	void *(*create)(struct zio_buffer *buffer, struct zio_channel *ch,
+		       fmode_t f_flags);
+	void (*destroy)(void *b_instance);
+
+The create operation allocates and initializes an instance of the
+buffer type. It is called by ZIO when a channel is opened for the
+first time. The instance is a void pointer because each buffer needs a
+different (private) data structure to represent an own instance.
+
+Destroy deallocates the buffer. ZIO calls destroy when the channel
+is unregistered from ZIO or when the user assigns a different buffer
+type to the channel.
+
+When the control/data devices are closed, ZIO doesn't call destroy, so
+incoming data can queue up while the application leaves it closed
+(e.g., a shell script).  Actually, the release file operation is not
+handled by ZIO, so it couldn't call destroy on close even if it wanted
+to.
+
+	void *(*alloc_block)(void *b_instance, void **handle_ret,
+			     size_t size, gfp_t gfp);
+	void (*free_block)(void *handle);
+
+For input channels, a block is allocated when the trigger fills it,
+and it is freed when user has read or ignored it. For output,
+allocation happens on user write and free is called by the trigger.
+Thus, the function are sometimes called by buffer code itself, and
+sometimes by the trigger.  The data structure hosting a block is
+returned as a void pointer because each buffer needs its own
+private structure.
+
+	ssize_t (*store_block)(void *handle, struct zio_control *ctrl,
+			       void *data, size_t len);
+	ssize_t (*retr_block) (void *handle, struct zio_control *ctrl,
+			       void *data, size_t len);
+
+The trigger calls the store method when it has data to push for input
+channels.  If uses an handle it received from the alloc_block method.
+The trigger for output channels uses the retrieve method to extract
+data from the buffer and send it to the hardware driver. After
+retrieving data, it is responsible for freeing it.
+FIXME: how can the trigger know the handle to retrieve?
+
+
+	File Operations
+	===============
+
+These are the file_operations used by the char devices (control and
+data) for every channel using this buffer type.  The open method of
+the zio file operations kmallocs f->private_data to point to this
+structure:
+
+	struct zio_f_priv {
+		void *b_instance;
+		enum zio_cdev_type type;
+	};
+
+All buffer file operations can thus refer to the buffer instance for
+this channel and know if the current file is ZIO_CDEV_CTRL or
+ZIO_CDEV_DATA.  The release file operation is expected to free this
+structure.
+
+See zio-buf-kmalloc.c for a working example of buffer file operations.

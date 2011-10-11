@@ -1,0 +1,68 @@
+
+	ZIO Device
+	==========
+
+A device, registered through zio_register_device() is the description
+of an I/O peripheral. It is made up of channel-sets, called csets
+from now on. A device may represent a PCI board or an SPI integrated
+circuit or whatever it makes sense to manage from a single device driver.
+All I/O operations are performed on csets, so the device is just an
+array of csets.
+
+	Csets
+	=====
+
+A cset (channel-set) is an homogeneous set of I/O channels. All
+channels in the set are feature the same physical characteristics;
+moreover, a cset refers to a trigger object, so all channels in a set
+are triggered by the same event. This is the typical use case for
+logic analysers (digital input) or multi-probe scopes (analog input),
+as well as multi-waveform output. If your device has several input
+channels which are separately triggered, they should be defined as
+several cset items, each featuring one channel only.  Finally, all
+channels in a cset use the same buffer object for in-kernel data
+storage. Both the buffer and the trigger for a cset are set by
+writing the proper name in sysfs. At device registration defaults
+apply. If ZIO can't find the trigger/buffer name you wrote,
+it will return EINVAL and leave the previous trigger/buffer in place.
+
+	Channels
+	========
+
+The channel is the lowest object in the ZIO hierarchy. It represents
+the single physical connector of the device: analog or digital, input
+or output. Time-to-digital and digital-to-time devices can be represented
+as channels as well.
+
+	Attributes
+	==========
+
+Most configuration and information in ZIO happens through sysfs.
+See sysfs.txt for information about attributes. (FIXME: sysfs.txt)
+
+	Data Transfers
+	==============
+
+Data transfer in ZIO uses two char devices for each channel offered by
+the driver. One char device is used to describe data blocks (we call
+it control device); the other is used to transfer the data blocks (we
+call it data device). The control device returns (or accepts) a
+fixed-size structure that describes the next data transfer, including
+the trigger in use, data size, number of samples and various
+attributes.  Applications may choose to read the data device alone,
+without retrieving control information: when any data of a new block
+is transferred, the associated control information is discarded.
+Similarly, data is discarded if you re-read the control device after
+having retrieved the description of a data block you are not
+interested in.  For output, writing data without writing control uses
+the default control information, or the one from the previous
+transfer).
+
+The full set of rules for data and control transfers is described
+elsewhere (FIXME: link to other docs) but it is pretty intuitive once
+you get the idea.
+
+See tools/zio-dump.c for an example of generic and simple input
+application that shows use of control and data files.
+
+
