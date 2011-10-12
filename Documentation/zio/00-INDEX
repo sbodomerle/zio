@@ -6,5 +6,7 @@ buffer.txt
 	- description of the buffer, it's methods and how it is used.
 trigger.txt
 	- what is a trigger and what's its role in ZIO.
+modules.txt
+	- list of modules (and description) found in the first ZIO package
 tools/
 	- useful and simple user-space programs 

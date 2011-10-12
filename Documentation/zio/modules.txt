@@ -1,0 +1,45 @@
+
+This is the list of ZIO modules, at the time of writing. It is there
+to help new users understanding how the parts stick together.
+
+  drivers/zio/zio-core.ko
+
+This module (which is linked from several source files) includes the
+core sysfs and attribute management. It exports the register and
+unregister functions for top-level objects. Moreover, it includes the
+default buffer, called "kmalloc" and default trigger, called
+"app-request".
+
+  drivers/zio/trigger/trig-ktimer.ko
+  drivers/zio/trigger/trig-hrt.ko
+  drivers/zio/trigger/trig-irq.ko
+
+Three other generic triggers. Two of them are time-based, and the
+third hooks to an external interrupt (or more than one) as source of
+trigger that can be used be any zio cset).
+
+  drivers/zio/dev/zio-null.ko
+  drivers/zio/dev/zio-parport.ko
+  drivers/zio/dev/zio-ad7888.ko
+  drivers/zio/dev/zio-uart.ko
+
+These modules are examples. "null" does nothing: it discards output
+data and returns zeroes as input data. It can be used to experiment
+with generic triggers and as a sandbox for local modifications and
+testing.
+
+The parport driver registers two output csets and two input cset.
+In each group one cset is byte-oriented and the other is bit-oriented.
+
+The ad7888 is an SPI ADC we mounted on an ARM board. It's a real
+8-channel ADC we are using for internal development, and this is a
+real driver for a real thing. Over time it will handle its own buffer
+type (our SPI master uses DMA) and its own data-driven trigger (even
+if the data will be scanned by the CPU, so it can only work at low
+data rates).
+
+The uart driver is a line discpline that can receive data from a
+serial port. The first implementation expects to receive an endless
+stream of 16-bit data, big endian (we used this to run on-board ADC on
+cortex-m3), but we plan to extend it as a serious test case. You can
+drive it from a pty slave, for example.
