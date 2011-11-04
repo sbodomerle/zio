@@ -1,0 +1,81 @@
+
+Zio is "the ultimate I/O framework".  Is being developed on the open
+hardware repository at http://www.ohwr.org/projects/zio .
+
+This version is known to compile and run with kernels 2.6.34 onwards.
+
+This README refers to version "beta2", but work is ongoing towards
+a better beta3, that could be submitted to the official kernel.
+
+To test zio you need to load the core modules (later, the default
+trigger and default buffer will be part of zio-core):
+
+   	insmod zio-core.ko
+   	insmod buffers/zio-buf-kmalloc.ko
+   	insmod triggers/zio-trig-timer.ko
+
+Drivers can't live without a trigger and a buffer, so the modules above
+must be loaded first.
+
+The kmalloc buffer is a simple buffer that hosts a list of data blocks,
+for either input or output.
+
+The timer trigger is a kernel-timer based trigger, that fires a block
+transfer on a timely basis. You can use the "ms" parameter to set the
+inter-block time, in milliseconds (the default is two seconds). You
+can also pass the "nsamples" parameter to say how many samples are
+aquired at each trigger instance.
+
+With the core in place, you can load a driver:
+
+	insmod drivers/zio-zero.ko
+
+zio-zero has a single channel-set (number 0) with three channels.
+They simulate three analog inputs, 8-bit per sample.
+
+     channel 0: returns zero forever
+     channel 1: returns random numbers
+     channel 2: returns a sawtooth signal (0 to 255 and back) 
+
+The char devices are called using device-cset-channel:
+
+    /dev/zzero-0-0-ctrl
+    /dev/zzero-0-0-data
+    /dev/zzero-0-1-ctrl
+    /dev/zzero-0-1-data
+    /dev/zzero-0-2-ctrl
+    /dev/zzero-0-2-data
+
+(later versions will use a /dev/zio/ directory for all zio files)
+
+To read data you can just cat, or "od -t x1" the data device.
+To get control information meta-information) together with data, you
+can use the "zio-dump" user-space utility, in this directory.
+
+For example:
+
+    ./zio-dump /dev/zzero-0-2-ctrl /dev/zzero-0-2-data
+
+This is the result with a trigger that uses 2000 as msec and 32
+as nsample:
+
+    ./zio-dump /dev/zzero-0-2-ctrl /dev/zzero-0-2-data
+
+    Ctrl: version 0.2, trigger timer, dev zzero, cset 0, chan 2
+    Ctrl: seq 1, n 32, size 1, bits 8, flags 80000001 (little-endian)
+    Ctrl: stamp 1320403540.084798370 (0)
+    Data: 00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f
+    Data: 10 11 12 13 14 15 16 17 18 19 1a 1b 1c 1d 1e 1f
+
+    Ctrl: version 0.2, trigger timer, dev zzero, cset 0, chan 2
+    Ctrl: seq 2, n 32, size 1, bits 8, flags 80000001 (little-endian)
+    Ctrl: stamp 1320403542.091093781 (0)
+    Data: 20 21 22 23 24 25 26 27 28 29 2a 2b 2c 2d 2e 2f
+    Data: 30 31 32 33 34 35 36 37 38 39 3a 3b 3c 3d 3e 3f
+
+    Ctrl: version 0.2, trigger timer, dev zzero, cset 0, chan 2
+    Ctrl: seq 3, n 32, size 1, bits 8, flags 80000001 (little-endian)
+    Ctrl: stamp 1320403544.084790274 (0)
+    Data: 40 41 42 43 44 45 46 47 48 49 4a 4b 4c 4d 4e 4f
+    Data: 50 51 52 53 54 55 56 57 58 59 5a 5b 5c 5d 5e 5f
+
