@@ -139,13 +139,19 @@ int zio_fire_trigger(struct zio_ti *ti)
 		/* get samples, and control block */
 		err = zdev->d_op->input_block(chan, block);
 		if (err) {
-			pr_err("%s: no input block for %s:%i:%i\n", __func__,
+			pr_err("%s: input_block(%s:%i:%i) error %d\n", __func__,
 			       chan->cset->zdev->head.name,
 			       chan->cset->index,
-			       chan->index);
-			/* TODO what to do? destroy everything? continue? */
+			       chan->index,
+			       err);
+			zbuf->b_op->free_block(chan->bi, block);
 		}
-		zbuf->b_op->store_block(chan->bi, block);
+		err = zbuf->b_op->store_block(chan->bi, block);
+		if (err) {
+			/* no error message for common error */
+			zbuf->b_op->free_block(chan->bi, block);		      
+		}
+
 	}
 	return 0;
 out_alloc:
