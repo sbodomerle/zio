@@ -207,8 +207,8 @@ int __zio_register_cdev()
 	err = alloc_chrdev_region(&zstat.basedev, 0,
 			ZIO_CSET_MAXNUM * ZIO_NMAX_CSET_MINORS, "zio");
 	if (err) {
-		pr_err("%s: unable to alloc region for %i minors\n", __func__,
-				ZIO_CSET_MAXNUM * ZIO_NMAX_CSET_MINORS);
+		pr_err("%s: unable to allocate region for %i minors\n",
+			__func__, ZIO_CSET_MAXNUM * ZIO_NMAX_CSET_MINORS);
 		goto out;
 	}
 	/* all ZIO's devices, buffers and triggers has zfops as f_op */

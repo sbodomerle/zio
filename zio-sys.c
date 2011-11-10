@@ -227,11 +227,11 @@ static int zobj_unique_name(struct zio_object_list *zobj_list, char *name)
 
 			/* if not auto-assigned, then error */
 			if (!auto_index) {
-				pr_err("ZIO: name %s is already in use\n",
+				pr_err("ZIO: name \"%s\" is already taken\n",
 					name);
 				return -EBUSY;
 			}
-
+			/* build sequential name */
 			if (__next_strlen(name_to_check) > ZIO_NAME_LEN) {
 				pr_err("ZIO: invalid name \"%s\"\n", name);
 				return -EINVAL;
@@ -478,7 +478,7 @@ static int zattr_create_group(struct kobject *kobj,
 		to_zio_zattr(grp->attrs[i])->d_op = d_op;
 		if (!grp->attrs[i]->name) {
 			if (is_ext) {
-				pr_err("%s: can't create extended attribute. "
+				pr_warning("%s: can't create ext attributes. "
 				"%ith attribute has not a name", __func__, i);
 				return 0;
 			}
@@ -620,7 +620,7 @@ static int __trigger_create_instance(struct zio_cset *cset)
 	ti = cset->trig->t_op->create(cset->trig, cset, ctrl, 0/*FIXME*/);
 	if (IS_ERR(ti)) {
 		err = PTR_ERR(ti);
-		pr_err("%s: can't create trigger (%i)\n", __func__, err);
+		pr_err("%s: can't create trigger error %i\n", __func__, err);
 		goto out;
 	}
 	/* Now fill the trigger instance, ops, head, then the rest */
@@ -829,7 +829,8 @@ static int cset_register(struct zio_cset *cset)
 	if (!cset->zbuf) {
 		cset->zbuf = zbuf_find_by_name(ZIO_DEFAULT_BUFFER);
 		if (!cset->zbuf) {
-			pr_err("ZIO: can't set buffer to cset\n");
+			pr_err("ZIO: can't find buffer \"%s\"\n",
+				ZIO_DEFAULT_BUFFER);
 			err = -EBUSY;
 			goto out_buf;
 		}
@@ -863,7 +864,8 @@ static int cset_register(struct zio_cset *cset)
 	if (!cset->trig) {
 		cset->trig = trig_find_by_name(ZIO_DEFAULT_TRIGGER);
 		if (!cset->trig) {
-			pr_err("ZIO: can't set trigger to cset\n");
+			pr_err("ZIO: can't find trigger \"%s\"\n",
+				ZIO_DEFAULT_TRIGGER);
 			err = -EBUSY;
 			goto out_reg;
 		}
@@ -999,7 +1001,7 @@ int zio_register_dev(struct zio_device *zdev, const char *name)
 		return -EINVAL;
 
 	if (!zdev->d_op->input_block && !zdev->d_op->output_block) {
-		pr_err("%s: no nput_block nor output_block methods\n",
+		pr_err("%s: no input_block nor output_block methods\n",
 			__func__);
 		return -EINVAL;
 	}
