@@ -466,7 +466,7 @@ static mode_t zattr_is_visible(struct kobject *kobj, struct attribute *attr,
 }
 static int zattr_create_group(struct kobject *kobj,
 	struct attribute_group *grp, unsigned int n_attr,
-	const struct zio_device_operations *d_op)
+	const struct zio_device_operations *d_op, int is_ext)
 {
 	int i;
 
@@ -477,8 +477,14 @@ static int zattr_create_group(struct kobject *kobj,
 		/* assign show and store function */
 		to_zio_zattr(grp->attrs[i])->d_op = d_op;
 		if (!grp->attrs[i]->name) {
+			if (is_ext) {
+				pr_err("%s: can't create extended attribute. "
+				"%ith attribute has not a name", __func__, i);
+				return 0;
+			}
 			/*
-			 *
+			 * only standard attributes need these lines to fill
+			 * the empty hole in the array of attributes
 			 */
 			grp->attrs[i]->name = zio_attr_names[i];
 			grp->attrs[i]->mode = 0;
@@ -501,14 +507,14 @@ static int zattr_create_set(struct zio_obj_head *head,
 	zattr_set->std_attr.attrs = zattrs_to_attrs(zattr_set->std_zattr,
 			ZATTR_STD_ATTR_NUM);
 	err = zattr_create_group(&head->kobj, &zattr_set->std_attr,
-			ZATTR_STD_ATTR_NUM, d_op);
+			ZATTR_STD_ATTR_NUM, d_op, 0);
 	if (err)
 		goto out;
 
 	zattr_set->ext_attr.attrs = zattrs_to_attrs(zattr_set->ext_zattr,
 				zattr_set->n_ext_attr);
 	err = zattr_create_group(&head->kobj, &zattr_set->ext_attr,
-				zattr_set->n_ext_attr, d_op);
+				zattr_set->n_ext_attr, d_op, 1);
 	if (err && zattr_set->std_attr.attrs)
 		sysfs_remove_group(&head->kobj, &zattr_set->std_attr);
 out:
