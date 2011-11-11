@@ -28,4 +28,3 @@ clean:
 	rm -rf `find . -name \*.o -o -name \*.ko -o -name \*~ `
 	rm -rf `find . -name Module.\* -o -name \*.mod.c`
 	rm -rf .tmp_versions modules.order
-	$(MAKE) -C doc clean
