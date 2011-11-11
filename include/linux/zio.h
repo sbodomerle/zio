@@ -177,10 +177,6 @@ struct zio_sys_operations {
 			uint32_t  usr_val);
 };
 struct zio_device_operations {
-	int (*info_get)(struct kobject *kobj, struct zio_attribute *zattr,
-			uint32_t *usr_val);
-	int (*conf_set)(struct kobject *kobj, struct zio_attribute *zattr,
-			uint32_t  usr_val);
 	int (*input_block)(struct zio_channel *chan, struct zio_block *block);
 	int (*output_block)(struct zio_channel *chan, struct zio_block *block);
 };

@@ -372,10 +372,10 @@ static ssize_t zio_attr_show(struct kobject *kobj, struct attribute *attr,
 		return sprintf(buf, "%s\n", to_zio_head(kobj)->name);
 	}
 
-	if (zattr->d_op->info_get) {
+	if (zattr->s_op->info_get) {
 		lock = zdev_get_spinlock(to_zio_head(kobj));
 		spin_lock(lock);
-		err = zattr->d_op->info_get(kobj, zattr, &zattr->value);
+		err = zattr->s_op->info_get(kobj, zattr, &zattr->value);
 		spin_unlock(lock);
 		if (err)
 			return err;
@@ -395,10 +395,10 @@ static ssize_t zio_attr_store(struct kobject *kobj, struct attribute *attr,
 	err = strict_strtol(buf, 10, &val);
 	if (err)
 		return -EINVAL;
-	if (zattr->d_op->conf_set) {
+	if (zattr->s_op->conf_set) {
 		lock = zdev_get_spinlock(to_zio_head(kobj));
 		spin_lock(lock);
-		err = zattr->d_op->conf_set(kobj, zattr, val);
+		err = zattr->s_op->conf_set(kobj, zattr, val);
 		spin_unlock(lock);
 	}
 	return err == 0 ? size : err;
@@ -466,7 +466,7 @@ static mode_t zattr_is_visible(struct kobject *kobj, struct attribute *attr,
 }
 static int zattr_create_group(struct kobject *kobj,
 	struct attribute_group *grp, unsigned int n_attr,
-	const struct zio_device_operations *d_op, int is_ext)
+	const struct zio_sys_operations *s_op, int is_ext)
 {
 	int i;
 
@@ -475,7 +475,7 @@ static int zattr_create_group(struct kobject *kobj,
 	grp->is_visible = zattr_is_visible;
 	for (i = 0; i < n_attr; i++) {
 		/* assign show and store function */
-		to_zio_zattr(grp->attrs[i])->d_op = d_op;
+		to_zio_zattr(grp->attrs[i])->s_op = s_op;
 		if (!grp->attrs[i]->name) {
 			if (is_ext) {
 				pr_warning("%s: can't create ext attributes. "
@@ -494,7 +494,7 @@ static int zattr_create_group(struct kobject *kobj,
 }
 
 static int zattr_create_set(struct zio_obj_head *head,
-		const struct zio_device_operations *d_op)
+		const struct zio_sys_operations *s_op)
 {
 	int err = 0;
 	struct zio_attribute_set *zattr_set;
@@ -507,14 +507,14 @@ static int zattr_create_set(struct zio_obj_head *head,
 	zattr_set->std_attr.attrs = zattrs_to_attrs(zattr_set->std_zattr,
 			ZATTR_STD_ATTR_NUM);
 	err = zattr_create_group(&head->kobj, &zattr_set->std_attr,
-			ZATTR_STD_ATTR_NUM, d_op, 0);
+			ZATTR_STD_ATTR_NUM, s_op, 0);
 	if (err)
 		goto out;
 
 	zattr_set->ext_attr.attrs = zattrs_to_attrs(zattr_set->ext_zattr,
 				zattr_set->n_ext_attr);
 	err = zattr_create_group(&head->kobj, &zattr_set->ext_attr,
-				zattr_set->n_ext_attr, d_op, 1);
+				zattr_set->n_ext_attr, s_op, 1);
 	if (err && zattr_set->std_attr.attrs)
 		sysfs_remove_group(&head->kobj, &zattr_set->std_attr);
 out:
@@ -557,7 +557,7 @@ static int __buffer_create_instance(struct zio_channel *chan)
 			chan->cset->index,
 			chan->index);
 
-	err = zattr_create_set(&bi->head, chan->cset->zdev->d_op);
+	err = zattr_create_set(&bi->head, chan->cset->zdev->s_op);
 	if (err)
 		goto out_sysfs;
 	init_waitqueue_head(&bi->q);
@@ -636,7 +636,7 @@ static int __trigger_create_instance(struct zio_cset *cset)
 			cset->zdev->head.name,
 			cset->index);
 
-	err = zattr_create_set(&ti->head, cset->zdev->d_op);
+	err = zattr_create_set(&ti->head, cset->zdev->s_op);
 	if (err)
 		goto out_sysfs;
 
@@ -704,7 +704,7 @@ static int chan_register(struct zio_channel *chan)
 		goto out_pre;
 
 	/* create sysfs channel attributes */
-	err = zattr_create_set(&chan->head, chan->cset->zdev->d_op);
+	err = zattr_create_set(&chan->head, chan->cset->zdev->s_op);
 	if (err)
 		goto out_sysfs;
 
@@ -812,7 +812,7 @@ static int cset_register(struct zio_cset *cset)
 	if (err)
 		goto out_add;
 
-	err = zattr_create_set(&cset->head, cset->zdev->d_op);
+	err = zattr_create_set(&cset->head, cset->zdev->s_op);
 	if (err)
 		goto out_sysfs;
 
@@ -1013,7 +1013,7 @@ int zio_register_dev(struct zio_device *zdev, const char *name)
 
 	spin_lock_init(&zdev->lock);
 
-	err = zattr_create_set(&zdev->head, zdev->d_op);
+	err = zattr_create_set(&zdev->head, zdev->s_op);
 	if (err)
 		goto out_sysfs;
 
