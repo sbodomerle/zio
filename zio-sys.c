@@ -914,6 +914,8 @@ static void cset_unregister(struct zio_cset *cset)
 	if (cset->exit)
 		cset->exit(cset);
 
+	/* remove from csets list*/
+	list_del(&cset->list_cset);
 	__trigger_destroy_instance(cset);
 	cset->trig = NULL;
 	/* unregister all child channels */
@@ -985,6 +987,7 @@ static void zobj_unregister(struct zio_object_list *zlist,
 			spin_lock(&zstat.lock);
 			list_del(&item->list);
 			spin_unlock(&zstat.lock);
+			kfree(item);
 			break;
 		}
 	}
