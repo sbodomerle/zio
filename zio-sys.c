@@ -1000,12 +1000,8 @@ int zio_register_dev(struct zio_device *zdev, const char *name)
 {
 	int err = 0, i, j;
 
-	if (!zdev || !name)
-		return -EINVAL;
-
-	if (!zdev->d_op->input_block && !zdev->d_op->output_block) {
-		pr_err("%s: no input_block nor output_block methods\n",
-			__func__);
+	if (!zdev->d_op) {
+		pr_err("%s: new devices has no operations\n", __func__);
 		return -EINVAL;
 	}
 
