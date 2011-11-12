@@ -224,7 +224,7 @@ out_cdev:
 	unregister_chrdev_region(zstat.basedev,
 			ZIO_CSET_MAXNUM * ZIO_NMAX_CSET_MINORS);
 out:
-	/* FIXME: class unregister */
+	class_unregister(&zio_class);
 	return err;
 }
 void __zio_unregister_cdev()
