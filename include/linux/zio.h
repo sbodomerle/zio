@@ -19,6 +19,8 @@
 #include <linux/list.h>
 #include <linux/string.h>
 
+#include <linux/zio-sysfs.h>
+
 /* These two maxima are kept low by now to test overflow situations */
 #define ZIO_CSET_MAXNUM 16
 #define ZIO_CHAN_MAXNUM 16
@@ -64,92 +66,7 @@ static inline enum zio_object_type __zio_get_object_type(struct kobject *kobj)
 	return to_zio_head(kobj)->zobj_type;
 }
 
-enum zattr_standard {
-	ZATTR_NBIT,	/* number of bits per sample */
-	ZATTR_GAIN,	/* gain for signal, integer in 0.001 steps */
-	ZATTR_OFFSET,	/* microvolts */
-	ZATTR_MAXRATE,	/* hertz */
-	ZATTR_VREFTYPE,	/* source of Vref (0 = default) */
-	ZATTR_STD_ATTR_NUM,		/* used to size arrays */
-};
-
-extern const char zio_attr_names[ZATTR_STD_ATTR_NUM][ZIO_NAME_LEN];
-
-/*
- * zio_attribute: the attribute to access device parameters.
- *
- * Many devices store configuration in hardware registers, and thus
- * many configuration steps can be reduced to a read/write from/to a
- * particular device register, located at a specific address.
- *
- * A zio_attribute provides a generic way to access those registers
- *
- * @attribute: standard attribute structure used to create a sysfs access
- * @priv.reg: register address to use as is
- * @priv.reg_descriptor: a generic pointer used to specify how access to a
- *	particular register on device. This is defined by driver developer
- * @value: is the value stored on device
- * @show: is equivalent to info_get from zio_operations
- * @store: is equivalent to  conf_set from zio_operations
- */
-struct zio_attribute {
-	struct attribute			attr;
-	union { /* priv is sometimes a pointer and sometimes an hw addr */
-		void				*ptr;
-		unsigned long			addr;
-	} priv;
-	uint32_t				value;
-	const struct zio_device_operations	*d_op;
-	const struct zio_sys_operations		*s_op;
-};
-
-/* attribute -> zio_attribute */
-#define to_zio_zattr(aptr) container_of(aptr, struct zio_attribute, attr)
-
-/*
- * Every object has both std attributes (whole length is known)
- * and extended attributes (as we need to be told how many).
- * Then, the sysfs attribute_groups are what we build to actually register
- */
-struct zio_attribute_set {
-	struct zio_attribute	*std_zattr;
-	struct zio_attribute	*ext_zattr;
-	unsigned int		n_ext_attr;
-	struct attribute_group	std_attr;
-	struct attribute_group	ext_attr;
-};
-
-/* FIXME: check this DECLARE stuff */
-#define ZATTRS_DECLARE(name) struct zio_attribute name[ZATTR_STD_ATTR_NUM]
-
-/*
- * @ZATTR_REG: define a zio attribute with address register
- * @ZATTR_PRV: define a zio attribute with private register
- * @ZATTR_EXT_REG: define a zio extended attribute with address register
- * @ZATTR_EXT_PRV: define a zio extended attribute with private register
- */
-#define ZATTR_REG(_type, _mode, _add, _val) [_type] = {			\
-		.attr = {.name = zio_attr_names[_type], .mode = _mode},	\
-		.priv.addr = _add,					\
-		.value = _val,						\
-}
-#define ZATTR_PRV(_type, _mode, _add, _val) [_type] = {			\
-		.attr = {.name = zio_attr_names[_type], .mode = _mode},	\
-		.priv.ptr = _add,					\
-		.value = _val,						\
-}
-#define ZATTR_EXT_REG(_name, _mode, _add, _val) {			\
-		.attr = {.name = _name, .mode = _mode},			\
-		.priv.addr = _add,					\
-		.value = _val,						\
-}
-#define ZATTR_EXT_PRV(_name, _mode, _add, _val) {			\
-		.attr = {.name = _name, .mode = _mode},			\
-		.priv.ptr = _add,					\
-		.value = _val,						\
-}
-
-/* Bits 0..3 are reserved for use in all objects. By now 2 of them are used */
+/* Bits 0..3 are reserved for use in all objects. By now only bit 1 is used */
 enum zobj_flags {
 	ZIO_DISABLED		= 0x1,	/* 0 (default) is enabled */
 	ZIO_DIR			= 0x2,	/* 0 is input  - 1 is output*/
@@ -173,12 +90,7 @@ struct zio_device {
 	struct zio_cset			*cset;
 	unsigned int			n_cset;
 };
-struct zio_sys_operations {
-	int (*info_get)(struct kobject *kobj, struct zio_attribute *zattr,
-			uint32_t *usr_val);
-	int (*conf_set)(struct kobject *kobj, struct zio_attribute *zattr,
-			uint32_t  usr_val);
-};
+
 struct zio_device_operations {
 	int (*input_cset)(struct zio_cset *cset);
 	int (*output_cset)(struct zio_cset *cset);

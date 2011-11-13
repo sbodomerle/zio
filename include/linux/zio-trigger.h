@@ -15,9 +15,12 @@ struct zio_trigger_type {
 	unsigned long		flags; /* to be defined */
 
 	/* file_operations because the trigger may override the buffer */
-	const struct zio_sys_operations *s_op;
+	const struct zio_sys_operations		*s_op;
 	const struct zio_trigger_operations	*t_op;
 	const struct file_operations		*f_op;
+
+	/* default attributes for instance */
+	struct zio_attribute_set		zattr_set;
 
 	/* FIXME: how "own" devices are listed (here or elsewhere?) */
 	struct zio_device	*zdev_owner;
@@ -41,7 +44,7 @@ struct zio_ti {
 	uint64_t tstamp_extra;
 
 	/* Standard and extended attributes for this object */
-	struct zio_attribute_set	zattr_set;
+	struct zio_attribute_set		zattr_set;
 
 	const struct zio_trigger_operations	*t_op;
 	const struct file_operations		*f_op;

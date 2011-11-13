@@ -11,42 +11,52 @@
 
 #define __ZIO_INTERNAL__
 #include <linux/zio.h>
+#include <linux/zio-sysfs.h>
 #include <linux/zio-buffer.h>
 #include <linux/zio-trigger.h>
 
 static struct zio_status *zstat = &zio_global_status; /* Always use ptr */
 
-const char zio_attr_names[ZATTR_STD_ATTR_NUM][ZIO_NAME_LEN] = {
+const char zio_zdev_attr_names[ZATTR_STD_NUM_ZDEV][ZIO_NAME_LEN] = {
 	[ZATTR_GAIN]		= "gain_factor",
 	[ZATTR_OFFSET]		= "offset",
-	[ZATTR_NBIT]		= "resolution_bits",
-	[ZATTR_MAXRATE]		= "max_sample_rate",
-	[ZATTR_VREFTYPE]	= "vref_src",
+	[ZATTR_NBIT]		= "resolution-bits",
+	[ZATTR_MAXRATE]		= "max-sample-rate",
+	[ZATTR_VREFTYPE]	= "vref-src",
 };
-EXPORT_SYMBOL(zio_attr_names);
+EXPORT_SYMBOL(zio_zdev_attr_names);
+const char zio_trig_attr_names[ZATTR_STD_NUM_TRIG][ZIO_NAME_LEN] = {
+	[ZATTR_TRIG_REENABLE]	= "re-enable",
+	[ZATTR_TRIG_NSAMPLES]	= "nsamples",
+};
+EXPORT_SYMBOL(zio_trig_attr_names);
+const char zio_zbuf_attr_names[ZATTR_STD_NUM_ZBUF][ZIO_NAME_LEN] = {
+	[ZATTR_ZBUF_MAXLEN]	= "max-buffer-len",
+};
+EXPORT_SYMBOL(zio_zbuf_attr_names);
 
-/*
- * @zattrs_to_attrs: extract a 'struct attribute **' from a
- * 'struct zio_attribute *' and return it
- */
-static struct attribute **zattrs_to_attrs(struct zio_attribute *zattr,
-						unsigned int n_attr)
+static const char *__get_sysfs_name(enum zio_object_type type, int i)
 {
-	int i;
-	struct attribute **attrs;
+	const char *name;
 
-	pr_debug("%s\n", __func__);
-	if (!zattr || !n_attr)
-		return NULL;
+	switch (type) {
+	case ZDEV:
+		name = zio_zdev_attr_names[i];
+		break;
+	case ZTRIG:
+	case ZTI:
+		name = zio_trig_attr_names[i];
+		break;
+	case ZBUF:
+	case ZBI:
+		name = zio_zbuf_attr_names[i];
+		break;
+	default:
+		name = NULL;
+		break;
+	}
 
-	attrs = kzalloc(sizeof(struct attribute) * n_attr, GFP_KERNEL);
-	if (!attrs)
-		return NULL;
-
-	for (i = 0; i < n_attr; i++)
-		attrs[i] = &zattr[i].attr;
-
-	return attrs;
+	return name;
 }
 
 /*
@@ -331,11 +341,33 @@ static struct zio_attribute *__zattr_clone(const struct zio_attribute *src,
 	size = n * sizeof(struct zio_attribute);
 	dest = kmalloc(size, GFP_KERNEL);
 	if (!dest)
-		return ERR_PTR(-ENOMEM);
+		return NULL;
 
 	dest = memcpy(dest, src, size);
 
 	return dest;
+}
+static void __zattr_unclone(struct zio_attribute *zattr){
+	kfree(zattr);
+}
+static int __zattr_set_copy(struct zio_attribute_set *dest,
+				     struct zio_attribute_set *src)
+{
+	if (!dest || !src)
+		return -EINVAL;
+	dest->n_std_attr = src->n_std_attr;
+	dest->n_ext_attr = src->n_ext_attr;
+	dest->std_zattr = __zattr_clone(src->std_zattr, dest->n_std_attr);
+	dest->ext_zattr = __zattr_clone(src->ext_zattr, dest->n_ext_attr);
+
+	return 0;
+}
+static void __zattr_set_free(struct zio_attribute_set *zattr_set)
+{
+	if (!zattr_set)
+		return;
+	__zattr_unclone(zattr_set->ext_zattr);
+	__zattr_unclone(zattr_set->std_zattr);
 }
 static int zattr_chan_pre_set(struct zio_channel *chan)
 {
@@ -351,7 +383,7 @@ static int zattr_chan_pre_set(struct zio_channel *chan)
 	chan->zattr_set.std_zattr =
 		__zattr_clone(
 			cset->zattr_set_chan.std_zattr,
-			ZATTR_STD_ATTR_NUM);
+			ZATTR_STD_NUM_ZDEV);
 	if (IS_ERR(chan->zattr_set.std_zattr))
 		return PTR_ERR(chan->zattr_set.std_zattr);
 	chan->zattr_set.ext_zattr =
@@ -368,8 +400,8 @@ static int zattr_chan_pre_set(struct zio_channel *chan)
 static void zattr_chan_post_remove(struct zio_channel *chan)
 {
 	if (chan->cset->flags & ZCSET_CHAN_ALLOC) {
-		kfree(chan->zattr_set.std_zattr);
-		kfree(chan->zattr_set.ext_zattr);
+		__zattr_unclone(chan->zattr_set.std_zattr);
+		__zattr_unclone(chan->zattr_set.ext_zattr);
 	}
 }
 
@@ -416,6 +448,12 @@ static struct zio_attribute_set *__get_zattr_set(struct zio_obj_head *head)
 	case ZCHAN:
 		zattr_set = &to_zio_chan(&head->kobj)->zattr_set;
 		break;
+	case ZTRIG:
+		zattr_set = &to_zio_chan(&head->kobj)->zattr_set;
+		break;
+	case ZBUF:
+		zattr_set = &to_zio_chan(&head->kobj)->zattr_set;
+		break;
 	case ZTI:
 		zattr_set = &to_zio_ti(&head->kobj)->zattr_set;
 		break;
@@ -435,7 +473,7 @@ static struct zio_attribute_set *__get_zattr_set(struct zio_obj_head *head)
  * which handle binary 32-bit numbers. Both the function are locked to prevent
  * concurrency issue when editing device register.
  */
-static ssize_t zio_attr_show(struct kobject *kobj, struct attribute *attr,
+static ssize_t zattr_show(struct kobject *kobj, struct attribute *attr,
 				char *buf)
 {
 	int err = 0;
@@ -460,7 +498,7 @@ static ssize_t zio_attr_show(struct kobject *kobj, struct attribute *attr,
 	len = sprintf(buf, "%i\n", zattr->value);
 	return len;
 }
-static ssize_t zio_attr_store(struct kobject *kobj, struct attribute *attr,
+static ssize_t zattr_store(struct kobject *kobj, struct attribute *attr,
 				const char *buf, size_t size)
 {
 	long val;
@@ -482,8 +520,8 @@ static ssize_t zio_attr_store(struct kobject *kobj, struct attribute *attr,
 }
 
 static const struct sysfs_ops zio_attribute_ktype_ops = {
-	.show  = zio_attr_show,
-	.store = zio_attr_store,
+	.show  = zattr_show,
+	.store = zattr_store,
 };
 
 static struct attribute default_attrs[] = {
@@ -534,6 +572,10 @@ static mode_t zattr_is_visible(struct kobject *kobj, struct attribute *attr,
 		if ((flag1 | flag2 | flag3) & ZIO_DISABLED)
 			mode = 0;
 		break;
+	case ZBI:
+		break;
+	case ZTI:
+		break;
 	default:
 		WARN(1, "ZIO: unknown zio object %i\n",
 		     __zio_get_object_type(kobj));
@@ -547,37 +589,68 @@ static mode_t zattr_is_visible(struct kobject *kobj, struct attribute *attr,
  * If they are valid register the group
  */
 static int zattr_create_group(struct kobject *kobj,
-	struct attribute_group *grp, unsigned int n_attr,
-	const struct zio_sys_operations *s_op, int is_ext)
+			      struct zio_attribute *zattr,
+			      struct attribute_group *grp,
+			      unsigned int n_attr,
+			      const struct zio_sys_operations *s_op,
+			      int is_ext)
 {
 	int i;
 
+	pr_debug("%s\n", __func__);
+	if (!zattr || !n_attr) {
+		grp->attrs = NULL;
+		return 0;	/* no attributes */
+	}
+	/* extract the attributes */
+	grp->attrs = kzalloc(sizeof(struct attribute) * n_attr, GFP_KERNEL);
 	if (!grp->attrs)
-		return 0;
+		return -ENOMEM;
+
 	grp->is_visible = zattr_is_visible;
 	for (i = 0; i < n_attr; i++) {
-		/* Assign show and store function */
+		/* Add attribute and assign show and store functions */
+		grp->attrs[i] = &zattr[i].attr;
 		to_zio_zattr(grp->attrs[i])->s_op = s_op;
+		/* if not defined */
 		if (!grp->attrs[i]->name) {
 			if (is_ext) {
 				pr_warning("%s: can't create ext attributes. "
 				"%ith attribute has not a name", __func__, i);
-				return 0;
+				return -EINVAL;
 			}
 			/*
 			 * Only standard attributes need these lines to fill
 			 * the empty hole in the array of attributes
 			 */
-			grp->attrs[i]->name = zio_attr_names[i];
+			grp->attrs[i]->name = __get_sysfs_name(
+					to_zio_head(kobj)->zobj_type, i);
 			grp->attrs[i]->mode = 0;
+		}
+		/* if write permission but no write function */
+		if ((grp->attrs[i]->mode & S_IWUGO) == S_IWUGO &&
+		     !s_op->conf_set) {
+			pr_err("%s: %s has write permission but no write "
+				"function\n", __func__, grp->attrs[i]->name);
+			return -EINVAL;
 		}
 	}
 	return sysfs_create_group(kobj, grp);
 }
 
+
 /* Create a set of zio attributes: the standard one and the extended one */
-static int zattr_create_set(struct zio_obj_head *head,
-		const struct zio_sys_operations *s_op)
+static void zattr_remove_group(struct kobject *kobj,
+			       struct attribute_group *grp)
+{
+	if (!grp->attrs)
+		return;
+	sysfs_remove_group(kobj, grp);
+	kfree(grp->attrs);
+}
+/* create a set of zio attributes: the standard one and the extended one */
+static int zattr_set_create(struct zio_obj_head *head,
+			    const struct zio_sys_operations *s_op)
 {
 	int err = 0;
 	struct zio_attribute_set *zattr_set;
@@ -587,37 +660,31 @@ static int zattr_create_set(struct zio_obj_head *head,
 		return -EINVAL; /* message already printed */
 
 	/* Create the standard attributes from zio attributes */
-	zattr_set->std_attr.attrs = zattrs_to_attrs(zattr_set->std_zattr,
-			ZATTR_STD_ATTR_NUM);
-	err = zattr_create_group(&head->kobj, &zattr_set->std_attr,
-			ZATTR_STD_ATTR_NUM, s_op, 0);
+	err = zattr_create_group(&head->kobj, zattr_set->std_zattr,
+		&zattr_set->std_group, zattr_set->n_std_attr, s_op, 0);
 	if (err)
 		goto out;
-
 	/* Create the extended attributes from zio attributes */
-	zattr_set->ext_attr.attrs = zattrs_to_attrs(zattr_set->ext_zattr,
-				zattr_set->n_ext_attr);
-	err = zattr_create_group(&head->kobj, &zattr_set->ext_attr,
-				zattr_set->n_ext_attr, s_op, 1);
-	if (err && zattr_set->std_attr.attrs)
-		sysfs_remove_group(&head->kobj, &zattr_set->std_attr);
+	err = zattr_create_group(&head->kobj, zattr_set->ext_zattr,
+		&zattr_set->ext_group, zattr_set->n_ext_attr, s_op, 1);
+	if (err && zattr_set->std_group.attrs)
+		sysfs_remove_group(&head->kobj, &zattr_set->std_group);
 out:
 	return err;
 }
-
-/* Remove an existing set of attribute */
-static void zattr_remove_set(struct zio_obj_head *head)
+/* Remove an existent set of attributes */
+static void zattr_set_remove(struct zio_obj_head *head)
 {
 	struct zio_attribute_set *zattr_set;
 
 	zattr_set = __get_zattr_set(head);
 	if (!zattr_set)
 		return;
-	/* remove standard and extended attributes */
-	if (zattr_set->std_attr.attrs)
-		sysfs_remove_group(&head->kobj, &zattr_set->std_attr);
-	if (zattr_set->ext_attr.attrs)
-		sysfs_remove_group(&head->kobj, &zattr_set->ext_attr);
+
+	/* remove the standard attribute group */
+	zattr_remove_group(&head->kobj, &zattr_set->std_group);
+	/* remove the extended attribute group */
+	zattr_remove_group(&head->kobj, &zattr_set->ext_group);
 }
 
 /* Create a buffer instance according to the buffer type defined in cset */
@@ -646,7 +713,10 @@ static int __buffer_create_instance(struct zio_channel *chan)
 			chan->cset->index,
 			chan->index);
 
-	err = zattr_create_set(&bi->head, chan->cset->zdev->s_op);
+	err = __zattr_set_copy(&bi->zattr_set,&zbuf->zattr_set);
+	if (err)
+		goto out_clone;
+	err = zattr_set_create(&bi->head, zbuf->s_op);
 	if (err)
 		goto out_sysfs;
 	init_waitqueue_head(&bi->q);
@@ -665,6 +735,8 @@ static int __buffer_create_instance(struct zio_channel *chan)
 	return 0;
 
 out_sysfs:
+	__zattr_set_free(&bi->zattr_set);
+out_clone:
 	kobject_del(&bi->head.kobj);
 out_kobj:
 	kobject_put(&bi->head.kobj);
@@ -685,7 +757,8 @@ static void __buffer_destroy_instance(struct zio_channel *chan)
 	list_del(&bi->list);
 	spin_unlock(&zbuf->lock);
 	/* Remove from sysfs */
-	zattr_remove_set(&bi->head);
+	zattr_set_remove(&bi->head);
+	__zattr_set_free(&bi->zattr_set);
 	kobject_del(&bi->head.kobj);
 	kobject_put(&bi->head.kobj);
 	/* Finally destroy the instance */
@@ -707,7 +780,7 @@ static int __trigger_create_instance(struct zio_cset *cset)
 	ctrl->cset_i = cset->index;
 	strncpy(ctrl->devname, cset->zdev->head.name, ZIO_NAME_LEN);
 	strncpy(ctrl->triggername, cset->trig->head.name, ZIO_NAME_LEN);
-	ctrl->sbits = cset->ssize * 8; /* FIXME: retrieve from attribute */
+	ctrl->sbits = 8; /* FIXME: retrieve from attribute */
 	ctrl->ssize = cset->ssize;
 
 	ti = cset->trig->t_op->create(cset->trig, cset, ctrl, 0/*FIXME*/);
@@ -730,7 +803,10 @@ static int __trigger_create_instance(struct zio_cset *cset)
 			cset->zdev->head.name,
 			cset->index);
 
-	err = zattr_create_set(&ti->head, cset->zdev->s_op);
+	err = __zattr_set_copy(&ti->zattr_set, &cset->trig->zattr_set);
+	if(err)
+		goto out_clone;
+	err = zattr_set_create(&ti->head, cset->trig->s_op);
 	if (err)
 		goto out_sysfs;
 
@@ -747,6 +823,8 @@ static int __trigger_create_instance(struct zio_cset *cset)
 	return 0;
 
 out_sysfs:
+	__zattr_set_free(&ti->zattr_set);
+out_clone:
 	kobject_del(&ti->head.kobj);
 out_kobj:
 	kobject_put(&ti->head.kobj);
@@ -769,7 +847,8 @@ static void __trigger_destroy_instance(struct zio_cset *cset)
 	list_del(&ti->list);
 	spin_unlock(&cset->trig->lock);
 	/* Remove from sysfs */
-	zattr_remove_set(&ti->head);
+	zattr_set_remove(&ti->head);
+	__zattr_set_free(&ti->zattr_set);
 	kobject_del(&ti->head.kobj);
 	kobject_put(&ti->head.kobj);
 	/* Finally destroy the instance and free the default control*/
@@ -801,7 +880,7 @@ static int chan_register(struct zio_channel *chan)
 		goto out_pre;
 
 	/* Create sysfs channel attributes */
-	err = zattr_create_set(&chan->head, chan->cset->zdev->s_op);
+	err = zattr_set_create(&chan->head, chan->cset->zdev->s_op);
 	if (err)
 		goto out_sysfs;
 
@@ -828,7 +907,7 @@ static int chan_register(struct zio_channel *chan)
 out_create:
 	__buffer_destroy_instance(chan);
 out_buf:
-	zattr_remove_set(&chan->head);
+	zattr_set_remove(&chan->head);
 out_sysfs:
 	zattr_chan_post_remove(chan);
 out_pre:
@@ -848,7 +927,7 @@ static void chan_unregister(struct zio_channel *chan)
 	/* destroy buffer instance */
 	__buffer_destroy_instance(chan);
 	/* remove sysfs cset attributes */
-	zattr_remove_set(&chan->head);
+	zattr_set_remove(&chan->head);
 	zattr_chan_post_remove(chan);
 	kobject_del(&chan->head.kobj);
 	kobject_put(&chan->head.kobj);
@@ -915,7 +994,7 @@ static int cset_register(struct zio_cset *cset)
 	if (err)
 		goto out_add;
 	/* Create sysfs cset attributes */
-	err = zattr_create_set(&cset->head, cset->zdev->s_op);
+	err = zattr_set_create(&cset->head, cset->zdev->s_op);
 	if (err)
 		goto out_sysfs;
 
@@ -986,16 +1065,16 @@ static int cset_register(struct zio_cset *cset)
 	return 0;
 
 out_init:
-	cset->trig->t_op->destroy(cset->ti);
+	__trigger_destroy_instance(cset);
 out_trig:
 	cset->trig = NULL;
 out_reg:
 	for (j = i-1; j >= 0; j--)
-		chan_unregister(&cset->chan[i]);
+		chan_unregister(&cset->chan[j]);
 out_buf:
 	cset_free_chan(cset);
 out_alloc:
-	zattr_remove_set(&cset->head);
+	zattr_set_remove(&cset->head);
 out_sysfs:
 	kobject_del(&cset->head.kobj);
 out_add:
@@ -1029,7 +1108,7 @@ static void cset_unregister(struct zio_cset *cset)
 	cset->zbuf = NULL;
 	cset_free_chan(cset);
 	/* Remove from sysfs */
-	zattr_remove_set(&cset->head);
+	zattr_set_remove(&cset->head);
 	kobject_del(&cset->head.kobj);
 	kobject_put(&cset->head.kobj);
 	/* Release a group of minors */
@@ -1049,7 +1128,6 @@ static int zobj_register(struct zio_object_list *zlist,
 	int err;
 	struct zio_object_list_item *item;
 
-	pr_debug("%s:%d\n", __func__, __LINE__);
 	head->zobj_type = type;
 	if (strlen(name) > ZIO_NAME_OBJ)
 		pr_warning("ZIO: name too long, cut to %d characters\n",
@@ -1128,10 +1206,10 @@ int zio_register_dev(struct zio_device *zdev, const char *name)
 			    ZDEV, zdev->owner, name);
 	if (err)
 		goto out;
-
+	zdev->zattr_set.n_std_attr = ZATTR_STD_NUM_ZDEV;
 	spin_lock_init(&zdev->lock);
 	/* Create standard and extended sysfs attribute for device */
-	err = zattr_create_set(&zdev->head, zdev->s_op);
+	err = zattr_set_create(&zdev->head, zdev->s_op);
 	if (err)
 		goto out_sysfs;
 
@@ -1168,7 +1246,7 @@ void zio_unregister_dev(struct zio_device *zdev)
 	for (i = 0; i < zdev->n_cset; i++)
 		cset_unregister(&zdev->cset[i]);
 	/* Remove from sysfs */
-	zattr_remove_set(&zdev->head);
+	zattr_set_remove(&zdev->head);
 	/* Unregister the device */
 	zobj_unregister(&zstat->all_devices, &zdev->head);
 }
@@ -1177,7 +1255,7 @@ EXPORT_SYMBOL(zio_unregister_dev);
 /* Register a buffer into the available buffer list */
 int zio_register_buf(struct zio_buffer_type *zbuf, const char *name)
 {
-	int err = 0;
+	int err;
 	pr_debug("%s:%d\n", __func__, __LINE__);
 	if (!zbuf || !name)
 		return -EINVAL;
@@ -1185,12 +1263,12 @@ int zio_register_buf(struct zio_buffer_type *zbuf, const char *name)
 	err = zobj_register(&zstat->all_buffer_types, &zbuf->head,
 			    ZBUF, zbuf->owner, name);
 	if (err)
-		goto out;
-
+		return err;
+	zbuf->zattr_set.n_std_attr = ZATTR_STD_NUM_ZBUF;
 	INIT_LIST_HEAD(&zbuf->list);
 	spin_lock_init(&zbuf->lock);
-out:
-	return err;
+
+	return 0;
 }
 EXPORT_SYMBOL(zio_register_buf);
 
@@ -1212,13 +1290,12 @@ int zio_register_trig(struct zio_trigger_type *trig, const char *name)
 	err = zobj_register(&zstat->all_trigger_types, &trig->head,
 			    ZTRIG, trig->owner, name);
 	if (err)
-		goto out;
-
+		return err;
+	trig->zattr_set.n_std_attr = ZATTR_STD_NUM_TRIG;
 	INIT_LIST_HEAD(&trig->list);
 	spin_lock_init(&trig->lock);
 
-out:
-	return err;
+	return 0;
 }
 EXPORT_SYMBOL(zio_register_trig);
 
@@ -1268,7 +1345,9 @@ static int __init zio_init(void)
 	BUILD_BUG_ON_NOT_POWER_OF_2(ZIO_CHAN_MAXNUM);
 	BUILD_BUG_ON_NOT_POWER_OF_2(ZIO_CSET_MAXNUM);
 	BUILD_BUG_ON(ZIO_CSET_MAXNUM * ZIO_CHAN_MAXNUM * 2 > MINORMASK);
-	BUILD_BUG_ON(ZATTR_STD_ATTR_NUM != ARRAY_SIZE(zio_attr_names));
+	BUILD_BUG_ON(ZATTR_STD_NUM_ZDEV != ARRAY_SIZE(zio_zdev_attr_names));
+	BUILD_BUG_ON(ZATTR_STD_NUM_ZBUF != ARRAY_SIZE(zio_zbuf_attr_names));
+	BUILD_BUG_ON(ZATTR_STD_NUM_TRIG != ARRAY_SIZE(zio_trig_attr_names));
 
 	/* Initialize char device */
 	err = __zio_register_cdev();

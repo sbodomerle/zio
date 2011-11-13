@@ -2,12 +2,6 @@
 #ifndef __ZIO_BUFFER_H__
 #define __ZIO_BUFFER_H__
 
-#ifdef __KERNEL__
-#include <linux/time.h>
-#else
-#include <time.h>
-#endif
-
 /*
  * Data transfers on the control channel only happen by half a kB.
  * This is fixed for forward compatibility; zio_control may have more
@@ -134,10 +128,12 @@ struct zio_buffer_type {
 	unsigned long		flags; /* to be defined */
 
 	/* file operations (read/write etc) are buffer-specific too */
-	const struct zio_sys_operations *s_op;
+	const struct zio_sys_operations		*s_op;
 	const struct zio_buffer_operations	*b_op;
 	const struct file_operations		*f_op;
 
+	/* default attributes for instance */
+	struct zio_attribute_set		zattr_set;
 	/* FIXME: how "own" devices are listed (here or elsewhere?) */
 	struct zio_device	*zdev_owner;
 	unsigned int		n_zdev_owner;
@@ -168,7 +164,7 @@ struct zio_bi {
 	wait_queue_head_t q;			/* for reading or writing */
 
 	/* Standard and extended attributes for this object */
-	struct zio_attribute_set	zattr_set;
+	struct zio_attribute_set		zattr_set;
 
 	const struct zio_buffer_operations	*b_op;
 	const struct file_operations		*f_op;
