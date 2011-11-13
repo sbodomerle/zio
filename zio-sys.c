@@ -714,7 +714,7 @@ static int chan_register(struct zio_channel *chan)
 		goto out_buf;
 
 	/* create channel char devices*/
-	err = chan_create_device(chan);
+	err = zio_create_chan_devices(chan);
 	if (err)
 		goto out_create;
 	/*
@@ -748,7 +748,7 @@ static void chan_unregister(struct zio_channel *chan)
 	pr_debug("%s:%d\n", __func__, __LINE__);
 	if (!chan)
 		return;
-	chan_destroy_device(chan);
+	zio_destroy_chan_devices(chan);
 	__buffer_destroy_instance(chan);
 	zattr_remove_set(&chan->head);
 	zattr_chan_post_remove(chan);

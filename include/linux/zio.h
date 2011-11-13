@@ -317,8 +317,8 @@ void __zio_minorbase_put(struct zio_cset *zcset);
 int __zio_register_cdev(void);
 void __zio_unregister_cdev(void);
 
-int chan_create_device(struct zio_channel *zchan);
-void chan_destroy_device(struct zio_channel *zchan);
+int zio_create_chan_devices(struct zio_channel *zchan);
+void zio_destroy_chan_devices(struct zio_channel *zchan);
 #endif /* INTERNAL */
 
 #endif /* __KERNEL__ */

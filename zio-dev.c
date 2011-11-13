@@ -149,7 +149,7 @@ void __zio_minorbase_put(struct zio_cset *zcset)
  * create control and data char devices for a channel. The even minor
  * is for control, the odd one for data.
  */
-int chan_create_device(struct zio_channel *chan)
+int zio_create_chan_devices(struct zio_channel *chan)
 {
 	int err;
 	dev_t devt_c, devt_d;
@@ -187,7 +187,7 @@ out:
 	return err;
 }
 
-void chan_destroy_device(struct zio_channel *chan)
+void zio_destroy_chan_devices(struct zio_channel *chan)
 {
 	pr_debug("%s\n", __func__);
 	device_destroy(&zio_class, chan->data_dev->devt);
