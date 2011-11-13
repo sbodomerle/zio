@@ -16,7 +16,7 @@ static ssize_t zio_show_version(struct class *class,
 			struct class_attribute *attr,
 			char *buf)
 {
-  return sprintf(buf, "%d.%d\n", ZIO_MAJOR_VERSION, ZIO_MINOR_VERSION);
+	return sprintf(buf, "%d.%d\n", ZIO_MAJOR_VERSION, ZIO_MINOR_VERSION);
 }
 
 struct class_attribute zclass_attrs[] = {
@@ -119,7 +119,7 @@ out:
 	return ret;
 }
 
-static struct file_operations zfops = {
+static const struct file_operations zfops = {
 	.owner = THIS_MODULE,
 	.open = zio_f_open,
 };

@@ -18,7 +18,7 @@ int zzero_input(struct zio_channel *chan, struct zio_block *block)
 	uint8_t *data;
 	int i;
 
-	switch(chan->index) {
+	switch (chan->index) {
 	case 0: /* zero */
 		memset(block->data, 0x0, block->datalen);
 		break;
@@ -26,7 +26,7 @@ int zzero_input(struct zio_channel *chan, struct zio_block *block)
 		get_random_bytes(block->data, block->datalen);
 		break;
 	case 2: /* sequence */
-		data =(uint8_t *) block->data;
+		data = block->data;
 		for (i = 0; i < block->datalen; i++)
 			data[i] = datum++;
 	}

@@ -16,7 +16,7 @@
 #include <linux/fs.h>
 #include <linux/spinlock.h>
 #include <linux/types.h>
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 
 #include <linux/zio.h>
 #include <linux/zio-buffer.h>
@@ -72,7 +72,7 @@ static struct zio_block *zbk_alloc_block(struct zio_bi *bi,
 out_free:
 	kfree(data);
 	kfree(item);
-	return (ERR_PTR(-ENOMEM));
+	return ERR_PTR(-ENOMEM);
 }
 
 /* Free is called by f->read (for input) or by the trigger (for output) */
@@ -168,7 +168,7 @@ static struct zio_bi *zbk_create(struct zio_buffer_type *zbuf,
 	pr_debug("%s:%d\n", __func__, __LINE__);
 
 	/* FIXME: bi->flags must be set in zio-core */
-	switch(f_flags & (FMODE_READ | FMODE_WRITE)) {
+	switch (f_flags & (FMODE_READ | FMODE_WRITE)) {
 	case  FMODE_WRITE:
 		flags = ZIO_BUFFER_OUTPUT;
 		break;
@@ -221,7 +221,7 @@ static struct zio_buffer_operations zbk_buffer_ops = {
  * not suitable here, and open/release are not needed.
  */
 
-static struct file_operations zbk_file_ops = {
+static const struct file_operations zbk_file_ops = {
 	.owner =	THIS_MODULE,
 	.read =		zio_generic_read,
 	.write =	zio_generic_write,

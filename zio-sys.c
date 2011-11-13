@@ -120,7 +120,7 @@ int zio_fire_trigger(struct zio_ti *ti)
 		/* trigger know the size */
 		ctrl = NULL;
 		ctrl = zio_alloc_control(GFP_ATOMIC);
-		if (!ctrl){
+		if (!ctrl) {
 			/* FIXME: what do I do? */
 			return -ENOMEM;
 		}
@@ -149,7 +149,7 @@ int zio_fire_trigger(struct zio_ti *ti)
 		err = zbuf->b_op->store_block(chan->bi, block);
 		if (err) {
 			/* no error message for common error */
-			zbuf->b_op->free_block(chan->bi, block);		      
+			zbuf->b_op->free_block(chan->bi, block);
 		}
 
 	}
@@ -551,7 +551,7 @@ static int __buffer_create_instance(struct zio_channel *chan)
 			&chan->head.kobj, "buffer");
 	if (err)
 		goto out_kobj;
-	snprintf(bi->head.name, ZIO_NAME_LEN,"%s-%s-%d-%d",
+	snprintf(bi->head.name, ZIO_NAME_LEN, "%s-%s-%d-%d",
 			zbuf->head.name,
 			chan->cset->zdev->head.name,
 			chan->cset->index,
@@ -610,7 +610,7 @@ static int __trigger_create_instance(struct zio_cset *cset)
 	/* Allocate and fill current control as much as possible*/
 	ctrl = zio_alloc_control(GFP_KERNEL);
 	if (!ctrl)
-	  return -ENOMEM;
+		return -ENOMEM;
 	ctrl->cset_i = cset->index;
 	strncpy(ctrl->devname, cset->zdev->head.name, ZIO_NAME_LEN);
 	strncpy(ctrl->triggername, cset->trig->head.name, ZIO_NAME_LEN);

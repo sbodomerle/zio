@@ -34,7 +34,7 @@ struct zio_attribute zattr_dev_ext[] = {
 	ZATTR_EXT_REG("ms", S_IRUGO | S_IWUGO, 0x00, 1000),
 	ZATTR_EXT_REG("n_samples", S_IRUGO | S_IWUGO, 0x01, 1),
 };
-int timer_set_config (struct kobject *kobj, struct zio_attribute *zattr,
+int timer_set_config(struct kobject *kobj, struct zio_attribute *zattr,
 		uint32_t  usr_val)
 {
 	zattr->value = usr_val;

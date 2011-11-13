@@ -12,7 +12,7 @@
 #include <linux/poll.h>
 #include <linux/spinlock.h>
 #include <linux/types.h>
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 
 #define __ZIO_INTERNAL__
 #include <linux/zio.h>
@@ -122,10 +122,9 @@ EXPORT_SYMBOL(zio_generic_poll);
 int zio_generic_release(struct inode *inode, struct file *f)
 {
 	struct zio_f_priv *priv = f->private_data;
-	
+
 	/* priv is allocated by zio_f_open, must be freed */
 	kfree(priv);
 	return 0;
-	
 }
 EXPORT_SYMBOL(zio_generic_release);
