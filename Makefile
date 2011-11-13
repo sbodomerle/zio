@@ -15,7 +15,7 @@ HOST_EXTRACFLAGS += -I$(M)/include/
 all: modules user
 
 modules:
-	$(MAKE) $(EXTRA_CFLAGS) -C $(LINUX) M=$(shell /bin/pwd)
+	$(MAKE) -C $(LINUX) M=$(shell /bin/pwd)
 
 # This is ugly, please forgive me by now
 user: $(hostprogs-y)
