@@ -310,7 +310,7 @@ struct zio_status {
 	struct zio_object_list	all_buffer_types;
 };
 
-extern struct zio_status zstat;
+extern struct zio_status zio_global_status;
 int __zio_minorbase_get(struct zio_cset *zcset);
 void __zio_minorbase_put(struct zio_cset *zcset);
 

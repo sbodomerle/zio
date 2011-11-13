@@ -10,7 +10,8 @@
 #include <linux/zio-buffer.h>
 
 static DEFINE_MUTEX(zmutex);
-struct zio_status zstat;
+struct zio_status zio_global_status;
+static struct zio_status *zstat = &zio_global_status; /* Always use ptr */
 
 static ssize_t zio_show_version(struct class *class,
 			struct class_attribute *attr,
@@ -50,7 +51,7 @@ static struct zio_channel *__zio_minor_to_chan(dev_t mm)
 
 	chan_minor = mm & (ZIO_NMAX_CSET_MINORS-1);
 	cset_base = mm & (~(ZIO_NMAX_CSET_MINORS-1));
-	list_for_each_entry(zcset, &zstat.list_cset, list_cset) {
+	list_for_each_entry(zcset, &zstat->list_cset, list_cset) {
 		if (cset_base == zcset->basedev) {
 			found = 1;
 			break;
@@ -128,12 +129,12 @@ int __zio_minorbase_get(struct zio_cset *zcset)
 {
 	int i;
 
-	i = find_first_zero_bit(zstat.cset_minors_mask, ZIO_CSET_MAXNUM);
+	i = find_first_zero_bit(zstat->cset_minors_mask, ZIO_CSET_MAXNUM);
 	if (i >= ZIO_CSET_MAXNUM)
 		return 1;
-	set_bit(i, zstat.cset_minors_mask);
+	set_bit(i, zstat->cset_minors_mask);
 	/* set the base minor for a cset*/
-	zcset->basedev = zstat.basedev + (i * ZIO_NMAX_CSET_MINORS);
+	zcset->basedev = zstat->basedev + (i * ZIO_NMAX_CSET_MINORS);
 	pr_debug("%s:%i BASEMINOR 0x%x\n", __func__, __LINE__, zcset->basedev);
 	return 0;
 }
@@ -141,8 +142,8 @@ void __zio_minorbase_put(struct zio_cset *zcset)
 {
 	int i;
 
-	i = (zcset->basedev - zstat.basedev) / ZIO_NMAX_CSET_MINORS;
-	clear_bit(i, zstat.cset_minors_mask);
+	i = (zcset->basedev - zstat->basedev) / ZIO_NMAX_CSET_MINORS;
+	clear_bit(i, zstat->cset_minors_mask);
 }
 
 /*
@@ -204,7 +205,7 @@ int __zio_register_cdev()
 		goto out;
 	}
 	/* alloc to zio the maximum number of minors usable in ZIO */
-	err = alloc_chrdev_region(&zstat.basedev, 0,
+	err = alloc_chrdev_region(&zstat->basedev, 0,
 			ZIO_CSET_MAXNUM * ZIO_NMAX_CSET_MINORS, "zio");
 	if (err) {
 		pr_err("%s: unable to allocate region for %i minors\n",
@@ -212,16 +213,16 @@ int __zio_register_cdev()
 		goto out;
 	}
 	/* all ZIO's devices, buffers and triggers has zfops as f_op */
-	cdev_init(&zstat.chrdev, &zfops);
-	zstat.chrdev.owner = THIS_MODULE;
-	err = cdev_add(&zstat.chrdev, zstat.basedev,
+	cdev_init(&zstat->chrdev, &zfops);
+	zstat->chrdev.owner = THIS_MODULE;
+	err = cdev_add(&zstat->chrdev, zstat->basedev,
 			ZIO_CSET_MAXNUM * ZIO_NMAX_CSET_MINORS);
 	if (err)
 		goto out_cdev;
-	INIT_LIST_HEAD(&zstat.list_cset);
+	INIT_LIST_HEAD(&zstat->list_cset);
 	return 0;
 out_cdev:
-	unregister_chrdev_region(zstat.basedev,
+	unregister_chrdev_region(zstat->basedev,
 			ZIO_CSET_MAXNUM * ZIO_NMAX_CSET_MINORS);
 out:
 	class_unregister(&zio_class);
@@ -229,8 +230,8 @@ out:
 }
 void __zio_unregister_cdev()
 {
-	cdev_del(&zstat.chrdev);
-	unregister_chrdev_region(zstat.basedev,
+	cdev_del(&zstat->chrdev);
+	unregister_chrdev_region(zstat->basedev,
 				ZIO_CSET_MAXNUM * ZIO_NMAX_CSET_MINORS);
 	class_unregister(&zio_class);
 }
