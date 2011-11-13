@@ -19,9 +19,9 @@ static ssize_t zio_show_version(struct class *class,
 	return sprintf(buf, "%d.%d\n", ZIO_MAJOR_VERSION, ZIO_MINOR_VERSION);
 }
 
-struct class_attribute zclass_attrs[] = {
-		__ATTR(version, S_IRUGO, zio_show_version, NULL),
-		__ATTR_NULL,
+static struct class_attribute zclass_attrs[] = {
+	__ATTR(version, S_IRUGO, zio_show_version, NULL),
+	__ATTR_NULL,
 };
 
 static char *zio_devnode(struct device *dev, mode_t *mode)

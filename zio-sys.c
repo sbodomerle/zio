@@ -409,18 +409,18 @@ static const struct sysfs_ops zio_attribute_ktype_ops = {
 	.store = zio_attr_store,
 };
 
-struct attribute default_attrs[] = {
+static struct attribute default_attrs[] = {
 		{
 			.name = "name",
 			.mode = 0444, /* read only */
 		},
 };
-struct attribute *def_attr_ptr[] = {
+static struct attribute *def_attr_ptr[] = {
 	&default_attrs[0],
 	NULL,	/* must be null ended */
 };
 
-struct kobj_type zdktype = { /* for standard and extended attribute */
+static struct kobj_type zdktype = { /* for standard and extended attribute */
 	.release   = NULL,
 	.sysfs_ops = &zio_attribute_ktype_ops,
 	.default_attrs = def_attr_ptr,
