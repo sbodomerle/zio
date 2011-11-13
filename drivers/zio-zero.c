@@ -12,7 +12,7 @@
 #include <linux/zio.h>
 #include <linux/zio-buffer.h>
 
-int zzero_input(struct zio_channel *chan, struct zio_block *block)
+static int zzero_input(struct zio_channel *chan, struct zio_block *block)
 {
 	static uint8_t datum;
 	uint8_t *data;
@@ -33,9 +33,10 @@ int zzero_input(struct zio_channel *chan, struct zio_block *block)
 	return 0;
 }
 
-static struct zio_device_operations zzero_d_op = {
+static const struct zio_device_operations zzero_d_op = {
 	.input_block =		zzero_input,
 };
+
 static struct zio_cset zzero_cset[] = {
 	{
 		.n_chan =	3,
@@ -43,6 +44,7 @@ static struct zio_cset zzero_cset[] = {
 		.flags =	ZCSET_TYPE_ANALOG | ZCSET_DIR_INPUT,
 	},
 };
+
 static struct zio_device zzero_dev = {
 	.d_op =			&zzero_d_op,
 	.cset =			zzero_cset,
@@ -54,6 +56,7 @@ static int __init zzero_init(void)
 {
 	return zio_register_dev(&zzero_dev, "zzero");
 }
+
 static void __exit zzero_exit(void)
 {
 	zio_unregister_dev(&zzero_dev);
