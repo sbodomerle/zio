@@ -79,6 +79,7 @@ struct zio_control {
 #ifdef __KERNEL__
 #include <linux/module.h>
 #include <linux/kobject.h>
+#include <linux/slab.h>
 #include <linux/zio.h>
 #include <linux/gfp.h>
 #include <linux/fs.h>
