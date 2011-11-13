@@ -33,9 +33,6 @@ struct zbk_instance {
 };
 #define to_zbki(bi) container_of(bi, struct zbk_instance, bi)
 
-#define ZBK_FLAG_INPUT		0x01 /* private: user reads */
-#define ZBK_FLAG_OUTPUT		0x02 /* private: user writes */
-
 /* The list in the structure above collects a bunch of these */
 struct zbk_item {
 	struct zio_block block;
@@ -117,7 +114,7 @@ static int zbk_store_block(struct zio_bi *bi, struct zio_block *block)
 	spin_unlock(&zbki->lock);
 
 	/* if input, awake user space */
-	if (awake && (bi->flags & ZIO_BUFFER_INPUT))
+	if (awake && ((bi->flags & ZIO_DIR) == ZIO_DIR_INPUT))
 		wake_up_interruptible(&bi->q);
 	return 0;
 
@@ -147,7 +144,7 @@ static struct zio_block *zbk_retr_block(struct zio_bi *bi)
 	zbki->nitem--;
 	spin_unlock(&zbki->lock);
 
-	if (awake && (bi->flags & ZIO_BUFFER_OUTPUT))
+	if (awake && (bi->flags & ZIO_DIR_OUTPUT))
 		wake_up_interruptible(&bi->q);
 	pr_debug("%s:%d (%p, %p)\n", __func__, __LINE__, bi, item);
 	return &item->block;
@@ -163,21 +160,8 @@ static struct zio_bi *zbk_create(struct zio_buffer_type *zbuf,
 	struct zio_channel *chan, fmode_t f_flags)
 {
 	struct zbk_instance *zbki;
-	unsigned long flags;
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
-
-	/* FIXME: bi->flags must be set in zio-core */
-	switch (f_flags & (FMODE_READ | FMODE_WRITE)) {
-	case  FMODE_WRITE:
-		flags = ZIO_BUFFER_OUTPUT;
-		break;
-	case  FMODE_READ:
-		flags = ZIO_BUFFER_INPUT;
-		break;
-	default:
-		return ERR_PTR(-EINVAL);
-	}
 
 	zbki = kzalloc(sizeof(*zbki), GFP_KERNEL);
 	if (!zbki)
@@ -186,7 +170,6 @@ static struct zio_bi *zbk_create(struct zio_buffer_type *zbuf,
 	INIT_LIST_HEAD(&zbki->list);
 
 	/* all the fields of zio_bi are initialied by the caller */
-	zbki->bi.flags = flags;
 	return &zbki->bi;
 }
 

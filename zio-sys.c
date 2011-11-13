@@ -548,6 +548,7 @@ static int __buffer_create_instance(struct zio_channel *chan)
 	/* Now fill the trigger instance, ops, head, then the rest */
 	bi->b_op = zbuf->b_op;
 	bi->f_op = zbuf->f_op;
+	bi->flags |= (chan->flags & ZIO_DIR);
 	bi->head.zobj_type = ZBI;
 	err = kobject_init_and_add(&bi->head.kobj, &zdktype,
 			&chan->head.kobj, "buffer");
@@ -628,6 +629,7 @@ static int __trigger_create_instance(struct zio_cset *cset)
 	/* Now fill the trigger instance, ops, head, then the rest */
 	ti->t_op = cset->trig->t_op;
 	ti->f_op = cset->trig->f_op;
+	ti->flags |= cset->flags & ZIO_DIR;
 	ti->head.zobj_type = ZTI;
 	err = kobject_init_and_add(&ti->head.kobj, &zdktype,
 		&cset->head.kobj, "trigger");
@@ -842,6 +844,7 @@ static int cset_register(struct zio_cset *cset)
 	for (i = 0; i < cset->n_chan; i++) {
 		cset->chan[i].index = i;
 		cset->chan[i].cset = cset;
+		cset->chan[i].flags |= cset->flags & ZIO_DIR;
 		err = chan_register(&cset->chan[i]);
 		if (err)
 			goto out_reg;

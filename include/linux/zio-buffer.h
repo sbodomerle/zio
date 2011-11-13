@@ -164,8 +164,8 @@ struct zio_bi {
 	struct zio_cset		*cset;		/* short for chan->cset */
 
 	/* Those using generic_read need this information */
-	unsigned long flags; /* input or output */
-	wait_queue_head_t q; /* either read or write */
+	unsigned long flags;			/* input or output, etc */
+	wait_queue_head_t q;			/* for reading or writing */
 
 	/* Standard and extended attributes for this object */
 	struct zio_attribute_set	zattr_set;
@@ -174,10 +174,6 @@ struct zio_bi {
 	const struct file_operations		*f_op;
 };
 #define to_zio_bi(_kobj) container_of(_kobj, struct zio_bi, head.kobj)
-
-/* the instance is either for input or for output */
-#define ZIO_BUFFER_INPUT	0x01
-#define ZIO_BUFFER_OUTPUT	0x01
 
 /* The block is the basic data item being transferred */
 struct zio_block {

@@ -41,7 +41,7 @@ static struct zio_cset zzero_cset[] = {
 	{
 		.n_chan =	3,
 		.ssize =	1,
-		.flags =	ZCSET_TYPE_ANALOG | ZCSET_DIR_INPUT,
+		.flags =	ZIO_DIR_INPUT | ZCSET_TYPE_ANALOG,
 	},
 };
 

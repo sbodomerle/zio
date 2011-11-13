@@ -149,9 +149,12 @@ struct zio_attribute_set {
 		.value = _val,						\
 }
 
-/* Bits 0..3 are reserved for use in all objects. By now only bit 1 is used */
+/* Bits 0..3 are reserved for use in all objects. By now 2 of them are used */
 enum zobj_flags {
 	ZIO_DISABLED		= 0x1,	/* 0 (default) is enabled */
+	ZIO_DIR			= 0x2,	/* 0 is input  - 1 is output*/
+	ZIO_DIR_INPUT		= 0x0,
+	ZIO_DIR_OUTPUT		= 0x2,
 };
 
 /*
@@ -214,14 +217,11 @@ struct zio_cset {
 
 /* first 4bit are reserved for zio object universal flags */
 enum zcset_flags {
-	ZCSET_DIR		= 0x10,	/* 0 is input  - 1 is output*/
-	ZCSET_DIR_INPUT		= 0x00,
-	ZCSET_DIR_OUTPUT	= 0x10,
-	ZCSET_TYPE		= 0x20,	/* 0 is digital - 1 is analog*/
+	ZCSET_TYPE		= 0x10,	/* 0 is digital - 1 is analog*/
 	ZCSET_TYPE_DIGITAL	= 0x00,
-	ZCSET_TYPE_ANALOG	= 0x20,
-	ZCSET_CHAN_ALLOC	= 0x40, /* 1 if channels are allocated by zio*/
-	ZCSET_CHAN_ALLOC_ON	= 0x40,
+	ZCSET_TYPE_ANALOG	= 0x10,
+	ZCSET_CHAN_ALLOC	= 0x20, /* 1 if channels are allocated by zio*/
+	ZCSET_CHAN_ALLOC_ON	= 0x20,
 	ZCSET_CHAN_ALLOC_OFF	= 0x00,
 };
 

@@ -34,8 +34,10 @@ struct zio_ti {
 	struct list_head	list;		/* instance list */
 	struct zio_cset		*cset;
 
+	unsigned long		flags;		/* input or output, etc */
 	struct zio_control	*current_ctrl;	/* the active one */
-	struct timespec tstamp;
+	/* This is for software stamping */
+	struct timespec		tstamp;
 	uint64_t tstamp_extra;
 
 	/* Standard and extended attributes for this object */
