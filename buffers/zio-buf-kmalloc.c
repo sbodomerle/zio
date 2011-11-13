@@ -207,7 +207,7 @@ static void zbk_destroy(struct zio_bi *bi)
 	kfree(zbki);
 }
 
-static struct zio_buffer_operations zbk_buffer_ops = {
+static const struct zio_buffer_operations zbk_buffer_ops = {
 	.alloc_block =	zbk_alloc_block,
 	.free_block =	zbk_free_block,
 	.store_block =	zbk_store_block,
@@ -235,11 +235,12 @@ static struct zio_buffer_type zbk_buffer = {
 	.f_op =		&zbk_file_ops,
 };
 
-int zbk_init(void)
+static int zbk_init(void)
 {
 	return zio_register_buf(&zbk_buffer, "kmalloc");
 }
-void zbk_exit(void)
+
+static void zbk_exit(void)
 {
 	zio_unregister_buf(&zbk_buffer);
 	/* FIXME REMOVE all instances left */
