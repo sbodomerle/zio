@@ -30,11 +30,11 @@ module_param(ms, int, S_IRUGO);
 static int nsamples = 16;
 module_param(nsamples, int, S_IRUGO);
 
-struct zio_attribute zattr_dev_ext[] = {
+static struct zio_attribute zattr_dev_ext[] = {
 	ZATTR_EXT_REG("ms", S_IRUGO | S_IWUGO, 0x00, 1000),
 	ZATTR_EXT_REG("n_samples", S_IRUGO | S_IWUGO, 0x01, 1),
 };
-int timer_set_config(struct kobject *kobj, struct zio_attribute *zattr,
+static int timer_set_config(struct kobject *kobj, struct zio_attribute *zattr,
 		uint32_t  usr_val)
 {
 	zattr->value = usr_val;
@@ -48,7 +48,7 @@ int timer_set_config(struct kobject *kobj, struct zio_attribute *zattr,
 	}
 	return 0;
 }
-struct zio_sys_operations s_op = {
+static const struct zio_sys_operations s_op = {
 	.conf_set = timer_set_config,
 };
 
@@ -99,7 +99,7 @@ static int ztt_push_block(struct zio_ti *ti, struct zio_channel *chan,
 	return 0;
 }
 
-int ztt_config(struct zio_ti *ti, struct zio_control *ctrl)
+static int ztt_config(struct zio_ti *ti, struct zio_control *ctrl)
 {
 	/* FIXME: config is not supported yet */
 
@@ -107,9 +107,9 @@ int ztt_config(struct zio_ti *ti, struct zio_control *ctrl)
 	return 0;
 }
 
-struct zio_ti *ztt_create(struct zio_trigger_type *trig,
-			  struct zio_cset *cset, struct zio_control *ctrl,
-			  fmode_t flags)
+static struct zio_ti *ztt_create(struct zio_trigger_type *trig,
+				 struct zio_cset *cset,
+				 struct zio_control *ctrl, fmode_t flags)
 {
 	struct ztt_instance *ztt_instance;
 	struct zio_ti *ti;
@@ -137,7 +137,7 @@ struct zio_ti *ztt_create(struct zio_trigger_type *trig,
 	return ti;
 }
 
-void ztt_destroy(struct zio_ti *ti)
+static void ztt_destroy(struct zio_ti *ti)
 {
 	struct ztt_instance *ztt_instance;
 
@@ -147,7 +147,7 @@ void ztt_destroy(struct zio_ti *ti)
 	kfree(ti);
 }
 
-static struct zio_trigger_operations ztt_trigger_ops = {
+static const struct zio_trigger_operations ztt_trigger_ops = {
 	.push_block = ztt_push_block,
 	.pull_block = NULL,
 	.config = ztt_config,
