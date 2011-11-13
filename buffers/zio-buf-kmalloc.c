@@ -22,8 +22,6 @@
 #include <linux/zio-buffer.h>
 #include <linux/zio-trigger.h>
 
-#define ZBK_BUFFER_LEN 16 /* items (blocks) */
-
 /* This is an instance of a buffer, associated to two cdevs */
 struct zbk_instance {
 	struct zio_bi bi;
@@ -40,6 +38,20 @@ struct zbk_item {
 	struct zbk_instance *instance;
 };
 #define to_item(block) container_of(block, struct zbk_item, block);
+
+static DEFINE_ZATTR_STD(ZBUF, zbk_std_zattr) = {
+	ZATTR_REG(zbuf, ZATTR_ZBUF_MAXLEN, S_IRUGO | S_IWUGO, 0x0, 16),
+};
+
+int kmalloc_conf_set (struct kobject *kobj, struct zio_attribute *zattr,
+		uint32_t  usr_val)
+{
+	zattr->value = usr_val;
+	return 0;
+}
+struct zio_sys_operations zbk_sysfs_ops = {
+	.conf_set = kmalloc_conf_set,
+};
 
 
 /* Alloc is called by the trigger (for input) or by f->write (for output) */
@@ -116,7 +128,7 @@ static int zbk_store_block(struct zio_bi *bi, struct zio_block *block)
 
 	/* add to the buffer instance or push to the trigger */
 	spin_lock(&zbki->lock);
-	if (zbki->nitem == ZBK_BUFFER_LEN)
+	if (zbki->nitem == bi->zattr_set.std_zattr[ZATTR_ZBUF_MAXLEN].value)
 		goto out_unlock;
 	if (!zbki->nitem) {
 		if (unlikely(output))
@@ -157,7 +169,7 @@ static struct zio_block *zbk_retr_block(struct zio_bi *bi)
 	first = zbki->list.next;
 	item = list_entry(first, struct zbk_item, list);
 	list_del(&item->list);
-	if (zbki->nitem == ZBK_BUFFER_LEN)
+	if (zbki->nitem == bi->zattr_set.std_zattr[ZATTR_ZBUF_MAXLEN].value)
 		awake = 1;
 	zbki->nitem--;
 	spin_unlock(&zbki->lock);
@@ -236,6 +248,10 @@ static const struct file_operations zbk_file_ops = {
 
 static struct zio_buffer_type zbk_buffer = {
 	.owner =	THIS_MODULE,
+	.zattr_set = {
+		.std_zattr = zbk_std_zattr,
+	},
+	.s_op = 	&zbk_sysfs_ops,
 	.b_op =		&zbk_buffer_ops,
 	.f_op =		&zbk_file_ops,
 };
