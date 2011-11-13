@@ -15,42 +15,9 @@
 #include <linux/jiffies.h>
 
 #include <linux/zio.h>
+#include <linux/zio-sysfs.h>
 #include <linux/zio-buffer.h>
 #include <linux/zio-trigger.h>
-
-/*
- * By default, run once per second, insmod can change it. If the
- * ms parameter is set to zero, the trigger fires once only, one second
- * after being created -- in any case it starts one second after creation
- */
-static int ms = 2000; /* two seconds by default */
-module_param(ms, int, S_IRUGO);
-
-/* nsamples is 16 by default, should be an attribute */
-static int nsamples = 16;
-module_param(nsamples, int, S_IRUGO);
-
-static struct zio_attribute zattr_dev_ext[] = {
-	ZATTR_EXT_REG("ms", S_IRUGO | S_IWUGO, 0x00, 1000),
-	ZATTR_EXT_REG("n_samples", S_IRUGO | S_IWUGO, 0x01, 1),
-};
-static int timer_set_config(struct kobject *kobj, struct zio_attribute *zattr,
-		uint32_t  usr_val)
-{
-	zattr->value = usr_val;
-	switch (zattr->priv.addr) {
-	case 0:
-		ms = usr_val;
-		break;
-	case 1:
-		nsamples = usr_val;
-		break;
-	}
-	return 0;
-}
-static const struct zio_sys_operations s_op = {
-	.conf_set = timer_set_config,
-};
 
 struct ztt_instance {
 	struct zio_ti ti;
@@ -59,6 +26,36 @@ struct ztt_instance {
 	unsigned long period;
 };
 #define to_ztt_instance(ti) container_of(ti, struct ztt_instance, ti);
+
+static DEFINE_ZATTR_STD(TRIG, ztt_std_attr) = {
+	ZATTR_REG(trig, ZATTR_TRIG_NSAMPLES, S_IRUGO | S_IWUGO, 0x01, 16),
+};
+
+static struct zio_attribute ztt_ext_attr[] = {
+	ZATTR_EXT_REG("ms-period", S_IRUGO | S_IWUGO, 0x10, 2000),
+};
+int timer_conf_set (struct kobject *kobj, struct zio_attribute *zattr,
+		uint32_t  usr_val)
+{
+	struct zio_ti *ti = to_zio_ti(kobj);
+	struct ztt_instance *ztt;
+
+	pr_debug("%s:%d\n", __func__, __LINE__);
+	zattr->value = usr_val;
+	switch (zattr->priv.addr) {
+	case 0x01:
+		ti->current_ctrl->nsamples = usr_val;
+		break;
+	case 0x10:
+		ztt = to_ztt_instance(ti);
+		ztt->period = msecs_to_jiffies(usr_val);
+	}
+	return 0;
+}
+
+struct zio_sys_operations ztt_s_ops = {
+	.conf_set = timer_conf_set,
+};
 
 /* This runs when the timer expires */
 static void ztt_fn(unsigned long arg)
@@ -110,6 +107,7 @@ static struct zio_ti *ztt_create(struct zio_trigger_type *trig,
 {
 	struct ztt_instance *ztt_instance;
 	struct zio_ti *ti;
+	uint32_t ms;
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
 
@@ -119,13 +117,14 @@ static struct zio_ti *ztt_create(struct zio_trigger_type *trig,
 	ti = &ztt_instance->ti;
 
 	/* The current control is already filled: just set nsamples */
-	ctrl->nsamples = nsamples; /* FIXME: it's moduleparam, use attrib */
+	ctrl->nsamples = ztt_std_attr[ZATTR_TRIG_NSAMPLES].value;
 	ti->current_ctrl = ctrl;
 
 	/* Fill own fields */
 	setup_timer(&ztt_instance->timer, ztt_fn,
 		    (unsigned long)(&ztt_instance->ti));
 	ztt_instance->next_run = jiffies + HZ;
+	ms = ztt_ext_attr[0].value;
 	ztt_instance->period = msecs_to_jiffies(ms); /* module param */
 
 	/* Start the timer (dangerous: ti is not filled) */
@@ -155,6 +154,12 @@ static const struct zio_trigger_operations ztt_trigger_ops = {
 
 static struct zio_trigger_type ztt_trigger = {
 	.owner = THIS_MODULE,
+	.zattr_set = {
+		.std_zattr = ztt_std_attr,
+		.ext_zattr = ztt_ext_attr,
+		.n_ext_attr = ARRAY_SIZE(ztt_ext_attr),
+	},
+	.s_op = &ztt_s_ops,
 	.t_op = &ztt_trigger_ops,
 	.f_op = NULL, /* we use buffer fops */
 };
