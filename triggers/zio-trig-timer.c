@@ -91,11 +91,12 @@ static void ztt_fn(unsigned long arg)
 static int ztt_push_block(struct zio_ti *ti, struct zio_channel *chan,
 			  struct zio_block *block)
 {
-	/* FIXME: we currently have no support for output */
-
+	/* software triggers must store pending stuff in chan->t_priv */
 	pr_debug("%s:%d\n", __func__, __LINE__);
 
-	chan->bi->b_op->free_block(chan->bi, block);
+	if (chan->t_priv)
+		return -EBUSY;
+	chan->t_priv = block;
 	return 0;
 }
 
