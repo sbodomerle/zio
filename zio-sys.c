@@ -88,10 +88,8 @@ static struct zio_trigger_type *trig_find_by_name(char *name)
 	return container_of(trig_head, struct zio_trigger_type, head);
 }
 
-/*
- * when a trigger fire, this function must be call
- */
-int zio_fire_trigger(struct zio_ti *ti)
+
+static int __zio_fire_input_trigger(struct zio_ti *ti)
 {
 	struct zio_buffer_type *zbuf;
 	struct zio_block *block;
@@ -99,28 +97,16 @@ int zio_fire_trigger(struct zio_ti *ti)
 	struct zio_cset *cset;
 	struct zio_channel *chan;
 	struct zio_control *ctrl;
-	int err = 0;
-
-	pr_debug("%s:%d\n", __func__, __LINE__);
+	int err;
 
 	cset = ti->cset;
-	/* If the trigger runs too early, ti->cset is still NULL */
-	if (!cset)
-		return -EAGAIN;
 	zdev = cset->zdev;
 	zbuf = cset->zbuf;
 
-	/* copy the stamp (we are software driven anyways) */
-	ti->current_ctrl->tstamp.secs = ti->tstamp.tv_sec;
-	ti->current_ctrl->tstamp.ticks = ti->tstamp.tv_nsec;
-	ti->current_ctrl->tstamp.bins = ti->tstamp_extra;
-	/* and the sequence number too (first returned seq is 1) */
-	ti->current_ctrl->seq_num++;
+	pr_debug("%s:%d\n", __func__, __LINE__);
 
 	cset_for_each(cset, chan) {
 		/* alloc the buffer for the incoming sample */
-		/* trigger know the size */
-		ctrl = NULL;
 		ctrl = zio_alloc_control(GFP_ATOMIC);
 		if (!ctrl) {
 			/* FIXME: what do I do? */
@@ -133,11 +119,10 @@ int zio_fire_trigger(struct zio_ti *ti)
 						ctrl->ssize * ctrl->nsamples,
 						GFP_ATOMIC);
 		if (IS_ERR(block)) {
-			err = PTR_ERR(block);
-			goto out_alloc;
+			zio_free_control(ctrl);
+			return PTR_ERR(block);
 		}
 
-		/* TODO: condition to identify in or out */
 		/* get samples, and control block */
 		err = zdev->d_op->input_block(chan, block);
 		if (err) {
@@ -156,8 +141,64 @@ int zio_fire_trigger(struct zio_ti *ti)
 
 	}
 	return 0;
-out_alloc:
-	return err;
+}
+
+static int __zio_fire_output_trigger(struct zio_ti *ti)
+{
+	struct zio_buffer_type *zbuf;
+	struct zio_block *block;
+	struct zio_device *zdev;
+	struct zio_cset *cset;
+	struct zio_channel *chan;
+	int err = 0;
+
+	cset = ti->cset;
+	zdev = cset->zdev;
+	zbuf = cset->zbuf;
+
+	pr_debug("%s:%d\n", __func__, __LINE__);
+
+	cset_for_each(cset, chan) {
+		/* users of zio_fire_trigger must store a block in t_priv */
+		block = chan->t_priv;
+		if (!block) /* And some channel may be missing data */
+			continue;
+		err = zdev->d_op->output_block(chan, block);
+		if (err) {
+			pr_err("%s: output_block(%s:%i:%i) error %d\n",
+			       __func__,
+			       chan->cset->zdev->head.name,
+			       chan->cset->index,
+			       chan->index,
+			       err);
+		}
+		/* error ir not, free the block and proceed */
+		zbuf->b_op->free_block(chan->bi, block);
+		/* we may have a new block ready or not */
+		chan->t_priv = zbuf->b_op->retr_block(chan->bi);
+	}
+	return 0;
+}
+
+/*
+ * When a software trigger fires, it should call this function. Hw ones don't
+ */
+int zio_fire_trigger(struct zio_ti *ti)
+{
+	/* If the trigger runs too early, ti->cset is still NULL */
+	if (!ti->cset)
+		return -EAGAIN;
+
+	/* copy the stamp (we are software driven anyways) */
+	ti->current_ctrl->tstamp.secs = ti->tstamp.tv_sec;
+	ti->current_ctrl->tstamp.ticks = ti->tstamp.tv_nsec;
+	ti->current_ctrl->tstamp.bins = ti->tstamp_extra;
+	/* and the sequence number too (first returned seq is 1) */
+	ti->current_ctrl->seq_num++;
+
+	if (likely((ti->flags & ZIO_DIR) == ZIO_DIR_INPUT))
+		return __zio_fire_input_trigger(ti);
+	return __zio_fire_output_trigger(ti);
 }
 EXPORT_SYMBOL(zio_fire_trigger);
 
