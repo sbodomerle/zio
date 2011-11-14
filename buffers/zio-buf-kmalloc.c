@@ -87,12 +87,22 @@ static void zbk_free_block(struct zio_bi *bi, struct zio_block *block)
 	kfree(item);
 }
 
+/* When write() stores the first block, we try pushing it */
+static inline int __try_push(struct zio_ti *ti, struct zio_channel *chan,
+			     struct zio_block *block)
+{
+	if (ti->t_op->push_block(ti, chan, block) < 0)
+		return 0;
+	return 1;
+}
+
 /* Store is called by the trigger (for input) or by f->write (for output) */
 static int zbk_store_block(struct zio_bi *bi, struct zio_block *block)
 {
 	struct zbk_instance *zbki = to_zbki(bi);
+	struct zio_channel *chan = bi->chan;
 	struct zbk_item *item;
-	int awake = 0;
+	int awake = 0, pushed = 0, output;
 
 	pr_debug("%s:%d (%p, %p)\n", __func__, __LINE__, bi, block);
 
@@ -102,15 +112,22 @@ static int zbk_store_block(struct zio_bi *bi, struct zio_block *block)
 	}
 
 	item = to_item(block);
+	output = (bi->flags & ZIO_DIR) == ZIO_DIR_OUTPUT;
 
-	/* add to the instance */
+	/* add to the buffer instance or push to the trigger */
 	spin_lock(&zbki->lock);
 	if (zbki->nitem == ZBK_BUFFER_LEN)
 		goto out_unlock;
-	if (!zbki->nitem)
-		awake = 1;
-	zbki->nitem++;
-	list_add_tail(&item->list, &zbki->list);
+	if (!zbki->nitem) {
+		if (unlikely(output))
+			pushed = __try_push(chan->cset->ti, chan, block);
+		else
+			awake = 1;
+	}
+	if (likely(!pushed)) {
+		zbki->nitem++;
+		list_add_tail(&item->list, &zbki->list);
+	}
 	spin_unlock(&zbki->lock);
 
 	/* if input, awake user space */
