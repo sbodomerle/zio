@@ -7,6 +7,7 @@ as an attribute of the cset.  When the trigger fires, it acts on all
 the non-disabled channels of the cset.  Only the "app-request" trigger
 can act on a single channel at a time.
 
+Please read <linux/zio-trigger.h> together with this file.
 
 	Trigger Types
 	=============
@@ -27,37 +28,30 @@ of "app-request".
 	Trigger Operations
 	==================
 
-(NOTE: this is still subject to fine-tuning, as we are still writing code)
-
 Trigger operations are the following:
 
-	struct zio_trigger_instance *(*create)(struct zio_buffer *buffer,
-						struct zio_cset *cset);
-	void (*destroy)(struct zio_trigger_instance *t_instance);
+	struct zio_ti *(*create)(struct zio_trigger_type *trig,
+				 struct zio_cset *cset,
+				 struct zio_control *ctrl,
+				 fmode_t flags);
+	void (*destroy)(struct zio_ti *ti);
 
-Create and destroy a trigger instance for a cset. ZIO calls create when
-attaching the trigger to a cset; it calls destroy when the trigger is
+Create and destroy a trigger instance for a cset. ZIO calls create() when
+attaching the trigger to a cset; it calls destroy() when the trigger is
 replaced by a different one or the cset is being unregistered from ZIO.
-The instance structure is trigger-specific, but it must include this
-generic structure:
+The instance structure is trigger-specific, but it must include the
+generic structure zio_ti. Every time this structure is passed over, trigger
+code may use container_of if it needs to access the private enclosing 
+structure.
 
-	struct zio_trigger_instance {
-		struct zio_trigger *trig;
-		struct zio_cset *cset;
-	};
-
-Every time this structure is passed over, trigger code may use container_of
-if it needs to access the private enclosing structure.
-
-	int (*config)(struct zio_trigger_instance *t_instance);
+	int (*config)(struct zio_ti *ti, stuct zio_control *ctrl);
 
 The method is called by ZIO whenever the attributes for a trigger
 instance are modified by the user (by writing to sysfs or otherwise).
 
-	int (*enqueue_block)(struct zio_trigger_instance *t_instance,
-				struct zio_channel *ch,
-				struct zio_control *ctrl,
-				void *data, size_t len);
+	int (*push_block)(struct zio_ti *ti,
+			  struct zio_channel *chan,
+			  struct zio_control *ctrl);
 
 This is used for output channels: when a new data block is ready, it
 must be sent to the trigger so it can be output when the event fires.
@@ -66,17 +60,20 @@ function can return -EAGAIN if it has no space in the queue, or 0 on
 success. If EAGAIN happens, the buffer should handle it (by storing
 locally or notifying the user).
 
-	int (*space_in_buffer)(struct zio_trigger_instance *t_instance);
+	struct zio_block (*pull_block)(struct zio_ti *ti,
+			  	       struct zio_channel *chan,);
 
-The method return either 0 (there is space for one block), a positive
-value (the maximum size of the next block that can be enqueued) or
--EAGAIN.  This can be used by the poll file operation, to ask
-whether the next write(2) will succeed or not.
+The method retrives a block from the trigger. I may be called by
+the buffer, if it wants a block immediately. The method returns a
+valid pointer to a block or NULL if there is no valid block that
+can be retrieved immediately.   The returned block may be shorter
+than what the trigger would have stored in the buffer by itself.
+
 
 	File Operations
 	===============
 
-The trigger may include a non-NULL f_ops pointer. Most trigger will
+The trigger may include a non-NULL f_ops pointer. Most triggers will
 not need it, but for example "app-request" does, because it needs to
 look at individual read and write calls performed by applications.
 ZIO will use these file operations (instead of the buffer file operations)
@@ -96,30 +93,30 @@ a time when the trigger fires, so input or output may happen.
 data has already happened when the trigger interrupt runs, but this
 doesn't change the software flow).
 
-For output triggers, the trigger instance is already hosting the data
-blocks (received through the enqueue_block method), so the code will
-just loop over all the channels and free such data blocks. In some cases
-the trigger will need to perform the output before freeing data, in
-most cases data has been prepared for DMA during enqueue_block,
-so output already happened when the trigger run.
-
-ZIO offers this help macro to loop over all non-disabled channels:
+Hardware-driven triggers will need to make their own work by themselves,
+but ZIO offers this help macro to loop over all non-disabled channels:
 
 	cset_for_each(struct zio_cset *cset, struct zio_channel *ch)
 
 The macro works like "task_for_each" or "list_for_each" in the kernel
 headers.
 
-For input triggers, the asynchronous code that runs the event will just
-need to call
+For software-based triggers (where actual I/O happens when software
+wants it to happen, even if it is in response to an interrupt), the
+asynchronous code that runs the event will just need to call
 
-	zio_fire_trigger(struct zio_trigger_instance *instance);
+	zio_fire_trigger(struct zio_ti *ti);
 
-This function, part of zio-core, internally runs "cset_for_each".
-For each non-disabled channel, it calls the drv->input_block method
-and the stores it in the active buffer.
+This function, part of zio-core, calls the internal helpers
+__zio_fire_input_trigger for input or __zio_fire_output_trigger for
+output. These, in turn, internally run "cset_for_each". For each
+non-disabled channel, the input trigger function calls the
+drv->input_block and buffer->store_block; 
+the output trigger function calls the drv->output_block method (which
+will free the block when it is done) and the  buffer->retr_block
+method to prepare for the next operation.
 
-You can refer to "zio-trig-ktimer" for an example of a multi-instance
+You can refer to "zio-trig-timer" for an example of a multi-instance
 generic timer and to "zio-trig-app-request" for a non-conventional
 implementation based on trigger-local file_operations.
 

@@ -56,7 +56,7 @@ Similarly, data is discarded if you re-read the control device after
 having retrieved the description of a data block you are not
 interested in.  For output, writing data without writing control uses
 the default control information, or the one from the previous
-transfer).
+transfer.
 
 The full set of rules for data and control transfers is described
 elsewhere (FIXME: link to other docs) but it is pretty intuitive once
