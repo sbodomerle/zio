@@ -46,15 +46,18 @@ static struct class zio_class = {
 	.devnode	= zio_devnode,
 };
 
-/* retrieve a channel from one on its minors */
+/* Retrieve a channel from one of its minors */
 static struct zio_channel *__zio_minor_to_chan(dev_t mm)
 {
 	struct zio_cset *zcset;
 	dev_t cset_base, chan_minor;
 	int found = 0;
 
+	/* Extract cset minor base */
 	chan_minor = mm & (ZIO_NMAX_CSET_MINORS-1);
 	cset_base = mm & (~(ZIO_NMAX_CSET_MINORS-1));
+
+	/* Look for this minor base*/
 	list_for_each_entry(zcset, &zstat->list_cset, list_cset) {
 		if (cset_base == zcset->basedev) {
 			found = 1;
