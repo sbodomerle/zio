@@ -863,6 +863,12 @@ static int cset_register(struct zio_cset *cset)
 		pr_err("ZIO: no channels in cset%i\n", cset->index);
 		return -EINVAL;
 	}
+
+	if (!cset->ssize) {
+		pr_err("ZIO: ssize can not be 0 in cset%i\n", cset->index);
+		return -EINVAL;
+	}
+
 	/* Get an available minor base */
 	err = __zio_minorbase_get(cset);
 	if (err) {
