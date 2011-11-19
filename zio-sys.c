@@ -53,41 +53,35 @@ static struct attribute **zattrs_to_attrs(struct zio_attribute *zattr,
  * Top-level ZIO objects has a unique name.
  * You can find a particular object by searching its name.
  */
-static inline struct zio_obj_head *__find_by_name(
-	struct zio_object_list *zobj_list, char *name)
+static inline struct zio_object_list_item *__find_by_name(
+			struct zio_object_list *zobj_list, char *name)
 {
 	struct zio_object_list_item *cur;
 
 	list_for_each_entry(cur, &zobj_list->list, list) {
 		if (strcmp(cur->obj_head->name, name) == 0)
-			return cur->obj_head; /* object found */
+			return cur; /* object found */
 	}
-	pr_debug("%s:%d %s\n", __func__, __LINE__, name);
 	return NULL;
 }
 static struct zio_buffer_type *zbuf_find_by_name(char *name)
 {
-	struct zio_obj_head *zbuf_head;
+	struct zio_object_list_item *list_item;
 
-	zbuf_head = __find_by_name(&zstat->all_buffer_types, name);
-	pr_debug("%s:%d %s\n", __func__, __LINE__, name);
-	if (!zbuf_head)
+	list_item = __find_by_name(&zstat->all_buffer_types, name);
+	if (!list_item)
 		return NULL;
-	pr_debug("%s:%d %s\n", __func__, __LINE__, zbuf_head->name);
-	return container_of(zbuf_head, struct zio_buffer_type, head);
+	return container_of(list_item->obj_head, struct zio_buffer_type, head);
 }
 static struct zio_trigger_type *trig_find_by_name(char *name)
 {
-	struct zio_obj_head *trig_head;
+	struct zio_object_list_item *list_item;
 
-	trig_head = __find_by_name(&zstat->all_trigger_types, name);
-	pr_debug("%s:%d %s\n", __func__, __LINE__, name);
-	if (!trig_head)
+	list_item = __find_by_name(&zstat->all_trigger_types, name);
+	if (!list_item)
 		return NULL;
-	pr_debug("%s:%d %s\n", __func__, __LINE__, trig_head->name);
-	return container_of(trig_head, struct zio_trigger_type, head);
+	return container_of(list_item->obj_head, struct zio_trigger_type, head);
 }
-
 
 static int __zio_fire_input_trigger(struct zio_ti *ti)
 {
