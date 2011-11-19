@@ -59,32 +59,55 @@ static inline struct zio_object_list_item *__find_by_name(
 	struct zio_object_list_item *cur;
 
 	list_for_each_entry(cur, &zobj_list->list, list) {
-		if (strcmp(cur->obj_head->name, name) == 0)
+		pr_debug("%s:%d %s=%s\n", __func__, __LINE__, cur->name, name);
+		if (strcmp(cur->name, name) == 0)
 			return cur; /* object found */
 	}
 	return NULL;
 }
-/* Find a buffer type from its name */
-static struct zio_buffer_type *zbuf_find_by_name(char *name)
+
+static inline struct zio_object_list_item *__zio_object_get(
+	struct zio_object_list *zobj_list, char *name)
 {
 	struct zio_object_list_item *list_item;
 
-	list_item = __find_by_name(&zstat->all_buffer_types, name);
+	/* search for default trigger */
+	list_item = __find_by_name(zobj_list, name);
 	if (!list_item)
 		return NULL;
+	/* increment trigger usage to prevent rmmod */
+	if (!try_module_get(list_item->owner))
+		return NULL;
+	return list_item;
+}
+static struct zio_buffer_type *zio_buffer_get(char *name)
+{
+	struct zio_object_list_item *list_item;
+
+	list_item = __zio_object_get(&zstat->all_buffer_types, name);
+	if(!list_item)
+		return ERR_PTR(-ENODEV);
 	return container_of(list_item->obj_head, struct zio_buffer_type, head);
 }
-/* Find a trigger type from its name */
-static struct zio_trigger_type *trig_find_by_name(char *name)
+static inline void zio_buffer_put(struct zio_buffer_type *zbuf)
+{
+	pr_debug("%s:%d %p\n", __func__, __LINE__, zbuf->owner);
+	module_put(zbuf->owner);
+}
+static struct zio_trigger_type *zio_trigger_get(char *name)
 {
 	struct zio_object_list_item *list_item;
 
-	list_item = __find_by_name(&zstat->all_trigger_types, name);
-	if (!list_item)
-		return NULL;
+	list_item = __zio_object_get(&zstat->all_trigger_types, name);
+	if(!list_item)
+		return ERR_PTR(-ENODEV);
 	return container_of(list_item->obj_head, struct zio_trigger_type, head);
 }
-
+static inline void zio_trigger_put(struct zio_trigger_type *trig)
+{
+	pr_debug("%s:%d %p\n", __func__, __LINE__, trig->owner);
+	module_put(trig->owner);
+}
 static int __zio_fire_input_trigger(struct zio_ti *ti)
 {
 	struct zio_buffer_type *zbuf;
@@ -897,13 +920,12 @@ static int cset_register(struct zio_cset *cset)
 	 * to the cset, ZIO selectes the default one.
 	 */
 	if (!cset->zbuf) {
-		cset->zbuf = zbuf_find_by_name(ZIO_DEFAULT_BUFFER);
-		if (!cset->zbuf) {
-			pr_err("ZIO: can't find buffer \"%s\"\n",
-				ZIO_DEFAULT_BUFFER);
-			err = -EBUSY;
+		cset->zbuf = zio_buffer_get(ZIO_DEFAULT_BUFFER);
+		if (IS_ERR(cset->zbuf)) {
+			err = PTR_ERR(cset->zbuf);
 			goto out_buf;
 		}
+			
 	}
 
 	/* Register all child channels */
@@ -933,12 +955,10 @@ static int cset_register(struct zio_cset *cset)
 	 * the trigger fires.
 	 */
 	if (!cset->trig) {
-		cset->trig = trig_find_by_name(ZIO_DEFAULT_TRIGGER);
-		if (!cset->trig) {
-			pr_err("ZIO: can't find trigger \"%s\"\n",
-				ZIO_DEFAULT_TRIGGER);
-			err = -EBUSY;
-			goto out_reg;
+		cset->trig = zio_trigger_get(ZIO_DEFAULT_TRIGGER);
+		if (IS_ERR(cset->trig)) {
+			err = PTR_ERR(cset->trig);
+			goto out_trig;
 		}
 		err = __trigger_create_instance(cset);
 		if (err)
@@ -987,12 +1007,15 @@ static void cset_unregister(struct zio_cset *cset)
 
 	/* Remove from csets list*/
 	list_del(&cset->list_cset);
+	/* destroy instance and decrement trigger usage */
 	__trigger_destroy_instance(cset);
+	zio_trigger_put(cset->trig);
 	cset->trig = NULL;
 	/* Unregister all child channels */
 	for (i = 0; i < cset->n_chan; i++)
 		chan_unregister(&cset->chan[i]);
-
+	/* decrement buffer usage */
+	zio_buffer_put(cset->zbuf);
 	cset->zbuf = NULL;
 	cset_free_chan(cset);
 	/* Remove from sysfs */
@@ -1040,6 +1063,8 @@ static int zobj_register(struct zio_object_list *zlist,
 	}
 	item->obj_head = head;
 	item->owner = owner;
+	strncpy(item->name, head->name, ZIO_NAME_OBJ);
+	/* add to the object list*/
 	spin_lock(&zstat->lock);
 	list_add(&item->list, &zlist->list);
 	spin_unlock(&zstat->lock);
@@ -1082,6 +1107,10 @@ int zio_register_dev(struct zio_device *zdev, const char *name)
 
 	if (!zdev->d_op) {
 		pr_err("%s: new devices has no operations\n", __func__);
+		return -EINVAL;
+	}
+	if (!zdev->owner) {
+		pr_err("%s: new device has no owner\n", __func__);
 		return -EINVAL;
 	}
 	/* Register the device */

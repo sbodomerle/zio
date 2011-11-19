@@ -194,7 +194,7 @@ struct zio_cset {
 	struct zio_obj_head	head;
 	struct zio_device	*zdev;		/* parent zio device */
 	struct zio_buffer_type	*zbuf;		/* buffer type for bi */
-	struct zio_trigger_type *trig;		/* trigger tyèe for ti*/
+	struct zio_trigger_type *trig;		/* trigger type for ti*/
 	struct zio_ti		*ti;		/* trigger instance */
 	unsigned		ssize;		/* sample size (bytes) */
 	unsigned		index;		/* index within parent */
@@ -211,6 +211,8 @@ struct zio_cset {
 
 	struct list_head	list_cset;	/* for cset global list */
 	dev_t			basedev;	/* base for the minors */
+	char			zbuf_name[ZIO_NAME_OBJ];
+	char			trig_name[ZIO_NAME_OBJ];
 
 	struct zio_attribute	*cset_attrs; /* FIXME: set buf, set trig */
 };
@@ -281,6 +283,7 @@ struct zio_object_list {
 };
 struct zio_object_list_item {
 	struct list_head	list;
+	char			name[ZIO_NAME_OBJ]; /* object name copy*/
 	struct module		*owner;
 	struct zio_obj_head	*obj_head;
 };

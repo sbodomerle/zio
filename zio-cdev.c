@@ -69,6 +69,35 @@ static struct zio_channel *__zio_minor_to_chan(dev_t mm)
 	return &zcset->chan[chan_minor/2];
 }
 
+static inline int zio_device_get(dev_t devt)
+{
+	struct zio_channel *chan;
+
+	/*
+	 * FIXME there is a little concurrency; to resolve this, get the owner
+	 * from device list by searching by minor
+	 */
+	chan = __zio_minor_to_chan(devt);
+	if (!chan) {
+		pr_err("ZIO: can't retrieve channel for minor %i\n",
+		       MINOR(devt));
+		return -EBUSY;
+	}
+	return try_module_get(chan->cset->zdev->owner);
+}
+static inline void zio_device_put(dev_t devt)
+{
+	struct zio_channel *chan;
+
+	/*
+	 * FIXME there is a little concurrency; to resolve this, get the owner
+	 * from device list by searching by minor
+	 */
+	chan = __zio_minor_to_chan(devt);
+	/* it is impossbile chan = NULL because __zio_device_get() found it */
+	module_put(chan->cset->zdev->owner);
+}
+
 static int zio_f_open(struct inode *ino, struct file *f)
 {
 	struct zio_f_priv *priv = NULL;
@@ -80,6 +109,9 @@ static int zio_f_open(struct inode *ino, struct file *f)
 	pr_debug("%s:%i\n", __func__, __LINE__);
 	if (f->f_flags & FMODE_WRITE)
 		goto out;
+
+	if (!zio_device_get(ino->i_rdev))
+		return -ENODEV;
 
 	minor = iminor(ino);
 	chan = __zio_minor_to_chan(ino->i_rdev);
@@ -458,6 +490,7 @@ int zio_generic_release(struct inode *inode, struct file *f)
 
 	/* priv is allocated by zio_f_open, must be freed */
 	kfree(priv);
+	zio_device_put(inode->i_rdev);
 	return 0;
 }
 EXPORT_SYMBOL(zio_generic_release);

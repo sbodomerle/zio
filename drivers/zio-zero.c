@@ -46,6 +46,7 @@ static struct zio_cset zzero_cset[] = {
 };
 
 static struct zio_device zzero_dev = {
+	.owner =		THIS_MODULE,
 	.d_op =			&zzero_d_op,
 	.cset =			zzero_cset,
 	.n_cset =		ARRAY_SIZE(zzero_cset),
