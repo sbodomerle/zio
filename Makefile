@@ -1,6 +1,6 @@
 LINUX ?= /lib/modules/$(shell uname -r)/build
 
-zio-core-objs := zio-dev.o zio-sys.o zio-buf.o
+zio-core-objs := zio-cdev.o zio-sys.o
 obj-m = zio-core.o
 obj-m += drivers/
 obj-m += buffers/
