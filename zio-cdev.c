@@ -288,22 +288,22 @@ static int __zio_read_allowed(struct zio_f_priv *priv)
 	struct zio_bi *bi = chan->bi;
 	const int can_read =  POLLIN | POLLRDNORM;
 
-	if (!chan->current_block)
-		chan->current_block = bi->b_op->retr_block(bi);
-	if (!chan->current_block)
+	if (!chan->user_block)
+		chan->user_block = bi->b_op->retr_block(bi);
+	if (!chan->user_block)
 		return 0;
 
 	/* We have a block. So there is data and possibly control too */
 	if (likely(priv->type == ZIO_CDEV_DATA))
 		return can_read;
 
-	if (!zio_is_cdone(chan->current_block))
+	if (!zio_is_cdone(chan->user_block))
 		return POLLIN | POLLRDNORM;
 
 	/* There's a block, but we want to re-read control. Get a new block */
-	bi->b_op->free_block(bi, chan->current_block);
-	chan->current_block = bi->b_op->retr_block(bi);
-	if (!chan->current_block)
+	bi->b_op->free_block(bi, chan->user_block);
+	chan->user_block = bi->b_op->retr_block(bi);
+	if (!chan->user_block)
 		return 0;
 	return POLLIN | POLLRDNORM;
 }
@@ -339,9 +339,9 @@ static int __zio_write_allowed(struct zio_f_priv *priv)
 	}
 
 	/* We want to write data. If we have no control, retrieve one */
-	if (!chan->current_block)
-		chan->current_block = __zio_write_allocblock(bi, NULL);
-	block = chan->current_block;
+	if (!chan->user_block)
+		chan->user_block = __zio_write_allocblock(bi, NULL);
+	block = chan->user_block;
 	if (!block)
 		return 0;
 
@@ -354,8 +354,8 @@ static int __zio_write_allowed(struct zio_f_priv *priv)
 		return 0;
 
 	/* We sent it: get a new one for this new data */
-	chan->current_block = __zio_write_allocblock(bi, NULL);
-	return chan->current_block ? can_write : 0;
+	chan->user_block = __zio_write_allocblock(bi, NULL);
+	return chan->user_block ? can_write : 0;
 }
 
 /*
@@ -389,7 +389,7 @@ ssize_t zio_generic_read(struct file *f, char __user *ubuf,
 		if (signal_pending(current))
 			return -ERESTARTSYS;
 	}
-	block = chan->current_block;
+	block = chan->user_block;
 
 	/* So, it's readable */
 	if (unlikely(priv->type == ZIO_CDEV_CTRL)) {
@@ -408,7 +408,7 @@ ssize_t zio_generic_read(struct file *f, char __user *ubuf,
 	*offp += count;
 	block->uoff += count;
 	if (block->uoff == block->datalen) {
-		chan->current_block = NULL;
+		chan->user_block = NULL;
 		bi->b_op->free_block(bi, block);
 	}
 	return count;
@@ -442,7 +442,7 @@ ssize_t zio_generic_write(struct file *f, const char __user *ubuf,
 
 	if (likely(priv->type == ZIO_CDEV_DATA)) {
 		/* Data is writeable, so we have space in this block */
-		block = chan->current_block;
+		block = chan->user_block;
 		if (count > block->datalen - block->uoff)
 			count =  block->datalen - block->uoff;
 		if (copy_from_user(block->data + block->uoff, ubuf, count))
@@ -450,7 +450,7 @@ ssize_t zio_generic_write(struct file *f, const char __user *ubuf,
 		block->uoff += count;
 		if (block->uoff == block->datalen)
 			if (bi->b_op->store_block(bi, block) == 0)
-				chan->current_block = NULL;
+				chan->user_block = NULL;
 		return count;
 	}
 
@@ -459,9 +459,9 @@ ssize_t zio_generic_write(struct file *f, const char __user *ubuf,
 		return -EINVAL;
 	count = ZIO_CONTROL_SIZE;
 
-	if (chan->current_block)
-		bi->b_op->free_block(bi, chan->current_block);
-	chan->current_block = NULL;
+	if (chan->user_block)
+		bi->b_op->free_block(bi, chan->user_block);
+	chan->user_block = NULL;
 	ctrl = zio_alloc_control(GFP_KERNEL);
 	if (!ctrl)
 		return -ENOMEM;

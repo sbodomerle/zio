@@ -243,7 +243,7 @@ struct zio_channel {
 	struct device		*ctrl_dev;	/* control char device */
 	struct device		*data_dev;	/* data char device */
 
-	struct zio_block	*current_block;	/* the one being transferred */
+	struct zio_block	*user_block;	/* being transferred w/ user */
 	void			*t_priv;	/* used by trigger */
 };
 
