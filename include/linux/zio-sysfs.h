@@ -92,13 +92,19 @@ extern const char zio_zbuf_attr_names[ZATTR_STD_NUM_ZBUF][ZIO_NAME_LEN];
  * @ZATTR_EXT_REG: define a zio extended attribute with address register
  * @ZATTR_EXT_PRV: define a zio extended attribute with private register
  */
-#define ZATTR_REG(zobj ,_type, _mode, _add, _val) [_type] = {		\
-		.attr = {.name = zio_##zobj##_attr_names[_type], .mode = _mode},\
+#define ZATTR_REG(zobj, _type, _mode, _add, _val)[_type] = {		\
+		.attr = {						\
+			.name = zio_##zobj##_attr_names[_type],		\
+			.mode = _mode					\
+		},							\
 		.priv.addr = _add,					\
 		.value = _val,						\
 }
-#define ZATTR_PRV(zobj, _type, _mode, _add, _val) [_type] = {		\
-		.attr = {.name = zio_##zobj##_attr_names[_type], .mode = _mode},\
+#define ZATTR_PRV(zobj, _type, _mode, _add, _val)[_type] = {		\
+		.attr = {						\
+			.name = zio_##zobj##_attr_names[_type],		\
+			.mode = _mode					\
+		},							\
 		.priv.ptr = _add,					\
 		.value = _val,						\
 }

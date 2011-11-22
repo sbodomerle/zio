@@ -14,12 +14,12 @@
  * indidual devices may do whatever they want to match hardware.
  */
 struct zio_timestamp {
-    uint64_t secs;
-    uint64_t ticks;
-    uint64_t bins;
+	uint64_t secs;
+	uint64_t ticks;
+	uint64_t bins;
 };
 
-/* 
+/*
  * The following data item is the control structure that is being exchanged
  * on the control device associated to each data device. The size of each
  * fields is fixed to ease portability of binary dumps (esp i386/x86-64).

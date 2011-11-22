@@ -43,7 +43,7 @@ static DEFINE_ZATTR_STD(ZBUF, zbk_std_zattr) = {
 	ZATTR_REG(zbuf, ZATTR_ZBUF_MAXLEN, S_IRUGO | S_IWUGO, 0x0, 16),
 };
 
-int kmalloc_conf_set (struct kobject *kobj, struct zio_attribute *zattr,
+int kmalloc_conf_set(struct kobject *kobj, struct zio_attribute *zattr,
 		uint32_t  usr_val)
 {
 	zattr->value = usr_val;
@@ -251,9 +251,9 @@ static struct zio_buffer_type zbk_buffer = {
 	.zattr_set = {
 		.std_zattr = zbk_std_zattr,
 	},
-	.s_op = 	&zbk_sysfs_ops,
-	.b_op =		&zbk_buffer_ops,
-	.f_op =		&zbk_file_ops,
+	.s_op = &zbk_sysfs_ops,
+	.b_op = &zbk_buffer_ops,
+	.f_op = &zbk_file_ops,
 };
 
 static int zbk_init(void)

@@ -28,7 +28,7 @@ int main(int argc, char **argv)
 	int fd[2];
 	int i, j;
 
-	if (argc !=3) {
+	if (argc != 3) {
 		fprintf(stderr, "%s: use \"%s <ctrl-file> <data-file>\"\n",
 			argv[0], argv[0]);
 		exit(1);
@@ -65,7 +65,7 @@ int main(int argc, char **argv)
 
 		/* This is a blocking read to the control file */
 		i = read(fd[FD_C], &ctrl, sizeof(ctrl));
-		switch(i) {
+		switch (i) {
 		case -1:
 			fprintf(stderr, "%s: %s: read(): %s\n",
 				argv[0], argv[1 + FD_C], strerror(errno));
@@ -134,7 +134,7 @@ int main(int argc, char **argv)
 				printf("Data:");
 			printf(" %02x", buf[j]);
 			if ((j & 0xf) == 0xf || j == i - 1)
-			putchar('\n');
+				putchar('\n');
 		}
 	putchar('\n');
 	}

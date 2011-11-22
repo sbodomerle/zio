@@ -34,7 +34,7 @@ static DEFINE_ZATTR_STD(TRIG, ztt_std_attr) = {
 static struct zio_attribute ztt_ext_attr[] = {
 	ZATTR_EXT_REG("ms-period", S_IRUGO | S_IWUGO, 0x10, 2000),
 };
-int timer_conf_set (struct kobject *kobj, struct zio_attribute *zattr,
+int timer_conf_set(struct kobject *kobj, struct zio_attribute *zattr,
 		uint32_t  usr_val)
 {
 	struct zio_ti *ti = to_zio_ti(kobj);

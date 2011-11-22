@@ -97,7 +97,7 @@ static struct zio_buffer_type *zio_buffer_get(char *name)
 	struct zio_object_list_item *list_item;
 
 	list_item = __zio_object_get(&zstat->all_buffer_types, name);
-	if(!list_item)
+	if (!list_item)
 		return ERR_PTR(-ENODEV);
 	return container_of(list_item->obj_head, struct zio_buffer_type, head);
 }
@@ -111,7 +111,7 @@ static struct zio_trigger_type *zio_trigger_get(char *name)
 	struct zio_object_list_item *list_item;
 
 	list_item = __zio_object_get(&zstat->all_trigger_types, name);
-	if(!list_item)
+	if (!list_item)
 		return ERR_PTR(-ENODEV);
 	return container_of(list_item->obj_head, struct zio_trigger_type, head);
 }
@@ -349,9 +349,12 @@ static struct zio_attribute *__zattr_clone(const struct zio_attribute *src,
 
 	return dest;
 }
-static void __zattr_unclone(struct zio_attribute *zattr){
+
+static void __zattr_unclone(struct zio_attribute *zattr)
+{
 	kfree(zattr);
 }
+
 static int __zattr_set_copy(struct zio_attribute_set *dest,
 				     struct zio_attribute_set *src)
 {
@@ -509,7 +512,7 @@ static ssize_t zattr_store(struct kobject *kobj, struct attribute *attr,
 	spinlock_t *lock;
 
 	pr_debug("%s\n", __func__);
-	err = strict_strtol(buf, 10, &val);
+	err = kstrtol(buf, 10, &val);
 	if (err)
 		return -EINVAL;
 	if (zattr->s_op->conf_set) {
@@ -715,7 +718,7 @@ static int __buffer_create_instance(struct zio_channel *chan)
 			chan->cset->index,
 			chan->index);
 
-	err = __zattr_set_copy(&bi->zattr_set,&zbuf->zattr_set);
+	err = __zattr_set_copy(&bi->zattr_set, &zbuf->zattr_set);
 	if (err)
 		goto out_clone;
 	err = zattr_set_create(&bi->head, zbuf->s_op);
@@ -806,7 +809,7 @@ static int __trigger_create_instance(struct zio_cset *cset)
 			cset->index);
 
 	err = __zattr_set_copy(&ti->zattr_set, &cset->trig->zattr_set);
-	if(err)
+	if (err)
 		goto out_clone;
 	err = zattr_set_create(&ti->head, cset->trig->s_op);
 	if (err)
@@ -960,9 +963,8 @@ static inline void cset_free_chan(struct zio_cset *cset)
 {
 	pr_debug("%s:%d\n", __func__, __LINE__);
 	/* Only allocated channels need to be freed */
-	if (cset->flags & ZCSET_CHAN_ALLOC) {
+	if (cset->flags & ZCSET_CHAN_ALLOC)
 		kfree(cset->chan);
-	}
 }
 
 static int cset_register(struct zio_cset *cset)
