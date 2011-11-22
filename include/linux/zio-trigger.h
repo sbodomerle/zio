@@ -48,7 +48,7 @@ struct zio_ti {
 
 };
 #define to_zio_ti(_kobj) container_of(_kobj, struct zio_ti, head.kobj)
-int zio_fire_trigger(struct zio_ti *ti);
+void zio_fire_trigger(struct zio_ti *ti);
 
 /*
  * When a buffer has a complete block of data, it can send it to the trigger
@@ -58,9 +58,14 @@ int zio_fire_trigger(struct zio_ti *ti);
  * to get the next one. Buffering is in the buffer, not in the trigger.
  *
  * For input channels, a buffer may call pull_block. The trigger may thus
- * fire input directly and return a block. In the normal case, the trigger
+ * fire input directly and later have a block. In the normal case, the trigger
  * runs by itself and it will call bi->store_block when a new block
  * happens to be ready. In this case the pull_block method here may be null.
+ *
+ * Input and output in the device is almost always asynchronous, so when
+ * the data has been transferred for the cset, the device calls back the
+ * trigger. For output, data_done frees the blocks and prepares new
+ * blocks if possible; for input, data_done pushes material to the buffers.
  *
  * Then, a trigger instance is configured either by sysfs (and this means
  * the conf_set callback runs and the instance is notified) or by writing
@@ -71,8 +76,10 @@ struct zio_trigger_operations {
 	int			(*push_block)(struct zio_ti *ti,
 					      struct zio_channel *chan,
 					      struct zio_block *block);
-	struct zio_block *	(*pull_block)(struct zio_ti *ti,
+	void			(*pull_block)(struct zio_ti *ti,
 					      struct zio_channel *chan);
+
+	void			(*data_done)(struct zio_cset *cset);
 
 	int			(*config)(struct zio_ti *ti,
 					  struct zio_control *ctrl);
@@ -83,5 +90,7 @@ struct zio_trigger_operations {
 					  fmode_t flags);
 	void			(*destroy)(struct zio_ti *ti);
 };
+
+void zio_generic_data_done(struct zio_cset *cest);
 
 #endif /* __ZIO_TRIGGER_H__ */

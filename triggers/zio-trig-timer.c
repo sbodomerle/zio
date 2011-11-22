@@ -71,11 +71,7 @@ static void ztt_fn(unsigned long arg)
 	/* FIXME: where is the jiffi count placed? */
 
 	ztt_instance = to_ztt_instance(ti);
-	if (zio_fire_trigger(ti) == -EAGAIN) {
-		/* we fired too early, just wait a little */
-		mod_timer(&ztt_instance->timer, jiffies + 1);
-		return;
-	}
+	zio_fire_trigger(ti);
 
 	if (!ztt_instance->period)
 		return; /* one-shot */
@@ -151,6 +147,7 @@ static void ztt_destroy(struct zio_ti *ti)
 static const struct zio_trigger_operations ztt_trigger_ops = {
 	.push_block = ztt_push_block,
 	.pull_block = NULL,
+	.data_done = zio_generic_data_done,
 	.config = ztt_config,
 	.create = ztt_create,
 	.destroy = ztt_destroy,

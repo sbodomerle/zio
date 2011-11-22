@@ -12,29 +12,37 @@
 #include <linux/zio.h>
 #include <linux/zio-buffer.h>
 
-static int zzero_input(struct zio_channel *chan, struct zio_block *block)
+static int zzero_input(struct zio_cset *cset)
 {
+	struct zio_channel *chan;
+	struct zio_block *block;
 	static uint8_t datum;
 	uint8_t *data;
 	int i;
 
-	switch (chan->index) {
-	case 0: /* zero */
-		memset(block->data, 0x0, block->datalen);
-		break;
-	case 1: /* random */
-		get_random_bytes(block->data, block->datalen);
-		break;
-	case 2: /* sequence */
-		data = block->data;
-		for (i = 0; i < block->datalen; i++)
-			data[i] = datum++;
+	/* Return immediately: just fill the blocks */
+	cset_for_each(cset, chan) {
+		block = chan->active_block;
+		if (!block)
+			continue;
+		switch (chan->index) {
+		case 0: /* zero */
+			memset(block->data, 0x0, block->datalen);
+			break;
+		case 1: /* random */
+			get_random_bytes(block->data, block->datalen);
+			break;
+		case 2: /* sequence */
+			data = block->data;
+			for (i = 0; i < block->datalen; i++)
+				data[i] = datum++;
+		}
 	}
-	return 0;
+	return 1; /* Already done */
 }
 
 static const struct zio_device_operations zzero_d_op = {
-	.input_block =		zzero_input,
+	.input_cset =		zzero_input,
 };
 
 static struct zio_cset zzero_cset[] = {

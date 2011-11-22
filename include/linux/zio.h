@@ -180,8 +180,8 @@ struct zio_sys_operations {
 			uint32_t  usr_val);
 };
 struct zio_device_operations {
-	int (*input_block)(struct zio_channel *chan, struct zio_block *block);
-	int (*output_block)(struct zio_channel *chan, struct zio_block *block);
+	int (*input_cset)(struct zio_cset *cset);
+	int (*output_cset)(struct zio_cset *cset);
 };
 
 int __must_check zio_register_dev(struct zio_device *zdev, const char *name);
@@ -244,6 +244,7 @@ struct zio_channel {
 	struct device		*data_dev;	/* data char device */
 
 	struct zio_block	*user_block;	/* being transferred w/ user */
+	struct zio_block	*active_block;	/* being managed by hardware */
 	void			*t_priv;	/* used by trigger */
 };
 

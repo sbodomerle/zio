@@ -108,7 +108,47 @@ static inline void zio_trigger_put(struct zio_trigger_type *trig)
 	pr_debug("%s:%d %p\n", __func__, __LINE__, trig->owner);
 	module_put(trig->owner);
 }
-static int __zio_fire_input_trigger(struct zio_ti *ti)
+
+/* data_done is called by the driver, after {in,out}put_cset */
+void zio_generic_data_done(struct zio_cset *cset)
+{
+	struct zio_buffer_type *zbuf;
+	struct zio_device *zdev;
+	struct zio_channel *chan;
+	struct zio_block *block;
+	struct zio_ti *ti;
+	struct zio_bi *bi;
+
+	pr_debug("%s:%d\n", __func__, __LINE__);
+
+	ti = cset->ti;
+	zdev = cset->zdev;
+	zbuf = cset->zbuf;
+
+	if (unlikely((ti->flags & ZIO_DIR) == ZIO_DIR_OUTPUT)) {
+		cset_for_each(cset, chan) {
+			bi = chan->bi;
+			block = chan->active_block;
+			if (block)
+				zbuf->b_op->free_block(chan->bi, block);
+			/* We may have a new block ready, or not */
+			chan->active_block = zbuf->b_op->retr_block(chan->bi);
+		}
+		return;
+	}
+	/* DIR_INPUT */
+	cset_for_each(cset, chan) {
+		bi = chan->bi;
+		block = chan->active_block;
+		if (!block)
+			continue;
+		if (zbuf->b_op->store_block(bi, block)) /* may fail, no prob */
+			zbuf->b_op->free_block(bi, block);
+	}
+}
+EXPORT_SYMBOL(zio_generic_data_done);
+
+static void __zio_fire_input_trigger(struct zio_ti *ti)
 {
 	struct zio_buffer_type *zbuf;
 	struct zio_block *block;
@@ -116,7 +156,7 @@ static int __zio_fire_input_trigger(struct zio_ti *ti)
 	struct zio_cset *cset;
 	struct zio_channel *chan;
 	struct zio_control *ctrl;
-	int err;
+	int errdone = 0;
 
 	cset = ti->cset;
 	zdev = cset->zdev;
@@ -124,12 +164,15 @@ static int __zio_fire_input_trigger(struct zio_ti *ti)
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
 
+	/* FIXME: check if a trigger is already pending */
+
+	/* Allocate the buffer for the incoming sample, in active channels */
 	cset_for_each(cset, chan) {
-		/* Allocate the buffer for the incoming sample */
 		ctrl = zio_alloc_control(GFP_ATOMIC);
 		if (!ctrl) {
-			/* FIXME: what should I do? */
-			return -ENOMEM;
+			if (!errdone++)
+				pr_err("%s: can't alloc control\n", __func__);
+			continue;
 		}
 		memcpy(ctrl, ti->current_ctrl, ZIO_CONTROL_SIZE);
 		ctrl->chan_i = chan->index;
@@ -138,75 +181,41 @@ static int __zio_fire_input_trigger(struct zio_ti *ti)
 						ctrl->ssize * ctrl->nsamples,
 						GFP_ATOMIC);
 		if (IS_ERR(block)) {
+			if (!errdone++)
+				pr_err("%s: can't alloc block\n", __func__);
 			zio_free_control(ctrl);
-			return PTR_ERR(block);
+			continue;
 		}
-
-		/* Get samples, and control block, then store it*/
-		err = zdev->d_op->input_block(chan, block);
-		if (err) {
-			pr_err("%s: input_block(%s:%i:%i) error %d\n", __func__,
-			       chan->cset->zdev->head.name,
-			       chan->cset->index,
-			       chan->index,
-			       err);
-			zbuf->b_op->free_block(chan->bi, block);
-		}
-		err = zbuf->b_op->store_block(chan->bi, block);
-		if (err) {
-			/* No error message for common error */
-			zbuf->b_op->free_block(chan->bi, block);
-		}
-
+		chan->active_block = block;
 	}
-	return 0;
+	if (zdev->d_op->input_cset(cset)) {
+		/* It succeeded immediately */
+		ti->t_op->data_done(cset);
+	}
 }
 
-static int __zio_fire_output_trigger(struct zio_ti *ti)
+static void __zio_fire_output_trigger(struct zio_ti *ti)
 {
-	struct zio_buffer_type *zbuf;
-	struct zio_block *block;
-	struct zio_device *zdev;
-	struct zio_cset *cset;
-	struct zio_channel *chan;
-	int err = 0;
-
-	cset = ti->cset;
-	zdev = cset->zdev;
-	zbuf = cset->zbuf;
+	struct zio_cset *cset = ti->cset;
+	struct zio_device *zdev = cset->zdev;
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
 
-	cset_for_each(cset, chan) {
-		/* Users of zio_fire_trigger must store a block in t_priv */
-		block = chan->t_priv;
-		if (!block) /* And some channel may be missing data */
-			continue;
-		err = zdev->d_op->output_block(chan, block);
-		if (err) {
-			pr_err("%s: output_block(%s:%i:%i) error %d\n",
-			       __func__,
-			       chan->cset->zdev->head.name,
-			       chan->cset->index,
-			       chan->index,
-			       err);
-		}
-		/* Error or not, free the block and proceed */
-		zbuf->b_op->free_block(chan->bi, block);
-		/* We may have a new block ready or not */
-		chan->t_priv = zbuf->b_op->retr_block(chan->bi);
+	/* We are expected to already have a block in active channels */
+	if (zdev->d_op->output_cset(cset)) {
+		/* It succeeded immediately */
+		ti->t_op->data_done(cset);
 	}
-	return 0;
 }
 
 /*
  * When a software trigger fires, it should call this function. Hw ones don't
  */
-int zio_fire_trigger(struct zio_ti *ti)
+void zio_fire_trigger(struct zio_ti *ti)
 {
 	/* If the trigger runs too early, ti->cset is still NULL */
 	if (!ti->cset)
-		return -EAGAIN;
+		return;
 
 	/* Copy the stamp (we are software driven anyways) */
 	ti->current_ctrl->tstamp.secs = ti->tstamp.tv_sec;
@@ -220,8 +229,9 @@ int zio_fire_trigger(struct zio_ti *ti)
 	ti->current_ctrl->seq_num++;
 
 	if (likely((ti->flags & ZIO_DIR) == ZIO_DIR_INPUT))
-		return __zio_fire_input_trigger(ti);
-	return __zio_fire_output_trigger(ti);
+		__zio_fire_input_trigger(ti);
+	else
+		__zio_fire_output_trigger(ti);
 }
 EXPORT_SYMBOL(zio_fire_trigger);
 

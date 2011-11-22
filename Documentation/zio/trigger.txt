@@ -60,15 +60,24 @@ function can return -EAGAIN if it has no space in the queue, or 0 on
 success. If EAGAIN happens, the buffer should handle it (by storing
 locally or notifying the user).
 
-	struct zio_block (*pull_block)(struct zio_ti *ti,
-			  	       struct zio_channel *chan,);
+	void (*pull_block)(struct zio_ti *ti,
+	  		   struct zio_channel *chan);
 
-The method retrives a block from the trigger. I may be called by
-the buffer, if it wants a block immediately. The method returns a
-valid pointer to a block or NULL if there is no valid block that
-can be retrieved immediately.   The returned block may be shorter
-than what the trigger would have stored in the buffer by itself.
+The method asks the trigger for a new block. It may be called by
+the buffer, if it wants a block immediately. The trigger that offers
+this method (which may be NULL) is responsible of storing a block
+when available.  Since driver->input_cset completes asynchronously, this
+method can't return a block directly.  The block that will be stored
+may be shorter than what the trigger would have stored in the buffer
+by itself.
 
+        void (*data_done)(struct zio_cset *cset);
+
+The function is called by the device, and signals the trigger that
+the input or output operation on the cset is over. For input, the
+trigger will push blocks to the buffer, for output it will release
+the blocks.  zio-core offers zio_generic_data_done() for triggers
+that don't need special handling.
 
 	File Operations
 	===============
@@ -109,12 +118,9 @@ asynchronous code that runs the event will just need to call
 
 This function, part of zio-core, calls the internal helpers
 __zio_fire_input_trigger for input or __zio_fire_output_trigger for
-output. These, in turn, internally run "cset_for_each". For each
-non-disabled channel, the input trigger function calls the
-drv->input_block and buffer->store_block; 
-the output trigger function calls the drv->output_block method (which
-will free the block when it is done) and the  buffer->retr_block
-method to prepare for the next operation.
+output. For input, block allocation is performed for each
+non-disabled channel, and drv->input_cset is called.
+For output, drv->outoput_cset is called.
 
 You can refer to "zio-trig-timer" for an example of a multi-instance
 generic timer and to "zio-trig-app-request" for a non-conventional
