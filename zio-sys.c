@@ -68,6 +68,8 @@ static inline struct zio_object_list_item *__find_by_name(
 {
 	struct zio_object_list_item *cur;
 
+	if (!name)
+		return NULL;
 	list_for_each_entry(cur, &zobj_list->list, list) {
 		pr_debug("%s:%d %s=%s\n", __func__, __LINE__, cur->name, name);
 		if (strcmp(cur->name, name) == 0)
@@ -966,6 +968,9 @@ static inline void cset_free_chan(struct zio_cset *cset)
 static int cset_register(struct zio_cset *cset)
 {
 	int i, j, err = 0;
+	struct zio_buffer_type *zbuf;
+	struct zio_trigger_type *trig;
+	char *name;
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
 	if (!cset)
@@ -1006,15 +1011,21 @@ static int cset_register(struct zio_cset *cset)
 
 	/*
 	 * The cset must have a buffer type. If none is associated
-	 * to the cset, ZIO selectes the default one.
+	 * to the cset, ZIO selects the preferred or default one.
 	 */
 	if (!cset->zbuf) {
-		cset->zbuf = zio_buffer_get(ZIO_DEFAULT_BUFFER);
-		if (IS_ERR(cset->zbuf)) {
-			err = PTR_ERR(cset->zbuf);
+		name = cset->zdev->preferred_buffer;
+		zbuf = zio_buffer_get(name);
+		if (name && IS_ERR(zbuf))
+			pr_warning("%s: no buffer \"%s\" (error %li), using "
+				   "default\n", __func__, name, PTR_ERR(zbuf));
+		if (IS_ERR(zbuf))
+			zbuf = zio_buffer_get(ZIO_DEFAULT_BUFFER);
+		if (IS_ERR(zbuf)) {
+			err = PTR_ERR(zbuf);
 			goto out_buf;
 		}
-			
+		cset->zbuf = zbuf;
 	}
 
 	/* Register all child channels */
@@ -1039,16 +1050,23 @@ static int cset_register(struct zio_cset *cset)
 
 	/*
 	 * The cset must have a trigger type. If none  is associated
-	 * to the cset, ZIO selectes the default one.
+	 * to the cset, ZIO selects the default or preferred one.
 	 * This is done late because each channel must be ready when
 	 * the trigger fires.
 	 */
 	if (!cset->trig) {
-		cset->trig = zio_trigger_get(ZIO_DEFAULT_TRIGGER);
-		if (IS_ERR(cset->trig)) {
-			err = PTR_ERR(cset->trig);
+		name = cset->zdev->preferred_trigger;
+		trig = zio_trigger_get(name);
+		if (name && IS_ERR(trig))
+			pr_warning("%s: no trigger \"%s\" (error %li), using "
+				   "default\n", __func__, name, PTR_ERR(trig));
+		if (IS_ERR(trig))
+			trig = zio_trigger_get(ZIO_DEFAULT_TRIGGER);
+		if (IS_ERR(trig)) {
+			err = PTR_ERR(trig);
 			goto out_trig;
 		}
+		cset->trig = trig;
 		err = __trigger_create_instance(cset);
 		if (err)
 			goto out_trig;

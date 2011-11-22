@@ -89,6 +89,10 @@ struct zio_device {
 	/* The full device is an array of csets */
 	struct zio_cset			*cset;
 	unsigned int			n_cset;
+
+	/* We can state what its preferred buffer and trigger are (NULL ok) */
+	char *preferred_buffer;
+	char *preferred_trigger;
 };
 
 struct zio_device_operations {
