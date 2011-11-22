@@ -145,6 +145,7 @@ static struct zio_block *zbk_retr_block(struct zio_bi *bi)
 {
 	struct zbk_item *item;
 	struct zbk_instance *zbki;
+	struct zio_ti *ti;
 	struct list_head *first;
 	int awake = 0;
 
@@ -161,13 +162,17 @@ static struct zio_block *zbk_retr_block(struct zio_bi *bi)
 	zbki->nitem--;
 	spin_unlock(&zbki->lock);
 
-	if (awake && (bi->flags & ZIO_DIR_OUTPUT))
+	if (awake && ((bi->flags & ZIO_DIR) == ZIO_DIR_OUTPUT))
 		wake_up_interruptible(&bi->q);
 	pr_debug("%s:%d (%p, %p)\n", __func__, __LINE__, bi, item);
 	return &item->block;
 
 out_unlock:
 	spin_unlock(&zbki->lock);
+	/* There is no data in buffer, and we may pull to have data soon */
+	ti = bi->cset->ti;
+	if (ti->t_op->pull_block)
+		ti->t_op->pull_block(ti, bi->chan);
 	pr_debug("%s:%d (%p, %p)\n", __func__, __LINE__, bi, NULL);
 	return NULL;
 }
