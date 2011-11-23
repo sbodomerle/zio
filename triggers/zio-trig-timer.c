@@ -27,14 +27,21 @@ struct ztt_instance {
 };
 #define to_ztt_instance(ti) container_of(ti, struct ztt_instance, ti);
 
+enum zti_attrs { /* names for the "addr" value of sw parameters */
+	ZTT_ATTR_NSAMPLES = 0,
+	ZTT_ATTR_PERIOD,
+};
+
 static DEFINE_ZATTR_STD(TRIG, ztt_std_attr) = {
-	ZATTR_REG(trig, ZATTR_TRIG_NSAMPLES, S_IRUGO | S_IWUGO, 0x01, 16),
+	ZATTR_REG(trig, ZATTR_TRIG_NSAMPLES, S_IRUGO | S_IWUGO,
+		  ZTT_ATTR_NSAMPLES, 16),
 };
 
 static struct zio_attribute ztt_ext_attr[] = {
-	ZATTR_EXT_REG("ms-period", S_IRUGO | S_IWUGO, 0x10, 2000),
+	ZATTR_EXT_REG("ms-period", S_IRUGO | S_IWUGO,
+		      ZTT_ATTR_PERIOD, 2000),
 };
-int timer_conf_set(struct kobject *kobj, struct zio_attribute *zattr,
+int ztt_conf_set(struct kobject *kobj, struct zio_attribute *zattr,
 		uint32_t  usr_val)
 {
 	struct zio_ti *ti = to_zio_ti(kobj);
@@ -43,18 +50,21 @@ int timer_conf_set(struct kobject *kobj, struct zio_attribute *zattr,
 	pr_debug("%s:%d\n", __func__, __LINE__);
 	zattr->value = usr_val;
 	switch (zattr->priv.addr) {
-	case 0x01:
+	case ZTT_ATTR_NSAMPLES:
 		ti->current_ctrl->nsamples = usr_val;
 		break;
-	case 0x10:
+	case ZTT_ATTR_PERIOD:
 		ztt = to_ztt_instance(ti);
 		ztt->period = msecs_to_jiffies(usr_val);
+	default:
+		pr_err("%s: unknown \"addr\" for configuration\n", __func__);
+		return -EINVAL;
 	}
 	return 0;
 }
 
 struct zio_sys_operations ztt_s_ops = {
-	.conf_set = timer_conf_set,
+	.conf_set = ztt_conf_set,
 };
 
 /* This runs when the timer expires */
@@ -167,12 +177,12 @@ static struct zio_trigger_type ztt_trigger = {
 /*
  * init and exit
  */
-static int ztt_init(void)
+static int __init ztt_init(void)
 {
 	return zio_register_trig(&ztt_trigger, "timer");
 }
 
-static void ztt_exit(void)
+static void __exit ztt_exit(void)
 {
 	zio_unregister_trig(&ztt_trigger);
 }
