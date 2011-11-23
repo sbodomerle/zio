@@ -20,6 +20,7 @@ char *prgname;
 
 void read_channel(int cfd, int dfd, FILE *log)
 {
+	int err = 0;
 	struct zio_control ctrl;
 	int i, j;
 
@@ -39,6 +40,26 @@ void read_channel(int cfd, int dfd, FILE *log)
 		/* continue anyways */
 	case sizeof(ctrl):
 		break; /* ok */
+	}
+
+	/* Fail badly if the version is not the right one */
+	if (ctrl.major_version != ZIO_MAJOR_VERSION)
+		err++;
+	if (ZIO_MAJOR_VERSION == 0 && ctrl.minor_version != ZIO_MINOR_VERSION)
+		err++;
+	if (err) {
+		fprintf(stderr, "%s: kernel has zio %i.%i, "
+			"but I'm compiled for %i.%i\n", prgname,
+			ctrl.major_version, ctrl.minor_version,
+			ZIO_MAJOR_VERSION, ZIO_MINOR_VERSION);
+		exit(1);
+	}
+	if (ctrl.minor_version != ZIO_MINOR_VERSION) {
+		static int warned;
+
+		if (!warned++)
+			fprintf(stderr, "%s: warning: minor version mismatch\n",
+				prgname);
 	}
 
 	printf("Ctrl: version %i.%i, trigger %.16s, dev %.16s, "
