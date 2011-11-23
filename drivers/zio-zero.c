@@ -12,6 +12,11 @@
 #include <linux/zio.h>
 #include <linux/zio-buffer.h>
 
+static char *zzero_trigger;
+static char *zzero_buffer;
+module_param_named(trigger, zzero_trigger, charp, 0444);
+module_param_named(buffer, zzero_buffer, charp, 0444);
+
 static int zzero_input(struct zio_cset *cset)
 {
 	struct zio_channel *chan;
@@ -58,11 +63,14 @@ static struct zio_device zzero_dev = {
 	.d_op =			&zzero_d_op,
 	.cset =			zzero_cset,
 	.n_cset =		ARRAY_SIZE(zzero_cset),
-
 };
 
 static int __init zzero_init(void)
 {
+	if (zzero_trigger)
+		zzero_dev.preferred_trigger = zzero_trigger;
+	if (zzero_buffer)
+		zzero_dev.preferred_buffer = zzero_buffer;
 	return zio_register_dev(&zzero_dev, "zzero");
 }
 
