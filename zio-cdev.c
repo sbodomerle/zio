@@ -1,3 +1,4 @@
+/* Federico Vaga and Alessandro Rubini for CERN, 2011, GNU GPLv2 or later */
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/slab.h>
