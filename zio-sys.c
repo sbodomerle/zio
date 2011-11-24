@@ -1087,10 +1087,12 @@ static int cset_register(struct zio_cset *cset)
 out_init:
 	__trigger_destroy_instance(cset);
 out_trig:
+	zio_trigger_put(cset->trig);
 	cset->trig = NULL;
 out_reg:
 	for (j = i-1; j >= 0; j--)
 		chan_unregister(&cset->chan[j]);
+	zio_buffer_put(cset->zbuf);
 out_buf:
 	cset_free_chan(cset);
 out_alloc:
