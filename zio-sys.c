@@ -512,7 +512,7 @@ static ssize_t zattr_store(struct kobject *kobj, struct attribute *attr,
 	spinlock_t *lock;
 
 	pr_debug("%s\n", __func__);
-	err = kstrtol(buf, 0, &val);
+	err = strict_strtol(buf, 0, &val);
 	if (err)
 		return -EINVAL;
 	if (zattr->s_op->conf_set) {
