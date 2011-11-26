@@ -4,8 +4,8 @@ hardware repository at http://www.ohwr.org/projects/zio .
 
 This version is known to compile and run with kernels 2.6.34 onwards.
 
-This README refers to version "beta2", but work is ongoing towards
-a better beta3, that could be submitted to the official kernel.
+This README refers to version "beta3", but work is ongoing towards
+a stable package. See the TODO file on ohwr for details.
 
 To test zio you need to load the core modules (later, the default
 trigger and default buffer will be part of zio-core):
