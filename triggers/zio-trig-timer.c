@@ -97,9 +97,9 @@ static int ztt_push_block(struct zio_ti *ti, struct zio_channel *chan,
 	/* software triggers must store pending stuff in chan->t_priv */
 	pr_debug("%s:%d\n", __func__, __LINE__);
 
-	if (chan->t_priv)
+	if (chan->active_block)
 		return -EBUSY;
-	chan->t_priv = block;
+	chan->active_block = block;
 	return 0;
 }
 

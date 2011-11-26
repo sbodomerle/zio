@@ -161,7 +161,6 @@ struct zio_channel {
 
 	struct zio_block	*user_block;	/* being transferred w/ user */
 	struct zio_block	*active_block;	/* being managed by hardware */
-	void			*t_priv;	/* used by trigger */
 };
 
 /* first 4bit are reserved for zio object universal flags */
