@@ -62,7 +62,8 @@ The full set of rules for data and control transfers is described
 elsewhere (FIXME: link to other docs) but it is pretty intuitive once
 you get the idea.
 
-See tools/zio-dump.c for an example of generic and simple input
-application that shows use of control and data files.
+See the "zio-dump" host tool in the top-level zio dir for an example
+of generic and simple input application that shows use of control and
+data files.
 
 
