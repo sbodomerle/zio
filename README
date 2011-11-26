@@ -35,7 +35,7 @@ They simulate three analog inputs, 8-bit per sample.
 
      channel 0: returns zero forever
      channel 1: returns random numbers
-     channel 2: returns a sawtooth signal (0 to 255 and back) 
+     channel 2: returns a sawtooth signal (0 to 255 and back)
 
 The char devices are called using device-cset-channel:
 

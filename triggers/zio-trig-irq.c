@@ -37,7 +37,7 @@ static struct zio_attribute zti_ext_attr[] = {
 	ZATTR_EXT_REG("irq", S_IRUGO, ZTI_ATTR_IRQ, -1),
 	ZATTR_EXT_REG("gpio", S_IRUGO, ZTI_ATTR_GPIO, -1),
 };
-int zti_conf_set (struct kobject *kobj, struct zio_attribute *zattr,
+int zti_conf_set(struct kobject *kobj, struct zio_attribute *zattr,
 		uint32_t  usr_val)
 {
 	struct zio_ti *ti = to_zio_ti(kobj);
@@ -165,11 +165,10 @@ static int zti_validate(int irq, int gpio)
 	}
 	if (gpio != -1) {
 		irq = gpio_to_irq(gpio);
-		if (irq >= 0) {
+		if (irq >= 0)
 			ret  = gpio_request(gpio, KBUILD_MODNAME);
-		} else {
+		else
 			ret = irq;
-		}
 	}
 	if (ret < 0) {
 		pr_err("%s: invalid irq/gpio (%i/%i)\n", KBUILD_MODNAME,

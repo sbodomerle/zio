@@ -25,7 +25,7 @@ void read_channel(int cfd, int dfd, FILE *log)
 	int i, j;
 
 	i = read(cfd, &ctrl, sizeof(ctrl));
-	switch(i) {
+	switch (i) {
 	case -1:
 		fprintf(stderr, "%s: control read: %s\n",
 			prgname, strerror(errno));
@@ -144,7 +144,7 @@ int main(int argc, char **argv)
 
 	/* Open all pairs, and build the fd_set for later select() */
 	FD_ZERO(&control_set);
-	for (i = 1, j = 0; i < argc; i+=2, j++) {
+	for (i = 1, j = 0; i < argc; i += 2, j++) {
 		cfd[j] = open(argv[i], O_RDONLY);
 		dfd[j] = open(argv[i + 1], O_RDONLY);
 		if (cfd[j] < 0) {
@@ -182,7 +182,7 @@ int main(int argc, char **argv)
 	while (1) {
 		ready_set = control_set;
 		i = select(maxfd + 1, &ready_set, NULL, NULL, NULL);
-		if (i <0 && errno == EINTR)
+		if (i < 0 && errno == EINTR)
 			continue;
 		if (i < 0) {
 			fprintf(stderr, "%s: select(): %s\n", prgname,
@@ -190,7 +190,7 @@ int main(int argc, char **argv)
 			exit(1);
 		}
 		for (j = 0; j < ndev; j++)
-			if (FD_ISSET(cfd[j], & ready_set))
+			if (FD_ISSET(cfd[j], &ready_set))
 				read_channel(cfd[j], dfd[j], f);
 	}
 }

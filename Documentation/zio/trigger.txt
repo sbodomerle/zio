@@ -41,7 +41,7 @@ attaching the trigger to a cset; it calls destroy() when the trigger is
 replaced by a different one or the cset is being unregistered from ZIO.
 The instance structure is trigger-specific, but it must include the
 generic structure zio_ti. Every time this structure is passed over, trigger
-code may use container_of if it needs to access the private enclosing 
+code may use container_of if it needs to access the private enclosing
 structure.
 
 	int (*config)(struct zio_ti *ti, stuct zio_control *ctrl);
