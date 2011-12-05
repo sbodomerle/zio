@@ -1,7 +1,9 @@
 /* Federico Vaga for CERN, 2011, GNU GPLv2 or later */
 /*
- * zero-zio is a simple zio driver which fill buffer with 0. From the ZIO
- * point of view is an input device
+ * zio-zero is a simple zio driver, with both input and output.  The
+ *  channels are completely software driven. The input channels fill
+ *  the data block with zeroes, random data and sequential numbers,
+ *  respectively. The output channel just discards data it receives.
  */
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -46,8 +48,15 @@ static int zzero_input(struct zio_cset *cset)
 	return 1; /* Already done */
 }
 
+static int zzero_output(struct zio_cset *cset)
+{
+	/* We just eat data, like /dev/zero and /dev/null */
+	return 1; /* Already done */
+}
+
 static const struct zio_device_operations zzero_d_op = {
 	.input_cset =		zzero_input,
+	.output_cset =		zzero_output,
 };
 
 static struct zio_cset zzero_cset[] = {
@@ -55,6 +64,11 @@ static struct zio_cset zzero_cset[] = {
 		.n_chan =	3,
 		.ssize =	1,
 		.flags =	ZIO_DIR_INPUT | ZCSET_TYPE_ANALOG,
+	},
+	{
+		.n_chan =	1,
+		.ssize =	1,
+		.flags =	ZIO_DIR_OUTPUT | ZCSET_TYPE_ANALOG,
 	},
 };
 
