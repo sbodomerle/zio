@@ -183,7 +183,7 @@ out_unlock:
 	spin_unlock(&zbki->lock);
 	/* There is no data in buffer, and we may pull to have data soon */
 	ti = bi->cset->ti;
-	if (ti->t_op->pull_block)
+	if ((bi->flags & ZIO_DIR) == ZIO_DIR_INPUT && ti->t_op->pull_block)
 		ti->t_op->pull_block(ti, bi->chan);
 	pr_debug("%s:%d (%p, %p)\n", __func__, __LINE__, bi, NULL);
 	return NULL;
