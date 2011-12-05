@@ -22,10 +22,18 @@
 #include <linux/zio-buffer.h>
 
 #define ZGPIO_NOUT 8
+#define ZGPIO_NIN 8
 
+/* Output and input bits are selected at load time */
 static int zgp_out[ZGPIO_NOUT];
 static int zgp_nout;
 module_param_array_named(out, zgp_out, int, &zgp_nout, 0444);
+static int zgp_in[ZGPIO_NIN];
+static int zgp_nin;
+module_param_array_named(in, zgp_in, int, &zgp_nin, 0444);
+
+ZIO_PARAM_TRIGGER(zgp_trigger);
+ZIO_PARAM_BUFFER(zgp_buffer);
 
 static int zgp_output(struct zio_cset *cset)
 {
@@ -60,6 +68,12 @@ static struct zio_cset zgp_cset[] = {
 		.flags =	ZIO_DIR_OUTPUT | ZCSET_TYPE_ANALOG,
 	},
 };
+	{
+		.n_chan =	1,
+		.ssize =	1,
+		.flags =	ZIO_DIR_INPUT | ZCSET_TYPE_ANALOG,
+	},
+};
 static struct zio_device zgp_dev = {
 	.owner =		THIS_MODULE,
 	.d_op =			&zgp_d_op,
@@ -86,16 +100,35 @@ static int __init zgp_init(void)
 		}
 	}
 
+	for (i = 0; i < zgp_nin; i++) {
+		err = gpio_request(zgp_in[i], "zio-gpio-in");
+		if (err) {
+			pr_err(KBUILD_MODNAME ": can't request gpio %i\n",
+			       zgp_in[i]);
+			goto out_input;
+		}
+	}
+
+	if (zgp_trigger)
+		zgp_dev.preferred_trigger = zgp_trigger;
+	if (zgp_buffer)
+		zgp_dev.preferred_buffer = zgp_buffer;
 	err = zio_register_dev(&zgp_dev, "gpio");
 	if (err) {
 		pr_err(KBUILD_MODNAME ": can't register zio driver "
 		       "(error %i)\n", err);
-		goto out;
+		goto out_input;
 	}
 
 	for (i = 0; i < zgp_nout; i++)
 		gpio_direction_output(zgp_out[i], 0);
 	return 0;
+
+out_input:
+	/* i is one more than the last registered gpio */
+	for (i--; i >= 0; i--)
+		gpio_free(zgp_out[i]);
+	return err;
 
 out:
 	/* i is one more than the last registered gpio */
