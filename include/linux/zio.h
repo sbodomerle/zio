@@ -189,6 +189,14 @@ static inline struct zio_channel *__first_enabled_chan(struct zio_cset *cset,
 		     (cptr = __first_enabled_chan(cset, cptr));	\
 		     cptr++)
 
+/* We suggest all drivers have these options */
+#define ZIO_PARAM_TRIGGER(_name) \
+	char *_name; \
+	module_param_named(trigger, _name, charp, 0444)
+#define ZIO_PARAM_BUFFER(_name) \
+	char *_name; \
+	module_param_named(buffer, _name, charp, 0444)
+
 #ifdef __ZIO_INTERNAL__
 
 /* This list is used in the core to keep track of registered objects */

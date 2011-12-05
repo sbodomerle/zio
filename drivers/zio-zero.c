@@ -14,10 +14,8 @@
 #include <linux/zio.h>
 #include <linux/zio-buffer.h>
 
-static char *zzero_trigger;
-static char *zzero_buffer;
-module_param_named(trigger, zzero_trigger, charp, 0444);
-module_param_named(buffer, zzero_buffer, charp, 0444);
+ZIO_PARAM_TRIGGER(zzero_trigger);
+ZIO_PARAM_BUFFER(zzero_buffer);
 
 static int zzero_input(struct zio_cset *cset)
 {
