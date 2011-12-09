@@ -1689,7 +1689,8 @@ int zio_register_trig(struct zio_trigger_type *trig, const char *name)
 	return 0;
 
 err_nsamp:
-	pr_err("%s standard attribute \"nsamples\" is mandatory", __func__);
+	pr_err("%s: trigger \"%s\" lacks mandatory \"nsamples\" attribute",
+	       __func__, name);
 	return -EINVAL;
 }
 EXPORT_SYMBOL(zio_register_trig);
