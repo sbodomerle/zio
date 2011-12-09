@@ -100,12 +100,12 @@ extern const char zio_zbuf_attr_names[ZATTR_STD_NUM_ZBUF][ZIO_NAME_LEN];
 		.priv.addr = _add,					\
 		.value = _val,						\
 }
-#define ZATTR_PRV(zobj, _type, _mode, _add, _val)[_type] = {		\
+#define ZATTR_PRV(zobj, _type, _mode, _priv, _val)[_type] = {		\
 		.attr = {						\
 			.name = zio_##zobj##_attr_names[_type],		\
 			.mode = _mode					\
 		},							\
-		.priv.ptr = _add,					\
+		.priv.ptr = _priv,					\
 		.value = _val,						\
 }
 #define ZATTR_EXT_REG(_name, _mode, _add, _val) {			\
@@ -113,9 +113,9 @@ extern const char zio_zbuf_attr_names[ZATTR_STD_NUM_ZBUF][ZIO_NAME_LEN];
 		.priv.addr = _add,					\
 		.value = _val,						\
 }
-#define ZATTR_EXT_PRV(_name, _mode, _add, _val) {			\
+#define ZATTR_EXT_PRV(_name, _mode, _priv, _val) {			\
 		.attr = {.name = _name, .mode = _mode},			\
-		.priv.ptr = _add,					\
+		.priv.ptr = _priv,					\
 		.value = _val,						\
 }
 
