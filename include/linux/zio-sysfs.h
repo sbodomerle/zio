@@ -32,10 +32,10 @@ struct zio_attribute {
 		unsigned long			addr;
 	} priv;
 	uint32_t				value;
-	const struct zio_sys_operations		*s_op;
+	const struct zio_sysfs_operations	*s_op;
 };
 
-struct zio_sys_operations {
+struct zio_sysfs_operations {
 	int (*info_get)(struct kobject *kobj, struct zio_attribute *zattr,
 			uint32_t *usr_val);
 	int (*conf_set)(struct kobject *kobj, struct zio_attribute *zattr,

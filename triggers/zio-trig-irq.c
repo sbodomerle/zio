@@ -56,7 +56,7 @@ int zti_conf_set(struct kobject *kobj, struct zio_attribute *zattr,
 	return 0;
 }
 
-struct zio_sys_operations zti_s_ops = {
+struct zio_sysfs_operations zti_s_ops = {
 	.conf_set = zti_conf_set,
 };
 

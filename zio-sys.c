@@ -597,7 +597,7 @@ static int zattr_create_group(struct kobject *kobj,
 			      struct zio_attribute *zattr,
 			      struct attribute_group *grp,
 			      unsigned int n_attr,
-			      const struct zio_sys_operations *s_op,
+			      const struct zio_sysfs_operations *s_op,
 			      int is_ext)
 {
 	int i;
@@ -655,7 +655,7 @@ static void zattr_remove_group(struct kobject *kobj,
 }
 /* create a set of zio attributes: the standard one and the extended one */
 static int zattr_set_create(struct zio_obj_head *head,
-			    const struct zio_sys_operations *s_op)
+			    const struct zio_sysfs_operations *s_op)
 {
 	int err = 0;
 	struct zio_attribute_set *zattr_set;

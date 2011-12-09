@@ -83,7 +83,7 @@ struct zio_device {
 	spinlock_t				lock; /* for all attr ops */
 	unsigned long				flags;
 	struct zio_attribute_set		zattr_set;
-	const struct zio_sys_operations		*s_op;
+	const struct zio_sysfs_operations	*s_op;
 	const struct zio_device_operations	*d_op;
 
 	/* The full device is an array of csets */

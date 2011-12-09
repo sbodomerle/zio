@@ -15,7 +15,7 @@ struct zio_trigger_type {
 	unsigned long		flags; /* to be defined */
 
 	/* file_operations because the trigger may override the buffer */
-	const struct zio_sys_operations		*s_op;
+	const struct zio_sysfs_operations	*s_op;
 	const struct zio_trigger_operations	*t_op;
 	const struct file_operations		*f_op;
 

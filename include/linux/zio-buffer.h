@@ -128,7 +128,7 @@ struct zio_buffer_type {
 	unsigned long		flags; /* to be defined */
 
 	/* file operations (read/write etc) are buffer-specific too */
-	const struct zio_sys_operations		*s_op;
+	const struct zio_sysfs_operations	*s_op;
 	const struct zio_buffer_operations	*b_op;
 	const struct file_operations		*f_op;
 

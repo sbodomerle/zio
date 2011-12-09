@@ -49,7 +49,7 @@ int kmalloc_conf_set(struct kobject *kobj, struct zio_attribute *zattr,
 	zattr->value = usr_val;
 	return 0;
 }
-struct zio_sys_operations zbk_sysfs_ops = {
+struct zio_sysfs_operations zbk_sysfs_ops = {
 	.conf_set = kmalloc_conf_set,
 };
 
