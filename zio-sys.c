@@ -1309,6 +1309,12 @@ int zio_register_trig(struct zio_trigger_type *trig, const char *name)
 
 	if (!trig || !name)
 		return -EINVAL;
+
+	if (!trig->zattr_set.std_zattr)
+		goto err_nsamp;
+	if (!trig->zattr_set.std_zattr[ZATTR_TRIG_NSAMPLES].attr.mode)
+		goto err_nsamp;
+
 	err = zobj_register(&zstat->all_trigger_types, &trig->head,
 			    ZTRIG, trig->owner, name);
 	if (err)
@@ -1318,6 +1324,10 @@ int zio_register_trig(struct zio_trigger_type *trig, const char *name)
 	spin_lock_init(&trig->lock);
 
 	return 0;
+
+err_nsamp:
+	pr_err("%s standard attribute \"nsamples\" is mandatory", __func__);
+	return -EINVAL;
 }
 EXPORT_SYMBOL(zio_register_trig);
 
