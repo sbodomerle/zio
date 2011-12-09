@@ -122,8 +122,8 @@ struct zio_cset {
 	struct zio_channel	*chan;
 	unsigned int		n_chan;
 
-	int (*init)(struct zio_cset *zcset);
-	void (*exit)(struct zio_cset *zcset);
+	int (*init)(struct zio_cset *cset);
+	void (*exit)(struct zio_cset *cset);
 
 	struct list_head	list_cset;	/* for cset global list */
 	dev_t			basedev;	/* base for the minors */

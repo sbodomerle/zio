@@ -1188,15 +1188,15 @@ out:
 	return err;
 }
 static void zobj_unregister(struct zio_object_list *zlist,
-		struct zio_obj_head *zobj)
+		struct zio_obj_head *head)
 {
 	struct zio_object_list_item *item;
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
-	if (!zobj)
+	if (!head)
 		return;
 	list_for_each_entry(item, &zlist->list, list) {
-		if (item->obj_head == zobj) {
+		if (item->obj_head == head) {
 			/* Remove from object list */
 			spin_lock(&zstat->lock);
 			list_del(&item->list);
@@ -1206,8 +1206,8 @@ static void zobj_unregister(struct zio_object_list *zlist,
 		}
 	}
 
-	kobject_del(&zobj->kobj);
-	kobject_put(&zobj->kobj);
+	kobject_del(&head->kobj);
+	kobject_put(&head->kobj);
 }
 
 /* Register a zio device */
