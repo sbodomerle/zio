@@ -53,10 +53,9 @@ struct zio_sysfs_operations {
 struct zio_attribute_set {
 	struct zio_attribute	*std_zattr;
 	unsigned int		n_std_attr;
-	struct attribute_group	std_group;
 	struct zio_attribute	*ext_zattr;
 	unsigned int		n_ext_attr;
-	struct attribute_group	ext_group;
+	struct attribute_group	group;
 };
 
 enum zattr_standard_zdev {

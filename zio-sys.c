@@ -589,93 +589,61 @@ static mode_t zattr_is_visible(struct kobject *kobj, struct attribute *attr,
 	return mode;
 }
 
-/*
- * Verify attributes within the group,
- * If they are valid register the group
- */
-static int zattr_create_group(struct kobject *kobj,
-			      struct zio_attribute *zattr,
-			      struct attribute_group *grp,
-			      unsigned int n_attr,
-			      const struct zio_sysfs_operations *s_op,
-			      int is_ext)
+/* create a set of zio attributes: the standard one and the extended one */
+static int zattr_set_create(struct zio_obj_head *head,
+			    const struct zio_sysfs_operations *s_op)
 {
-	int i;
+	int n_attr, i, j, start;
+	struct zio_attribute_set *zattr_set;
+	struct attribute_group *group;
 
 	pr_debug("%s\n", __func__);
-	if (!zattr || !n_attr) {
-		grp->attrs = NULL;
-		return 0;	/* no attributes */
-	}
-	/* extract the attributes */
-	grp->attrs = kzalloc(sizeof(struct attribute) * n_attr, GFP_KERNEL);
-	if (!grp->attrs)
+	zattr_set = __get_zattr_set(head);
+	if (!zattr_set)
+		return -EINVAL; /* message already printed */
+	group = &zattr_set->group;
+	n_attr = (zattr_set->n_std_attr + zattr_set->n_ext_attr);
+	group->attrs = kzalloc(sizeof(struct attribute) * n_attr, GFP_KERNEL);
+	if (!group->attrs)
 		return -ENOMEM;
+	group->is_visible = zattr_is_visible;
 
-	grp->is_visible = zattr_is_visible;
-	for (i = 0; i < n_attr; i++) {
-		/* Add attribute and assign show and store functions */
-		grp->attrs[i] = &zattr[i].attr;
-		to_zio_zattr(grp->attrs[i])->s_op = s_op;
+	/* if there are not standard attribute, start with the extended one */
+	start = zattr_set->std_zattr ? 0 : zattr_set->n_std_attr;
+	for (i = start; i < n_attr; ++i) {
+		if (i < zattr_set->n_std_attr) {
+			group->attrs[i] = &zattr_set->std_zattr[i].attr;
+			zattr_set->std_zattr[i].s_op = s_op;
+		} else {
+			j = i-zattr_set->n_std_attr;
+			group->attrs[i] = &zattr_set->ext_zattr[j].attr;
+			zattr_set->ext_zattr[j].s_op = s_op;
+		}
 		/* if not defined */
-		if (!grp->attrs[i]->name) {
-			if (is_ext) {
-				pr_warning("%s: can't create ext attributes. "
-				"%ith attribute has not a name", __func__, i);
+		if (!group->attrs[i]->name) {
+			pr_debug("%s:%d\n", __func__, __LINE__);
+			if (i >= zattr_set->n_std_attr) {
+				pr_warning("%s: can't create ext attributes "
+				"without a name", __func__);
 				return -EINVAL;
 			}
 			/*
 			 * Only standard attributes need these lines to fill
 			 * the empty hole in the array of attributes
 			 */
-			grp->attrs[i]->name = __get_sysfs_name(
-					to_zio_head(kobj)->zobj_type, i);
-			grp->attrs[i]->mode = 0;
+			group->attrs[i]->name =
+			  __get_sysfs_name(head->zobj_type, i);
+			group->attrs[i]->mode = 0;
 		}
 		/* if write permission but no write function */
-		if ((grp->attrs[i]->mode & S_IWUGO) == S_IWUGO &&
+		if ((group->attrs[i]->mode & S_IWUGO) == S_IWUGO &&
 		     !s_op->conf_set) {
 			pr_err("%s: %s has write permission but no write "
-				"function\n", __func__, grp->attrs[i]->name);
+			       "function\n", __func__, group->attrs[i]->name);
 			return -EINVAL;
 		}
 	}
-	return sysfs_create_group(kobj, grp);
-}
-
-
-/* Create a set of zio attributes: the standard one and the extended one */
-static void zattr_remove_group(struct kobject *kobj,
-			       struct attribute_group *grp)
-{
-	if (!grp->attrs)
-		return;
-	sysfs_remove_group(kobj, grp);
-	kfree(grp->attrs);
-}
-/* create a set of zio attributes: the standard one and the extended one */
-static int zattr_set_create(struct zio_obj_head *head,
-			    const struct zio_sysfs_operations *s_op)
-{
-	int err = 0;
-	struct zio_attribute_set *zattr_set;
-
-	zattr_set = __get_zattr_set(head);
-	if (!zattr_set)
-		return -EINVAL; /* message already printed */
-
-	/* Create the standard attributes from zio attributes */
-	err = zattr_create_group(&head->kobj, zattr_set->std_zattr,
-		&zattr_set->std_group, zattr_set->n_std_attr, s_op, 0);
-	if (err)
-		goto out;
-	/* Create the extended attributes from zio attributes */
-	err = zattr_create_group(&head->kobj, zattr_set->ext_zattr,
-		&zattr_set->ext_group, zattr_set->n_ext_attr, s_op, 1);
-	if (err && zattr_set->std_group.attrs)
-		sysfs_remove_group(&head->kobj, &zattr_set->std_group);
-out:
-	return err;
+	return sysfs_create_group(&head->kobj, group);
 }
 /* Remove an existent set of attributes */
 static void zattr_set_remove(struct zio_obj_head *head)
@@ -685,11 +653,11 @@ static void zattr_set_remove(struct zio_obj_head *head)
 	zattr_set = __get_zattr_set(head);
 	if (!zattr_set)
 		return;
-
-	/* remove the standard attribute group */
-	zattr_remove_group(&head->kobj, &zattr_set->std_group);
-	/* remove the extended attribute group */
-	zattr_remove_group(&head->kobj, &zattr_set->ext_group);
+	if (!zattr_set->group.attrs)
+		return;
+	/* remove all standard and extended attributes */
+	sysfs_remove_group(&head->kobj, &zattr_set->group);
+	kfree(zattr_set->group.attrs);
 }
 
 /* Create a buffer instance according to the buffer type defined in cset */
@@ -885,6 +853,7 @@ static int chan_register(struct zio_channel *chan)
 		goto out_pre;
 
 	/* Create sysfs channel attributes */
+	chan->zattr_set.n_std_attr = ZATTR_STD_NUM_ZDEV;
 	err = zattr_set_create(&chan->head, chan->cset->zdev->s_op);
 	if (err)
 		goto out_sysfs;
@@ -1001,6 +970,7 @@ static int cset_register(struct zio_cset *cset)
 	if (err)
 		goto out_add;
 	/* Create sysfs cset attributes */
+	cset->zattr_set.n_std_attr = ZATTR_STD_NUM_ZDEV;
 	err = zattr_set_create(&cset->head, cset->zdev->s_op);
 	if (err)
 		goto out_sysfs;
