@@ -1,5 +1,5 @@
 
-Zio is "the ultimate I/O framework".  Is being developed on the open
+Zio is "the ultimate I/O framework".  It is being developed on the open
 hardware repository at http://www.ohwr.org/projects/zio .
 
 This version is known to compile and run with kernels 2.6.34 onwards.
@@ -24,14 +24,14 @@ The timer trigger is a kernel-timer based trigger, that fires a block
 transfer on a timely basis. You can use the "ms" parameter to set the
 inter-block time, in milliseconds (the default is two seconds). You
 can also pass the "nsamples" parameter to say how many samples are
-aquired at each trigger instance.
+acquired at each trigger instance.
 
 With the core in place, you can load a driver:
 
 	insmod drivers/zio-zero.ko
 
 zio-zero has a single channel-set (number 0) with three channels.
-They simulate three analog inputs, 8-bit per sample.
+They simulate three analog inputs, 8-bits per sample.
 
      channel 0: returns zero forever
      channel 1: returns random numbers
@@ -79,7 +79,7 @@ as nsample:
     Data: 40 41 42 43 44 45 46 47 48 49 4a 4b 4c 4d 4e 4f
     Data: 50 51 52 53 54 55 56 57 58 59 5a 5b 5c 5d 5e 5f
 
-Zio dump is able to access several pairs of devices (control and data),
+zio-dump is able to access several pairs of devices (control and data),
 and you can change the trigger and buffer attributes for the cset.
 
 Example:

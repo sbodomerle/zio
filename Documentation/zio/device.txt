@@ -2,7 +2,7 @@
 	ZIO Device
 	==========
 
-A device, registered through zio_register_device() is the description
+A device registered through zio_register_device() is the description
 of an I/O peripheral. It is made up of channel-sets, called csets
 from now on. A device may represent a PCI board or an SPI integrated
 circuit or whatever it makes sense to manage from a single device driver.
@@ -13,7 +13,7 @@ array of csets.
 	=====
 
 A cset (channel-set) is an homogeneous set of I/O channels. All
-channels in the set are feature the same physical characteristics;
+channels in the set feature the same physical characteristics;
 moreover, a cset refers to a trigger object, so all channels in a set
 are triggered by the same event. This is the typical use case for
 logic analysers (digital input) or multi-probe scopes (analog input),
@@ -62,8 +62,6 @@ The full set of rules for data and control transfers is described
 elsewhere (FIXME: link to other docs) but it is pretty intuitive once
 you get the idea.
 
-See the "zio-dump" host tool in the top-level zio dir for an example
-of generic and simple input application that shows use of control and
+See the "zio-dump" host tool in the top-level zio directory for an example
+of a generic and simple input application that shows use of control and
 data files.
-
-

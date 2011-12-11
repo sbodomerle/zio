@@ -28,7 +28,7 @@ data and returns zeroes as input data. It can be used to experiment
 with generic triggers and as a sandbox for local modifications and
 testing.
 
-The parport driver registers two output csets and two input cset.
+The parport driver registers two output csets and two input csets.
 In each group one cset is byte-oriented and the other is bit-oriented.
 
 The ad7888 is an SPI ADC we mounted on an ARM board. It's a real
@@ -38,7 +38,7 @@ type (our SPI master uses DMA) and its own data-driven trigger (even
 if the data will be scanned by the CPU, so it can only work at low
 data rates).
 
-The uart driver is a line discpline that can receive data from a
+The UART driver is a line discipline that can receive data from a
 serial port. The first implementation expects to receive an endless
 stream of 16-bit data, big endian (we used this to run on-board ADC on
 cortex-m3), but we plan to extend it as a serious test case. You can

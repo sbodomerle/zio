@@ -65,7 +65,7 @@ locally or notifying the user).
 
 The method asks the trigger for a new block. It may be called by
 the buffer, if it wants a block immediately. The trigger that offers
-this method (which may be NULL) is responsible of storing a block
+this method (which may be NULL) is responsible for storing a block
 when available.  Since driver->input_cset completes asynchronously, this
 method can't return a block directly.  The block that will be stored
 may be shorter than what the trigger would have stored in the buffer
@@ -75,7 +75,7 @@ by itself.
 
 The function is called by the device, and signals the trigger that
 the input or output operation on the cset is over. For input, the
-trigger will push blocks to the buffer, for output it will release
+trigger will push blocks to the buffer; for output it will release
 the blocks.  zio-core offers zio_generic_data_done() for triggers
 that don't need special handling.
 
@@ -103,7 +103,7 @@ data has already happened when the trigger interrupt runs, but this
 doesn't change the software flow).
 
 Hardware-driven triggers will need to make their own work by themselves,
-but ZIO offers this help macro to loop over all non-disabled channels:
+but ZIO offers this helper macro to loop over all non-disabled channels:
 
 	cset_for_each(struct zio_cset *cset, struct zio_channel *ch)
 
@@ -125,4 +125,3 @@ For output, drv->outoput_cset is called.
 You can refer to "zio-trig-timer" for an example of a multi-instance
 generic timer and to "zio-trig-app-request" for a non-conventional
 implementation based on trigger-local file_operations.
-
