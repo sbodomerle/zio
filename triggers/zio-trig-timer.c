@@ -27,7 +27,7 @@ struct ztt_instance {
 };
 #define to_ztt_instance(ti) container_of(ti, struct ztt_instance, ti);
 
-enum zti_attrs { /* names for the "addr" value of sw parameters */
+enum ztt_attrs { /* names for the "addr" value of sw parameters */
 	ZTT_ATTR_NSAMPLES = 0,
 	ZTT_ATTR_PERIOD,
 };
