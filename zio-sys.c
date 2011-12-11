@@ -374,41 +374,6 @@ static void __zattr_set_free(struct zio_attribute_set *zattr_set)
 	__zattr_unclone(zattr_set->ext_zattr);
 	__zattr_unclone(zattr_set->std_zattr);
 }
-static int zattr_chan_pre_set(struct zio_channel *chan)
-{
-	struct zio_cset *cset = chan->cset;
-
-	if (!(cset->flags & ZCSET_CHAN_ALLOC))
-		return 0; /* nothing to do */
-
-	/*
-	 * If the channel has been allocated by ZIO, then attributes are
-	 * cloned from  the template channel description within parent cset
-	 */
-	chan->zattr_set.std_zattr =
-		__zattr_clone(
-			cset->zattr_set_chan.std_zattr,
-			ZATTR_STD_NUM_ZDEV);
-	if (IS_ERR(chan->zattr_set.std_zattr))
-		return PTR_ERR(chan->zattr_set.std_zattr);
-	chan->zattr_set.ext_zattr =
-		__zattr_clone(
-			cset->zattr_set.ext_zattr,
-			cset->zattr_set.n_ext_attr);
-	if (IS_ERR(chan->zattr_set.ext_zattr)) {
-		kfree(chan->zattr_set.std_zattr);
-		return PTR_ERR(chan->zattr_set.ext_zattr);
-	}
-	return 0;
-}
-
-static void zattr_chan_post_remove(struct zio_channel *chan)
-{
-	if (chan->cset->flags & ZCSET_CHAN_ALLOC) {
-		__zattr_unclone(chan->zattr_set.std_zattr);
-		__zattr_unclone(chan->zattr_set.ext_zattr);
-	}
-}
 
 /* When touching attributes, we always use the spinlock for the hosting dev */
 static spinlock_t *zdev_get_spinlock(struct zio_obj_head *head)
@@ -848,10 +813,6 @@ static int chan_register(struct zio_channel *chan)
 	if (err)
 		goto out_add;
 
-	err = zattr_chan_pre_set(chan);
-	if (err)
-		goto out_pre;
-
 	/* Create sysfs channel attributes */
 	chan->zattr_set.n_std_attr = ZATTR_STD_NUM_ZDEV;
 	err = zattr_set_create(&chan->head, chan->cset->zdev->s_op);
@@ -883,8 +844,6 @@ out_create:
 out_buf:
 	zattr_set_remove(&chan->head);
 out_sysfs:
-	zattr_chan_post_remove(chan);
-out_pre:
 	kobject_del(&chan->head.kobj);
 out_add:
 	/* we must _put even if it returned error */
@@ -902,7 +861,6 @@ static void chan_unregister(struct zio_channel *chan)
 	__buffer_destroy_instance(chan);
 	/* remove sysfs cset attributes */
 	zattr_set_remove(&chan->head);
-	zattr_chan_post_remove(chan);
 	kobject_del(&chan->head.kobj);
 	kobject_put(&chan->head.kobj);
 }
@@ -915,16 +873,31 @@ static void chan_unregister(struct zio_channel *chan)
  */
 static struct zio_channel *cset_alloc_chan(struct zio_cset *cset)
 {
+	int i;
+
 	pr_debug("%s:%d\n", __func__, __LINE__);
 	/*if no static channels, then ZIO must alloc them */
 	if (cset->chan)
 		return cset->chan;
+
 	/* initialize memory to zero to have correct flags and attrs */
-	cset->chan = kzalloc(sizeof(struct zio_channel) *
-					cset->n_chan, GFP_KERNEL);
+	cset->chan = kzalloc(sizeof(struct zio_channel) * cset->n_chan,
+			     GFP_KERNEL);
 	if (!cset->chan)
 		return ERR_PTR(-ENOMEM);
 	cset->flags |= ZCSET_CHAN_ALLOC;
+
+	if (!cset->chan_template)
+		return cset->chan;
+
+	cset->chan_template->zattr_set.n_std_attr = ZATTR_STD_NUM_ZDEV;
+	/* apply template on channels */
+	for (i = 0; i < cset->n_chan; ++i) {
+		memcpy(cset->chan + i, cset->chan_template,
+		       sizeof(struct zio_channel));
+		__zattr_set_copy(&cset->chan->zattr_set,
+				 &cset->chan_template->zattr_set);
+	}
 
 	return cset->chan;
 }

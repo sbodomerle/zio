@@ -116,8 +116,8 @@ struct zio_cset {
 	unsigned		index;		/* index within parent */
 	unsigned long		flags;
 	struct zio_attribute_set zattr_set;
-	struct zio_attribute_set zattr_set_chan; /* model for channel attrs */
 
+	struct zio_channel	*chan_template;
 	/* The cset is an array of channels */
 	struct zio_channel	*chan;
 	unsigned int		n_chan;
