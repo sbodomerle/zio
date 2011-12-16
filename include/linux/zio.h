@@ -155,6 +155,7 @@ struct zio_channel {
 	unsigned int		index;		/* index within parent */
 	unsigned long		flags;
 	struct zio_attribute_set zattr_set;
+	struct zio_ctrl_attr	 zattr_val;
 
 	struct device		*ctrl_dev;	/* control char device */
 	struct device		*data_dev;	/* data char device */

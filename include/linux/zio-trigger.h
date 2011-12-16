@@ -46,6 +46,7 @@ struct zio_ti {
 
 	/* Standard and extended attributes for this object */
 	struct zio_attribute_set		zattr_set;
+	struct zio_ctrl_attr			zattr_val;
 
 	const struct zio_trigger_operations	*t_op;
 	const struct file_operations		*f_op;
