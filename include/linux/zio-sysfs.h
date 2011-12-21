@@ -18,6 +18,8 @@
  * A zio_attribute provides a generic way to access those registers
  *
  * @attribute: standard attribute structure used to create a sysfs access
+ * @flags: to set attribute capabilities
+ * @index [INTERNAL]: index within a group of attribute (standard or extended)
  * @priv.reg: register address to use as is
  * @priv.reg_descriptor: a generic pointer used to specify how access to a
  *	particular register on device. This is defined by driver developer
@@ -27,12 +29,20 @@
  */
 struct zio_attribute {
 	struct attribute			attr;
+	uint32_t				flags;
+	int					index;
 	union { /* priv is sometimes a pointer and sometimes an hw addr */
 		void				*ptr;
 		unsigned long			addr;
 	} priv;
 	uint32_t				value;
 	const struct zio_sysfs_operations	*s_op;
+};
+#define ZATTR_INDEX_NONE -1
+enum zattr_flags {
+	ZATTR_TYPE	= 0x10,
+	ZATTR_TYPE_STD	= 0x00,
+	ZATTR_TYPE_EXT	= 0x10,
 };
 
 struct zio_sysfs_operations {

@@ -573,32 +573,19 @@ static int zattr_set_create(struct zio_obj_head *head,
 		return -ENOMEM;
 	group->is_visible = zattr_is_visible;
 
-	/* if there are not standard attribute, start with the extended one */
 	start = zattr_set->std_zattr ? 0 : zattr_set->n_std_attr;
-	for (i = start; i < n_attr; ++i) {
-		if (i < zattr_set->n_std_attr) {
-			group->attrs[i] = &zattr_set->std_zattr[i].attr;
-			zattr_set->std_zattr[i].s_op = s_op;
-		} else {
-			j = i-zattr_set->n_std_attr;
-			group->attrs[i] = &zattr_set->ext_zattr[j].attr;
-			zattr_set->ext_zattr[j].s_op = s_op;
-		}
+	/* standard attribute */
+	for (i = start; i < zattr_set->n_std_attr; ++i) {
+		group->attrs[i] = &zattr_set->std_zattr[i].attr;
+		zattr_set->std_zattr[i].s_op = s_op;
 		/* if not defined */
 		if (!group->attrs[i]->name) {
 			pr_debug("%s:%d\n", __func__, __LINE__);
-			if (i >= zattr_set->n_std_attr) {
-				pr_warning("%s: can't create ext attributes "
-				"without a name", __func__);
-				return -EINVAL;
-			}
-			/*
-			 * Only standard attributes need these lines to fill
-			 * the empty hole in the array of attributes
-			 */
 			group->attrs[i]->name =
-			  __get_sysfs_name(head->zobj_type, i);
+					__get_sysfs_name(head->zobj_type, i);
 			group->attrs[i]->mode = 0;
+		} else {
+			zattr_set->std_zattr[i].index = i;
 		}
 		/* if write permission but no write function */
 		if ((group->attrs[i]->mode & S_IWUGO) == S_IWUGO &&
@@ -608,6 +595,27 @@ static int zattr_set_create(struct zio_obj_head *head,
 			return -EINVAL;
 		}
 	}
+	/* extended attribute */
+	for (j = 0; j < zattr_set->n_ext_attr; ++j, ++i) {
+		group->attrs[i] = &zattr_set->ext_zattr[j].attr;
+		zattr_set->ext_zattr[j].s_op = s_op;
+		/* if not defined */
+		if (!group->attrs[i]->name) {
+			pr_warning("%s: can't create ext attributes "
+			"without a name", __func__);
+			return -EINVAL;
+		}
+		zattr_set->ext_zattr[j].index = j;
+		zattr_set->ext_zattr[j].flags |= ZATTR_TYPE_EXT;
+		/* if write permission but no write function */
+		if ((group->attrs[i]->mode & S_IWUGO) == S_IWUGO &&
+		     !s_op->conf_set) {
+			pr_err("%s: %s has write permission but no write "
+			       "function\n", __func__, group->attrs[i]->name);
+			return -EINVAL;
+		}
+	}
+
 	return sysfs_create_group(&head->kobj, group);
 }
 /* Remove an existent set of attributes */
