@@ -56,8 +56,10 @@ int ztt_conf_set(struct kobject *kobj, struct zio_attribute *zattr,
 	case ZTT_ATTR_PERIOD:
 		ztt = to_ztt_instance(ti);
 		ztt->period = msecs_to_jiffies(usr_val);
+		break;
 	default:
-		pr_err("%s: unknown \"addr\" for configuration\n", __func__);
+		pr_err("%s: unknown \"addr\" 0x%x for configuration\n",
+				__func__, zattr->priv.addr);
 		return -EINVAL;
 	}
 	return 0;
