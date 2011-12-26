@@ -43,13 +43,13 @@ static int zzero_input(struct zio_cset *cset)
 				data[i] = datum++;
 		}
 	}
-	return 1; /* Already done */
+	return 0; /* Already done */
 }
 
 static int zzero_output(struct zio_cset *cset)
 {
 	/* We just eat data, like /dev/zero and /dev/null */
-	return 1; /* Already done */
+	return 0; /* Already done */
 }
 
 static const struct zio_device_operations zzero_d_op = {

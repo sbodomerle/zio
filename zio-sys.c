@@ -200,7 +200,7 @@ static void __zio_fire_input_trigger(struct zio_ti *ti)
 		}
 		chan->active_block = block;
 	}
-	if (zdev->d_op->input_cset(cset)) {
+	if (!zdev->d_op->input_cset(cset)) {
 		/* It succeeded immediately */
 		ti->t_op->data_done(cset);
 	}
@@ -214,7 +214,7 @@ static void __zio_fire_output_trigger(struct zio_ti *ti)
 	pr_debug("%s:%d\n", __func__, __LINE__);
 
 	/* We are expected to already have a block in active channels */
-	if (zdev->d_op->output_cset(cset)) {
+	if (!zdev->d_op->output_cset(cset)) {
 		/* It succeeded immediately */
 		ti->t_op->data_done(cset);
 	}
