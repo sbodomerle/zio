@@ -59,11 +59,13 @@ static const struct zio_device_operations zzero_d_op = {
 
 static struct zio_cset zzero_cset[] = {
 	{
+		SET_OBJECT_NAME("zero-input"),
 		.n_chan =	3,
 		.ssize =	1,
 		.flags =	ZIO_DIR_INPUT | ZCSET_TYPE_ANALOG,
 	},
 	{
+		SET_OBJECT_NAME("zero-output"),
 		.n_chan =	1,
 		.ssize =	1,
 		.flags =	ZIO_DIR_OUTPUT | ZCSET_TYPE_ANALOG,
