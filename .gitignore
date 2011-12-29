@@ -19,4 +19,10 @@
 *.dvi
 *.out
 zio-dump
-#*#
+\#*\#
+*.sh
+# eclipse files
+.cproject
+.project
+.settings
+
