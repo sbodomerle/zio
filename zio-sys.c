@@ -553,6 +553,32 @@ static struct kobj_type zdktype = { /* For standard and extended attribute */
 	.default_attrs = def_attr_ptr,
 };
 
+
+static int __check_dev_zattr(struct zio_attribute_set *parent,
+			     struct zio_attribute_set *this)
+{
+	int i, j;
+
+	/* verify standard attribute */
+	for (i = 0; i < this->n_std_attr; ++i) {
+		if (this->std_zattr[i].index == ZATTR_INDEX_NONE)
+			continue; /* next attribute */
+		for (j = 0; j < parent->n_std_attr; ++j) {
+			/*
+			 * a standard attribute must be unique from a child
+			 * to the root. This allow to create a consistent
+			 * vector of value in control structure
+			 */
+			if (this->std_zattr[i].index ==
+						parent->std_zattr[j].index) {
+				pr_err("ZIO: attribute conflict for %s\n",
+				       this->std_zattr[i].attr.name);
+				return -EINVAL;
+			}
+		}
+	}
+	return 0;
+}
 static int __check_attr(struct attribute *attr,
 			const struct zio_sysfs_operations *s_op)
 {
@@ -562,8 +588,8 @@ static int __check_attr(struct attribute *attr,
 
 	/* check mode */
 	if ((attr->mode & S_IWUGO) == S_IWUGO && !s_op->conf_set) {
-		pr_err("%s: %s has write permission but no write function\n",
-		       __func__, attr->name);
+		pr_err("ZIO: %s: attribute %s has write permission but "
+			"no write function\n", __func__, attr->name);
 		return -ENOSYS;
 	}
 	return 0;
@@ -839,11 +865,18 @@ static int chan_register(struct zio_channel *chan)
 	err = zattr_set_create(&chan->head, chan->cset->zdev->s_op);
 	if (err)
 		goto out_sysfs;
+	/* Check attribute hierarchy */
+	err = __check_dev_zattr(&chan->cset->zattr_set, &chan->zattr_set);
+	if (err)
+		goto out_remove_sys;
+	err = __check_dev_zattr(&chan->cset->zdev->zattr_set, &chan->zattr_set);
+	if (err)
+		goto out_remove_sys;
 
 	/* Create buffer */
 	err = __buffer_create_instance(chan);
 	if (err)
-		goto out_buf;
+		goto out_remove_sys;
 
 	/* Create channel char devices*/
 	err = zio_create_chan_devices(chan);
@@ -862,7 +895,7 @@ static int chan_register(struct zio_channel *chan)
 
 out_create:
 	__buffer_destroy_instance(chan);
-out_buf:
+out_remove_sys:
 	zattr_set_remove(&chan->head);
 out_sysfs:
 	kobject_del(&chan->head.kobj);
@@ -968,11 +1001,15 @@ static int cset_register(struct zio_cset *cset)
 	err = zattr_set_create(&cset->head, cset->zdev->s_op);
 	if (err)
 		goto out_sysfs;
+	/* Check attribute hierarchy */
+	err = __check_dev_zattr(&cset->zdev->zattr_set, &cset->zattr_set);
+	if (err)
+		goto out_remove_sys;
 
 	cset->chan = cset_alloc_chan(cset);
 	if (IS_ERR(cset->chan)) {
 		err = PTR_ERR(cset->chan);
-		goto out_alloc;
+		goto out_remove_sys;
 	}
 
 	/*
@@ -1059,7 +1096,7 @@ out_reg:
 	zio_buffer_put(cset->zbuf);
 out_buf:
 	cset_free_chan(cset);
-out_alloc:
+out_remove_sys:
 	zattr_set_remove(&cset->head);
 out_sysfs:
 	kobject_del(&cset->head.kobj);
