@@ -6,25 +6,26 @@ obj-m += drivers/
 obj-m += buffers/
 obj-m += triggers/
 
+obj-m += tools/
+
+# WARNING: the line below doesn't work in-kernel if you compile with O=
 EXTRA_CFLAGS += -I$(obj)/include/
 
-hostprogs-y := zio-dump
+EXTRA_CFLAGS += -DDEBUG
 
-HOST_EXTRACFLAGS += -I$(M)/include/
-
-all: modules user
+all: modules tools
 
 modules:
 	$(MAKE) -C $(LINUX) M=$(shell /bin/pwd)
 
-# This is ugly, please forgive me by now
-user: $(hostprogs-y)
+.PHONY: tools
 
-zio-dump: zio-dump.c
-	$(CC) -Wall -Iinclude $^ -o $@
+tools:
+	$(MAKE) -C tools M=$(shell /bin/pwd)
 
 # this make clean is ugly, I'm aware...
 clean:
 	rm -rf `find . -name \*.o -o -name \*.ko -o -name \*~ `
 	rm -rf `find . -name Module.\* -o -name \*.mod.c`
 	rm -rf .tmp_versions modules.order
+	$(MAKE) -C tools clean
