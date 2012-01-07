@@ -114,6 +114,8 @@ struct zio_cset {
 	struct zio_buffer_type	*zbuf;		/* buffer type for bi */
 	struct zio_trigger_type *trig;		/* trigger type for ti*/
 	struct zio_ti		*ti;		/* trigger instance */
+	spinlock_t		lock;		 /* for all I/O ops */
+
 	unsigned		ssize;		/* sample size (bytes) */
 	unsigned		index;		/* index within parent */
 	unsigned long		flags;
@@ -126,6 +128,8 @@ struct zio_cset {
 
 	int (*init)(struct zio_cset *cset);
 	void (*exit)(struct zio_cset *cset);
+
+	void			*priv_d;	/* private for the device */
 
 	struct list_head	list_cset;	/* for cset global list */
 	dev_t			basedev;	/* base for the minors */
@@ -161,6 +165,9 @@ struct zio_channel {
 
 	struct device		*ctrl_dev;	/* control char device */
 	struct device		*data_dev;	/* data char device */
+
+	void			*priv_d;	/* private for the device */
+	void			*priv_t;	/* private for the trigger */
 
 	struct zio_block	*user_block;	/* being transferred w/ user */
 	struct zio_block	*active_block;	/* being managed by hardware */
