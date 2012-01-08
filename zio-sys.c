@@ -122,7 +122,7 @@ void zio_generic_data_done(struct zio_cset *cset)
 			/* We may have a new block ready, or not */
 			chan->active_block = zbuf->b_op->retr_block(chan->bi);
 		}
-		return;
+		goto out;
 	}
 	/* DIR_INPUT */
 	cset_for_each(cset, chan) {
@@ -133,6 +133,8 @@ void zio_generic_data_done(struct zio_cset *cset)
 		if (zbuf->b_op->store_block(bi, block)) /* may fail, no prob */
 			zbuf->b_op->free_block(bi, block);
 	}
+out:
+	ti->flags &= (~ZTI_STATUS);
 }
 EXPORT_SYMBOL(zio_generic_data_done);
 
@@ -151,8 +153,6 @@ static void __zio_fire_input_trigger(struct zio_ti *ti)
 	zbuf = cset->zbuf;
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
-
-	/* FIXME: check if a trigger is already pending */
 
 	/* Allocate the buffer for the incoming sample, in active channels */
 	cset_for_each(cset, chan) {
@@ -204,7 +204,10 @@ void zio_fire_trigger(struct zio_ti *ti)
 	/* If the trigger runs too early, ti->cset is still NULL */
 	if (!ti->cset)
 		return;
-
+	/* check if previouvs fire is still running*/
+	if ((ti->flags & ZTI_STATUS) == ZTI_STATUS_ON)
+		return;
+	ti->flags |= ZTI_STATUS_ON;
 	/* Copy the stamp (we are software driven anyways) */
 	ti->current_ctrl->tstamp.secs = ti->tstamp.tv_sec;
 	ti->current_ctrl->tstamp.ticks = ti->tstamp.tv_nsec;
