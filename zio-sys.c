@@ -35,30 +35,6 @@ const char zio_zbuf_attr_names[ZATTR_STD_NUM_ZBUF][ZIO_NAME_LEN] = {
 };
 EXPORT_SYMBOL(zio_zbuf_attr_names);
 
-static const char *__get_sysfs_name(enum zio_object_type type, int i)
-{
-	const char *name;
-
-	switch (type) {
-	case ZDEV:
-		name = zio_zdev_attr_names[i];
-		break;
-	case ZTRIG:
-	case ZTI:
-		name = zio_trig_attr_names[i];
-		break;
-	case ZBUF:
-	case ZBI:
-		name = zio_zbuf_attr_names[i];
-		break;
-	default:
-		name = NULL;
-		break;
-	}
-
-	return name;
-}
-
 /*
  * Top-level ZIO objects has a unique name.
  * You can find a particular object by searching its name.
@@ -554,11 +530,27 @@ static mode_t zattr_is_visible(struct kobject *kobj, struct attribute *attr,
 	return mode;
 }
 
+static int __check_attr(struct attribute *attr,
+			const struct zio_sysfs_operations *s_op)
+{
+	/* check name*/
+	if (!attr->name)
+		return -EINVAL;
+
+	/* check mode */
+	if ((attr->mode & S_IWUGO) == S_IWUGO && !s_op->conf_set) {
+		pr_err("%s: %s has write permission but no write function\n",
+		       __func__, attr->name);
+		return -ENOSYS;
+	}
+	return 0;
+}
+
 /* create a set of zio attributes: the standard one and the extended one */
 static int zattr_set_create(struct zio_obj_head *head,
 			    const struct zio_sysfs_operations *s_op)
 {
-	int n_attr, i, j, start;
+	int n_attr, i, j, attr_count = 0, err;
 	struct zio_attribute_set *zattr_set;
 	struct attribute_group *group;
 
@@ -566,56 +558,55 @@ static int zattr_set_create(struct zio_obj_head *head,
 	zattr_set = __get_zattr_set(head);
 	if (!zattr_set)
 		return -EINVAL; /* message already printed */
+
 	group = &zattr_set->group;
 	n_attr = (zattr_set->n_std_attr + zattr_set->n_ext_attr);
+	if (!n_attr || (!zattr_set->std_zattr && !zattr_set->ext_zattr)) {
+		zattr_set->n_std_attr = 0;
+		zattr_set->n_ext_attr = 0;
+		return 0;
+	}
 	group->attrs = kzalloc(sizeof(struct attribute) * n_attr, GFP_KERNEL);
 	if (!group->attrs)
 		return -ENOMEM;
 	group->is_visible = zattr_is_visible;
 
-	start = zattr_set->std_zattr ? 0 : zattr_set->n_std_attr;
+	if (!zattr_set->std_zattr)
+		goto ext;
 	/* standard attribute */
-	for (i = start; i < zattr_set->n_std_attr; ++i) {
-		group->attrs[i] = &zattr_set->std_zattr[i].attr;
-		zattr_set->std_zattr[i].s_op = s_op;
-		/* if not defined */
-		if (!group->attrs[i]->name) {
-			pr_debug("%s:%d\n", __func__, __LINE__);
-			group->attrs[i]->name =
-					__get_sysfs_name(head->zobj_type, i);
-			group->attrs[i]->mode = 0;
-		} else {
+	for (i = 0; i < zattr_set->n_std_attr; ++i) {
+		err = __check_attr(&zattr_set->std_zattr[i].attr, s_op);
+		switch (err) {
+		case 0:
+			/* valid attribute */
+			group->attrs[attr_count++] =
+						&zattr_set->std_zattr[i].attr;
+			zattr_set->std_zattr[i].s_op = s_op;
 			zattr_set->std_zattr[i].index = i;
-		}
-		/* if write permission but no write function */
-		if ((group->attrs[i]->mode & S_IWUGO) == S_IWUGO &&
-		     !s_op->conf_set) {
-			pr_err("%s: %s has write permission but no write "
-			       "function\n", __func__, group->attrs[i]->name);
-			return -EINVAL;
+			break;
+		case -EINVAL: /* unused std attribute */
+			zattr_set->std_zattr[i].index = ZATTR_INDEX_NONE;
+			break;
+		default:
+			return err;
 		}
 	}
+ext:
+	if (!zattr_set->ext_zattr)
+		goto out;
 	/* extended attribute */
-	for (j = 0; j < zattr_set->n_ext_attr; ++j, ++i) {
-		group->attrs[i] = &zattr_set->ext_zattr[j].attr;
+	for (j = 0; j < zattr_set->n_ext_attr; ++j) {
+		err = __check_attr(&zattr_set->ext_zattr[j].attr, s_op);
+		if (err)
+			return err;
+
+		/* valid attribute */
+		group->attrs[attr_count++] = &zattr_set->ext_zattr[j].attr;
 		zattr_set->ext_zattr[j].s_op = s_op;
-		/* if not defined */
-		if (!group->attrs[i]->name) {
-			pr_warning("%s: can't create ext attributes "
-			"without a name", __func__);
-			return -EINVAL;
-		}
 		zattr_set->ext_zattr[j].index = j;
 		zattr_set->ext_zattr[j].flags |= ZATTR_TYPE_EXT;
-		/* if write permission but no write function */
-		if ((group->attrs[i]->mode & S_IWUGO) == S_IWUGO &&
-		     !s_op->conf_set) {
-			pr_err("%s: %s has write permission but no write "
-			       "function\n", __func__, group->attrs[i]->name);
-			return -EINVAL;
-		}
 	}
-
+out:
 	return sysfs_create_group(&head->kobj, group);
 }
 /* Remove an existent set of attributes */
