@@ -416,6 +416,63 @@ static struct zio_attribute_set *__get_zattr_set(struct zio_obj_head *head)
 	return zattr_set;
 }
 
+static inline void __zattr_copy_value(struct zio_ctrl_attr *ctrl,
+				      enum zattr_flags flags,
+				      uint32_t index, uint32_t value)
+{
+	int i;
+	if (flags & ZATTR_TYPE)
+		ctrl->ext_val[index] = value;
+	else
+		ctrl->std_val[index] = value;
+	pr_info("Standard\n");
+	for (i = 0; i < 16; ++i)
+		pr_info("%d\n", ctrl->std_val[i]);
+	pr_info("Extended\n");
+	for (i = 0; i < 32; ++i)
+		pr_info("%d\n", ctrl->ext_val[i]);
+}
+static void __zattr_propagate_value(struct zio_obj_head *head,
+			       struct zio_attribute *zattr)
+{
+	int i, j, index, value, flags;
+	struct zio_ti *ti;
+	struct zio_device *zdev;
+	struct zio_cset *cset;
+	struct zio_channel *chan;
+
+	index = zattr->index;
+	value = zattr->value;
+	flags = zattr->flags;
+	switch (head->zobj_type) {
+	case ZDEV:
+		zdev = to_zio_dev(&head->kobj);
+		for (i = 0; i < zdev->n_cset; ++i) {
+			cset = &zdev->cset[i];
+			for (j = 0; j < cset->n_chan; ++j)
+				__zattr_copy_value(&cset->chan[j].zattr_val,
+						   flags, index, value);
+		}
+		break;
+	case ZCSET:
+		cset = to_zio_cset(&head->kobj);
+		for (i = 0; i < cset->n_chan; ++i)
+			__zattr_copy_value(&cset->chan[i].zattr_val,
+					   flags, index, value);
+		break;
+	case ZCHAN:
+		chan = to_zio_chan(&head->kobj);
+		__zattr_copy_value(&chan->zattr_val, flags, index, value);
+		break;
+	case ZTI:
+		ti = to_zio_ti(&head->kobj);
+		__zattr_copy_value(&ti->zattr_val, flags, index, value);
+		break;
+	default:
+		return;
+	}
+}
+
  /*
  * Zio objects all handle uint32_t values. So the show and store
  * are centralized here, and each device has its own get_info and set_conf
@@ -463,9 +520,15 @@ static ssize_t zattr_store(struct kobject *kobj, struct attribute *attr,
 		lock = __get_spinlock(to_zio_head(kobj));
 		spin_lock(lock);
 		err = zattr->s_op->conf_set(kobj, zattr, (uint32_t)val);
+		if (err) {
+			spin_unlock(lock);
+			return err;
+		}
+		zattr->value = (uint32_t)val;
+		__zattr_propagate_value(to_zio_head(kobj), zattr);
 		spin_unlock(lock);
 	}
-	return err == 0 ? size : err;
+	return size;
 }
 
 static const struct sysfs_ops zio_attribute_ktype_ops = {
