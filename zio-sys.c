@@ -459,7 +459,7 @@ static ssize_t zattr_store(struct kobject *kobj, struct attribute *attr,
 	if (zattr->s_op->conf_set) {
 		lock = zdev_get_spinlock(to_zio_head(kobj));
 		spin_lock(lock);
-		err = zattr->s_op->conf_set(kobj, zattr, val);
+		err = zattr->s_op->conf_set(kobj, zattr, (uint32_t)val);
 		spin_unlock(lock);
 	}
 	return err == 0 ? size : err;
