@@ -5,7 +5,7 @@
 #include <linux/zio.h>
 #include <linux/zio-buffer.h>
 
-#define ZIO_DEFAULT_TRIGGER "timer" /* FIXME: app-request */
+#define ZIO_DEFAULT_TRIGGER "user"
 
 struct zio_trigger_type {
 	struct zio_obj_head	head;
