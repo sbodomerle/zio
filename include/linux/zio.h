@@ -130,7 +130,7 @@ struct zio_cset {
 	char			zbuf_name[ZIO_NAME_OBJ];
 	char			trig_name[ZIO_NAME_OBJ];
 
-	struct zio_attribute	*cset_attrs; /* FIXME: set buf, set trig */
+	struct zio_attribute	*cset_attrs;
 };
 
 /* first 4bit are reserved for zio object universal flags */

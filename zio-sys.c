@@ -8,12 +8,17 @@
 #include <linux/cdev.h>
 #include <linux/device.h>
 #include <linux/spinlock.h>
+#include <linux/sysfs.h>
 
 #define __ZIO_INTERNAL__
 #include <linux/zio.h>
 #include <linux/zio-sysfs.h>
 #include <linux/zio-buffer.h>
 #include <linux/zio-trigger.h>
+
+#define ZOBJ_SYSFS_NAME "name"
+#define CSET_SYSFS_BUFFER "current_buffer"
+#define CSET_SYSFS_TRIGGER "current_trigger"
 
 static struct zio_status *zstat = &zio_global_status; /* Always use ptr */
 
@@ -34,6 +39,21 @@ const char zio_zbuf_attr_names[ZATTR_STD_NUM_ZBUF][ZIO_NAME_LEN] = {
 	[ZATTR_ZBUF_MAXLEN]	= "max-buffer-len",
 };
 EXPORT_SYMBOL(zio_zbuf_attr_names);
+
+/* buffer instance prototype */
+static struct zio_bi *__bi_create_and_init(struct zio_buffer_type *zbuf,
+					   struct zio_channel *chan);
+static void __bi_destroy(struct zio_buffer_type *zbuf, struct zio_bi *bi);
+static int __bi_register(struct zio_buffer_type *zbuf, struct zio_channel *chan,
+			 struct zio_bi *bi, const char *name);
+static void __bi_unregister(struct zio_buffer_type *zbuf, struct zio_bi *bi);
+/* trigger instance prototype */
+static struct zio_ti *__ti_create_and_init(struct zio_trigger_type *trig,
+					   struct zio_cset *cset);
+static void __ti_destroy(struct zio_trigger_type *trig, struct zio_ti *ti);
+static int __ti_register(struct zio_trigger_type *trig, struct zio_cset *cset,
+			 struct zio_ti *ti, const char *name);
+static void __ti_unregister(struct zio_trigger_type *trig, struct zio_ti *ti);
 
 /*
  * Top-level ZIO objects has a unique name.
@@ -416,9 +436,113 @@ static struct zio_attribute_set *__get_zattr_set(struct zio_obj_head *head)
 	return zattr_set;
 }
 
+static int zio_change_current_trigger(struct zio_cset *cset, char *name)
+{
+	struct zio_trigger_type *trig, *trig_old = cset->trig;
+	struct zio_ti *ti, *ti_old = cset->ti;
+	int err;
+
+	/* FIXME I can change the trigger? check it! */
+	/* FIXME get all necessary spinlock */
+	pr_debug("%s\n", __func__);
+	if (strlen(name) > ZIO_NAME_OBJ)
+		return -EINVAL; /* name too long */
+	if (unlikely(strcmp(name, trig_old->head.name) == 0))
+		return 0; /* is the current trigger */
+
+	/* get the new trigger */
+	trig = zio_trigger_get(name);
+	if (IS_ERR(trig))
+		return PTR_ERR(trig);
+	/* Create and register the new trigger instance */
+	ti = __ti_create_and_init(trig, cset);
+	if (IS_ERR(ti)) {
+		err = PTR_ERR(ti);
+		goto out;
+	}
+	err = __ti_register(trig, cset, ti, "trigger-tmp");
+	if (err)
+		goto out_reg;
+	/* New ti successful created, remove the old ti */
+	__ti_unregister(trig_old, ti_old);
+	__ti_destroy(trig_old, ti_old);
+	zio_trigger_put(trig_old);
+	/* Set new trigger*/
+	mb();
+	cset->trig = trig;
+	/* Rename trigger-tmp to trigger */
+	err = kobject_rename(&ti->head.kobj, "trigger");
+	if (err)
+		goto out_rename;
+	return 0;
+
+out_rename:
+	__ti_unregister(trig, ti);
+out_reg:
+	__ti_destroy(trig, ti);
+out:
+	zio_trigger_put(trig);
+	return err;
+}
+
+/* FIXME test this function when a new kind of buffer is available */
+static int zio_change_current_buffer(struct zio_cset *cset, char *name)
+{
+	struct zio_buffer_type *zbuf;
+	struct zio_bi **bi_vector;
+	int i, j, err;
+
+	/* FIXME I can change the buffer? check it! */
+	pr_debug("%s\n", __func__);
+	if (strlen(name) > ZIO_NAME_OBJ)
+		return -EINVAL; /* name too long */
+	if (unlikely(strcmp(name, cset->zbuf->head.name) == 0))
+		return 0; /* is the current buffer */
+
+	zbuf = zio_buffer_get(name);
+	if (IS_ERR(zbuf))
+		return PTR_ERR(zbuf);
+
+	bi_vector = kzalloc(sizeof(struct zio_bi *) * cset->n_chan,
+			     GFP_KERNEL);
+	if (!bi_vector) {
+		err = -ENOMEM;
+		goto out;
+	}
+
+	for (i = 0; i < cset->n_chan; ++i) {
+		bi_vector[i] = __bi_create_and_init(zbuf, &cset->chan[i]);
+		if (IS_ERR(bi_vector[i])) {
+			pr_err("%s can't create buffer instance\n", __func__);
+			err = PTR_ERR(bi_vector[i]);
+			goto out_create;
+		}
+	}
+
+	for (i = 0; i < cset->n_chan; ++i) {
+		/* delete old buffer instance */
+		__bi_unregister(cset->zbuf, cset->chan[i].bi);
+		__bi_destroy(cset->zbuf, cset->chan[i].bi);
+		/* register new buffer instance */
+		__bi_register(zbuf, &cset->chan[i], bi_vector[i], "buffer-tmp");
+		cset->chan[i].bi = bi_vector[i];
+	}
+	kfree(bi_vector);
+	cset->zbuf = zbuf;
+
+	return 0;
+out_create:
+	for (j = i-1; j >= 0; --j)
+		__bi_destroy(zbuf, bi_vector[j]);
+	kfree(bi_vector);
+out:
+	zio_buffer_put(zbuf);
+	return err;
+}
+
 static inline void __zattr_valcpy(struct zio_ctrl_attr *ctrl,
-				      enum zattr_flags flags,
-				      int index, uint32_t value)
+				  enum zattr_flags flags,
+				  int index, uint32_t value)
 {
 	pr_debug("%s\n", __func__);
 	if ((flags & ZATTR_TYPE) == ZATTR_TYPE_EXT)
@@ -497,10 +621,16 @@ static ssize_t zattr_show(struct kobject *kobj, struct attribute *attr,
 	struct zio_attribute *zattr = to_zio_zattr(attr);
 
 	pr_debug("%s\n", __func__);
-	if (unlikely(strcmp(attr->name, "name") == 0)) {
-		/* print device name*/
+	/* print device name */
+	if (unlikely(strcmp(attr->name, ZOBJ_SYSFS_NAME) == 0))
 		return sprintf(buf, "%s\n", to_zio_head(kobj)->name);
-	}
+	/* print current trigger name */
+	if (unlikely(strcmp(attr->name, CSET_SYSFS_TRIGGER) == 0))
+		return sprintf(buf, "%s\n", to_zio_cset(kobj)->trig->head.name);
+	/* print current buffer name */
+	if (unlikely(strcmp(attr->name, CSET_SYSFS_BUFFER) == 0))
+		return sprintf(buf, "%s\n", to_zio_cset(kobj)->zbuf->head.name);
+
 
 	if (zattr->s_op->info_get) {
 		lock = __get_spinlock(to_zio_head(kobj));
@@ -518,10 +648,26 @@ static ssize_t zattr_store(struct kobject *kobj, struct attribute *attr,
 {
 	long val;
 	int err = 0;
+	char buf_tmp[ZIO_NAME_OBJ];
 	struct zio_attribute *zattr = to_zio_zattr(attr);
 	spinlock_t *lock;
 
 	pr_debug("%s\n", __func__);
+	if (unlikely(strcmp(attr->name, CSET_SYSFS_TRIGGER) == 0)) {
+		if (strlen(buf) > ZIO_NAME_OBJ+1)
+			return -EINVAL; /* name too long */
+		sscanf(buf, "%s\n", buf_tmp);
+		err = zio_change_current_trigger(to_zio_cset(kobj), buf_tmp);
+		return err == 0 ? size : err;
+	}
+	/* change current buffer */
+	if (unlikely(strcmp(attr->name, CSET_SYSFS_BUFFER) == 0)) {
+		if (strlen(buf) > ZIO_NAME_OBJ+1)
+			return -EINVAL; /* name too long */
+		sscanf(buf, "%s\n", buf_tmp);
+		err = zio_change_current_buffer(to_zio_cset(kobj), buf_tmp);
+		return err == 0 ? size : err;
+	}
 	err = strict_strtol(buf, 0, &val);
 	if (err)
 		return -EINVAL;
@@ -544,10 +690,34 @@ static const struct sysfs_ops zio_attribute_ktype_ops = {
 	.show  = zattr_show,
 	.store = zattr_store,
 };
-
+static struct attribute default_cset_attrs[] = {
+		{	/* show the name */
+			.name = ZOBJ_SYSFS_NAME,
+			.mode = 0444, /* read only */
+		},
+		{	/* get/set trigger */
+			.name = CSET_SYSFS_TRIGGER,
+			.mode = 0666, /* read write */
+		},
+		{	/* get/set buffer */
+			.name = CSET_SYSFS_BUFFER,
+			.mode = 0666, /* read write */
+		},
+};
+static struct attribute *def_cset_attr_ptr[] = {
+	&default_cset_attrs[0],
+	&default_cset_attrs[1],
+	&default_cset_attrs[2],
+	NULL,
+};
+static struct kobj_type zdkctype = { /* only for cset */
+	.release   = NULL,
+	.sysfs_ops = &zio_attribute_ktype_ops,
+	.default_attrs = def_cset_attr_ptr,
+};
 static struct attribute default_attrs[] = {
-		{
-			.name = "name", /* show the name */
+		{	/* show the name */
+			.name = ZOBJ_SYSFS_NAME,
 			.mode = 0444, /* read only */
 		},
 };
@@ -556,7 +726,7 @@ static struct attribute *def_attr_ptr[] = {
 	NULL,
 };
 
-static struct kobj_type zdktype = { /* For standard and extended attribute */
+static struct kobj_type zdktype = { /* for all the other object */
 	.release   = NULL,
 	.sysfs_ops = &zio_attribute_ktype_ops,
 	.default_attrs = def_attr_ptr,
@@ -568,6 +738,7 @@ static int __check_dev_zattr(struct zio_attribute_set *parent,
 {
 	int i, j;
 
+	pr_debug("%s\n", __func__);
 	/* verify standard attribute */
 	for (i = 0; i < this->n_std_attr; ++i) {
 		if (this->std_zattr[i].index == ZATTR_INDEX_NONE)
@@ -681,48 +852,66 @@ static void zattr_set_remove(struct zio_obj_head *head)
 	kfree(zattr_set->group.attrs);
 }
 
-/* Create a buffer instance according to the buffer type defined in cset */
-static int __buffer_create_instance(struct zio_channel *chan)
+/* create and initialize a new buffer instance */
+static struct zio_bi *__bi_create_and_init(struct zio_buffer_type *zbuf,
+					   struct zio_channel *chan)
 {
-	struct zio_buffer_type *zbuf = chan->cset->zbuf;
 	struct zio_bi *bi;
 	int err;
 
-	/* create buffer */
+	pr_debug("%s\n", __func__);
+	/* Create buffer */
 	bi = zbuf->b_op->create(zbuf, chan, FMODE_READ);
-	if (IS_ERR(bi))
-		return PTR_ERR(bi);
-	/* Now fill the trigger instance, ops, head, then the rest */
+	if (IS_ERR(bi)) {
+		pr_err("ZIO %s: can't create buffer, error %ld\n",
+		       __func__, PTR_ERR(bi));
+		goto out;
+	}
+	/* Initialize buffer */
 	bi->b_op = zbuf->b_op;
 	bi->f_op = zbuf->f_op;
 	bi->flags |= (chan->flags & ZIO_DIR);
 	bi->head.zobj_type = ZBI;
-	err = kobject_init_and_add(&bi->head.kobj, &zdktype,
-			&chan->head.kobj, "buffer");
+	snprintf(bi->head.name, ZIO_NAME_LEN, "%s-%s-%d-%d",
+		 zbuf->head.name, chan->cset->zdev->head.name,
+		 chan->cset->index, chan->index);
+	init_waitqueue_head(&bi->q);
+	/* Copy sysfs attribute from buffer type */
+	err = __zattr_set_copy(&bi->zattr_set, &zbuf->zattr_set);
+	if (err) {
+		zbuf->b_op->destroy(bi);
+		bi = ERR_PTR(err);
+	}
+out:
+	return bi;
+}
+static void __bi_destroy(struct zio_buffer_type *zbuf, struct zio_bi *bi)
+{
+	pr_debug("%s\n", __func__);
+	zbuf->b_op->destroy(bi);
+}
+static int __bi_register(struct zio_buffer_type *zbuf,
+			 struct zio_channel *chan,
+			 struct zio_bi *bi, const char *name)
+{
+	int err;
+
+	pr_debug("%s\n", __func__);
+	/* register whitin sysfs */
+	err = kobject_init_and_add(&bi->head.kobj, &zdktype, &chan->head.kobj,
+				   name);
 	if (err)
 		goto out_kobj;
-	snprintf(bi->head.name, ZIO_NAME_LEN, "%s-%s-%d-%d",
-			zbuf->head.name,
-			chan->cset->zdev->head.name,
-			chan->cset->index,
-			chan->index);
-
-	err = __zattr_set_copy(&bi->zattr_set, &zbuf->zattr_set);
-	if (err)
-		goto out_clone;
 	err = zattr_set_create(&bi->head, zbuf->s_op);
 	if (err)
 		goto out_sysfs;
-	init_waitqueue_head(&bi->q);
-
 	/* Add to buffer instance list */
 	spin_lock(&zbuf->lock);
 	list_add(&bi->list, &zbuf->list);
 	spin_unlock(&zbuf->lock);
 	bi->cset = chan->cset;
 	chan->bi = bi;
-
-	/* Done. This cset->ti marks everything is running (FIXME?) */
+	/* Done. This cset->bi marks everything is running (FIXME?) */
 	mb();
 	bi->chan = chan;
 
@@ -730,22 +919,14 @@ static int __buffer_create_instance(struct zio_channel *chan)
 
 out_sysfs:
 	__zattr_set_free(&bi->zattr_set);
-out_clone:
 	kobject_del(&bi->head.kobj);
 out_kobj:
 	kobject_put(&bi->head.kobj);
-	zbuf->b_op->destroy(bi);
 	return err;
 }
-
-/* Destroy a buffer instance */
-static void __buffer_destroy_instance(struct zio_channel *chan)
+static void __bi_unregister(struct zio_buffer_type *zbuf, struct zio_bi *bi)
 {
-	struct zio_buffer_type *zbuf = chan->cset->zbuf;
-	struct zio_bi *bi = chan->bi;
-
-	chan->bi = NULL;
-
+	pr_debug("%s\n", __func__);
 	/* Remove from buffer instance list */
 	spin_lock(&zbuf->lock);
 	list_del(&bi->list);
@@ -755,61 +936,78 @@ static void __buffer_destroy_instance(struct zio_channel *chan)
 	__zattr_set_free(&bi->zattr_set);
 	kobject_del(&bi->head.kobj);
 	kobject_put(&bi->head.kobj);
-	/* Finally destroy the instance */
-	zbuf->b_op->destroy(bi);
 }
 
-/* Create a trigger instance according to the trigger type defined in cset */
-static int __trigger_create_instance(struct zio_cset *cset)
+/* create and initialize a new trigger instance */
+static struct zio_ti *__ti_create_and_init(struct zio_trigger_type *trig,
+					   struct zio_cset *cset)
 {
 	int err;
 	struct zio_control *ctrl;
 	struct zio_ti *ti;
 
-	pr_debug("%s:%d\n", __func__, __LINE__);
+	pr_debug("%s\n", __func__);
 	/* Allocate and fill current control as much as possible*/
 	ctrl = zio_alloc_control(GFP_KERNEL);
 	if (!ctrl)
-		return -ENOMEM;
+		return ERR_PTR(-ENOMEM);
 	ctrl->cset_i = cset->index;
 	strncpy(ctrl->devname, cset->zdev->head.name, ZIO_NAME_LEN);
-	strncpy(ctrl->triggername, cset->trig->head.name, ZIO_NAME_LEN);
+	strncpy(ctrl->triggername, trig->head.name, ZIO_NAME_LEN);
 	ctrl->sbits = 8; /* FIXME: retrieve from attribute */
 	ctrl->ssize = cset->ssize;
-
-	ti = cset->trig->t_op->create(cset->trig, cset, ctrl, 0/*FIXME*/);
+	/* Create trigger */
+	ti = trig->t_op->create(trig, cset, ctrl, 0/*FIXME*/);
 	if (IS_ERR(ti)) {
-		err = PTR_ERR(ti);
-		pr_err("%s: can't create trigger error %i\n", __func__, err);
+		zio_free_control(ctrl);
+		pr_err("ZIO %s: can't create trigger, error %ld\n",
+		       __func__, PTR_ERR(ti));
 		goto out;
 	}
-	/* Now fill the trigger instance, ops, head, then the rest */
-	ti->t_op = cset->trig->t_op;
-	ti->f_op = cset->trig->f_op;
+	/* Initialize trigger */
+	ti->t_op = trig->t_op;
+	ti->f_op = trig->f_op;
 	ti->flags |= cset->flags & ZIO_DIR;
 	ti->head.zobj_type = ZTI;
-	err = kobject_init_and_add(&ti->head.kobj, &zdktype,
-		&cset->head.kobj, "trigger");
+	snprintf(ti->head.name, ZIO_NAME_LEN, "%s-%s-%d",
+		 trig->head.name, cset->zdev->head.name, cset->index);
+	/* Copy sysfs attribute from trigger type */
+	err = __zattr_set_copy(&ti->zattr_set, &trig->zattr_set);
+	if (err) {
+		zio_free_control(ctrl);
+		trig->t_op->destroy(ti);
+		return ERR_PTR(err);
+	}
+
+out:
+	return ti;
+
+}
+static void __ti_destroy(struct zio_trigger_type *trig, struct zio_ti *ti)
+{
+	pr_debug("%s\n", __func__);
+	trig->t_op->destroy(ti);
+	zio_free_control(ti->current_ctrl);
+}
+static int __ti_register(struct zio_trigger_type *trig, struct zio_cset *cset,
+			 struct zio_ti *ti, const char *name)
+{
+	int err;
+
+	pr_debug("%s\n", __func__);
+	/* register whitin sysfs */
+	err = kobject_init_and_add(&ti->head.kobj, &zdktype, &cset->head.kobj,
+				   name);
 	if (err)
 		goto out_kobj;
-	snprintf(ti->head.name, ZIO_NAME_LEN, "%s-%s-%d",
-			cset->trig->head.name,
-			cset->zdev->head.name,
-			cset->index);
-
-	err = __zattr_set_copy(&ti->zattr_set, &cset->trig->zattr_set);
-	if (err)
-		goto out_clone;
-	err = zattr_set_create(&ti->head, cset->trig->s_op);
+	err = zattr_set_create(&ti->head, trig->s_op);
 	if (err)
 		goto out_sysfs;
-
 	/* Add to trigger instance list */
-	spin_lock(&cset->trig->lock);
-	list_add(&ti->list, &cset->trig->list);
-	spin_unlock(&cset->trig->lock);
+	spin_lock(&trig->lock);
+	list_add(&ti->list, &trig->list);
+	spin_unlock(&trig->lock);
 	cset->ti = ti;
-
 	/* Done. This cset->ti marks everything is running (FIXME?) */
 	mb();
 	ti->cset = cset;
@@ -818,36 +1016,23 @@ static int __trigger_create_instance(struct zio_cset *cset)
 
 out_sysfs:
 	__zattr_set_free(&ti->zattr_set);
-out_clone:
 	kobject_del(&ti->head.kobj);
 out_kobj:
 	kobject_put(&ti->head.kobj);
-	ti->t_op->destroy(ti);
-out:
-	zio_free_control(ctrl);
 	return err;
 }
-
-/* Destroy a buffer instance */
-static void __trigger_destroy_instance(struct zio_cset *cset)
+static void __ti_unregister(struct zio_trigger_type *trig, struct zio_ti *ti)
 {
-	struct zio_ti *ti = cset->ti;
-	struct zio_control *ctrl = ti->current_ctrl;
-
-	cset->ti = NULL;
-
+	pr_debug("%s\n", __func__);
 	/* Remove from trigger instance list */
-	spin_lock(&cset->trig->lock);
+	spin_lock(&trig->lock);
 	list_del(&ti->list);
-	spin_unlock(&cset->trig->lock);
+	spin_unlock(&trig->lock);
 	/* Remove from sysfs */
 	zattr_set_remove(&ti->head);
 	__zattr_set_free(&ti->zattr_set);
 	kobject_del(&ti->head.kobj);
 	kobject_put(&ti->head.kobj);
-	/* Finally destroy the instance and free the default control*/
-	cset->trig->t_op->destroy(ti);
-	zio_free_control(ctrl);
 }
 
 /*
@@ -857,6 +1042,7 @@ static void __trigger_destroy_instance(struct zio_cset *cset)
  */
 static int chan_register(struct zio_channel *chan)
 {
+	struct zio_bi *bi;
 	int err;
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
@@ -884,9 +1070,14 @@ static int chan_register(struct zio_channel *chan)
 	/* copy default attribute value to ctrl */
 	__zattr_init_ctrl(&chan->head, &chan->zattr_set);
 	/* Create buffer */
-	err = __buffer_create_instance(chan);
-	if (err)
+	bi = __bi_create_and_init(chan->cset->zbuf, chan);
+	if (IS_ERR(bi)) {
+		err = PTR_ERR(bi);
 		goto out_remove_sys;
+	}
+	err = __bi_register(chan->cset->zbuf, chan, bi, "buffer");
+	if (err)
+		goto out_bi_destroy;
 
 	/* Create channel char devices*/
 	err = zio_create_chan_devices(chan);
@@ -904,7 +1095,9 @@ static int chan_register(struct zio_channel *chan)
 	return 0;
 
 out_create:
-	__buffer_destroy_instance(chan);
+	__bi_unregister(chan->cset->zbuf, bi);
+out_bi_destroy:
+	__bi_destroy(chan->cset->zbuf, bi);
 out_remove_sys:
 	zattr_set_remove(&chan->head);
 out_sysfs:
@@ -922,7 +1115,8 @@ static void chan_unregister(struct zio_channel *chan)
 		return;
 	zio_destroy_chan_devices(chan);
 	/* destroy buffer instance */
-	__buffer_destroy_instance(chan);
+	__bi_unregister(chan->cset->zbuf, chan->bi);
+	__bi_destroy(chan->cset->zbuf, chan->bi);
 	/* remove sysfs cset attributes */
 	zattr_set_remove(&chan->head);
 	kobject_del(&chan->head.kobj);
@@ -976,8 +1170,9 @@ static inline void cset_free_chan(struct zio_cset *cset)
 static int cset_register(struct zio_cset *cset)
 {
 	int i, j, err = 0;
-	struct zio_buffer_type *zbuf;
-	struct zio_trigger_type *trig;
+	struct zio_buffer_type *zbuf = NULL;
+	struct zio_trigger_type *trig = NULL;
+	struct zio_ti *ti = NULL;
 	char *name;
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
@@ -1002,7 +1197,7 @@ static int cset_register(struct zio_cset *cset)
 	}
 
 	cset->head.zobj_type = ZCSET;
-	err = kobject_init_and_add(&cset->head.kobj, &zdktype,
+	err = kobject_init_and_add(&cset->head.kobj, &zdkctype,
 			&cset->zdev->head.kobj, "cset%i", cset->index);
 	if (err)
 		goto out_add;
@@ -1080,10 +1275,16 @@ static int cset_register(struct zio_cset *cset)
 			err = PTR_ERR(trig);
 			goto out_trig;
 		}
-		cset->trig = trig;
-		err = __trigger_create_instance(cset);
-		if (err)
+
+		ti = __ti_create_and_init(trig, cset);
+		if (IS_ERR(ti)) {
+			err = PTR_ERR(ti);
 			goto out_trig;
+		}
+		err = __ti_register(trig, cset, ti, "trigger");
+		if (err)
+			goto out_tr;
+		cset->trig = trig;
 	}
 
 	list_add(&cset->list_cset, &zstat->list_cset);
@@ -1097,10 +1298,12 @@ static int cset_register(struct zio_cset *cset)
 	return 0;
 
 out_init:
-	__trigger_destroy_instance(cset);
+	cset->trig = NULL;
+	__ti_unregister(trig, ti);
+out_tr:
+	__ti_destroy(trig, ti);
 out_trig:
 	zio_trigger_put(cset->trig);
-	cset->trig = NULL;
 out_reg:
 	for (j = i-1; j >= 0; j--)
 		chan_unregister(&cset->chan[j]);
@@ -1131,7 +1334,8 @@ static void cset_unregister(struct zio_cset *cset)
 	/* Remove from csets list*/
 	list_del(&cset->list_cset);
 	/* destroy instance and decrement trigger usage */
-	__trigger_destroy_instance(cset);
+	__ti_unregister(cset->trig, cset->ti);
+	__ti_destroy(cset->trig,  cset->ti);
 	zio_trigger_put(cset->trig);
 	cset->trig = NULL;
 	/* Unregister all child channels */
