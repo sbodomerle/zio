@@ -487,49 +487,6 @@ static struct kobj_type zdktype = { /* For standard and extended attribute */
 	.default_attrs = def_attr_ptr,
 };
 
-static mode_t zattr_is_visible(struct kobject *kobj, struct attribute *attr,
-				int n)
-{
-	unsigned int flag1, flag2, flag3;
-	mode_t mode = attr->mode;
-
-	/*
-	 * FIXME: if it's decided that activation
-	 * is always the first bit then is faster doing:
-	 * flag1 & flag2 & flag3 & 0x1
-	 * to verify content
-	 */
-	switch (__zio_get_object_type(kobj)) {
-	case ZDEV:
-		flag1 = to_zio_dev(kobj)->flags;
-		if (flag1 & ZIO_DISABLED)
-			mode = 0;
-		break;
-	case ZCSET:
-		flag1 = to_zio_cset(kobj)->flags;
-		flag2 = to_zio_cset(kobj)->zdev->flags;
-		if ((flag1 | flag2) & ZIO_DISABLED)
-			mode = 0;
-		break;
-	case ZCHAN:
-		flag1 = to_zio_chan(kobj)->flags;
-		flag2 = to_zio_chan(kobj)->cset->flags;
-		flag3 = to_zio_chan(kobj)->cset->zdev->flags;
-		if ((flag1 | flag2 | flag3) & ZIO_DISABLED)
-			mode = 0;
-		break;
-	case ZBI:
-		break;
-	case ZTI:
-		break;
-	default:
-		WARN(1, "ZIO: unknown zio object %i\n",
-		     __zio_get_object_type(kobj));
-	}
-
-	return mode;
-}
-
 static int __check_attr(struct attribute *attr,
 			const struct zio_sysfs_operations *s_op)
 {
@@ -569,7 +526,6 @@ static int zattr_set_create(struct zio_obj_head *head,
 	group->attrs = kzalloc(sizeof(struct attribute) * n_attr, GFP_KERNEL);
 	if (!group->attrs)
 		return -ENOMEM;
-	group->is_visible = zattr_is_visible;
 
 	if (!zattr_set->std_zattr)
 		goto ext;
