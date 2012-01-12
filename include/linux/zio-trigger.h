@@ -38,6 +38,7 @@ struct zio_ti {
 	struct zio_cset		*cset;
 
 	unsigned long		flags;		/* input or output, etc */
+	struct spinlock		lock;
 	struct zio_control	*current_ctrl;	/* the active one */
 	/* This is for software stamping */
 	struct timespec		tstamp;

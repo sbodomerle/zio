@@ -352,7 +352,7 @@ static void __zattr_set_free(struct zio_attribute_set *zattr_set)
 }
 
 /* When touching attributes, we always use the spinlock for the hosting dev */
-static spinlock_t *zdev_get_spinlock(struct zio_obj_head *head)
+static spinlock_t *__get_spinlock(struct zio_obj_head *head)
 {
 	spinlock_t *lock;
 
@@ -367,10 +367,10 @@ static spinlock_t *zdev_get_spinlock(struct zio_obj_head *head)
 		lock = &to_zio_chan(&head->kobj)->cset->zdev->lock;
 		break;
 	case ZTI: /* we might not want to take a lock but... */
-		lock = &to_zio_ti(&head->kobj)->cset->zdev->lock;
+		lock = &to_zio_ti(&head->kobj)->lock;
 		break;
 	case ZBI:
-		lock = &to_zio_bi(&head->kobj)->cset->zdev->lock;
+		lock = &to_zio_bi(&head->kobj)->lock;
 		break;
 	default:
 		WARN(1, "ZIO: unknown zio object %i\n", head->zobj_type);
@@ -434,7 +434,7 @@ static ssize_t zattr_show(struct kobject *kobj, struct attribute *attr,
 	}
 
 	if (zattr->s_op->info_get) {
-		lock = zdev_get_spinlock(to_zio_head(kobj));
+		lock = __get_spinlock(to_zio_head(kobj));
 		spin_lock(lock);
 		err = zattr->s_op->info_get(kobj, zattr, &zattr->value);
 		spin_unlock(lock);
@@ -457,7 +457,7 @@ static ssize_t zattr_store(struct kobject *kobj, struct attribute *attr,
 	if (err)
 		return -EINVAL;
 	if (zattr->s_op->conf_set) {
-		lock = zdev_get_spinlock(to_zio_head(kobj));
+		lock = __get_spinlock(to_zio_head(kobj));
 		spin_lock(lock);
 		err = zattr->s_op->conf_set(kobj, zattr, (uint32_t)val);
 		spin_unlock(lock);

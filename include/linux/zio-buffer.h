@@ -162,6 +162,7 @@ struct zio_bi {
 	/* Those using generic_read need this information */
 	unsigned long flags;			/* input or output, etc */
 	wait_queue_head_t q;			/* for reading or writing */
+	struct spinlock		lock;
 
 	/* Standard and extended attributes for this object */
 	struct zio_attribute_set		zattr_set;
