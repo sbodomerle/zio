@@ -416,21 +416,15 @@ static struct zio_attribute_set *__get_zattr_set(struct zio_obj_head *head)
 	return zattr_set;
 }
 
-static inline void __zattr_copy_value(struct zio_ctrl_attr *ctrl,
+static inline void __zattr_valcpy(struct zio_ctrl_attr *ctrl,
 				      enum zattr_flags flags,
-				      uint32_t index, uint32_t value)
+				      int index, uint32_t value)
 {
-	int i;
-	if (flags & ZATTR_TYPE)
+	pr_debug("%s\n", __func__);
+	if ((flags & ZATTR_TYPE) == ZATTR_TYPE_EXT)
 		ctrl->ext_val[index] = value;
 	else
 		ctrl->std_val[index] = value;
-	pr_info("Standard\n");
-	for (i = 0; i < 16; ++i)
-		pr_info("%d\n", ctrl->std_val[i]);
-	pr_info("Extended\n");
-	for (i = 0; i < 32; ++i)
-		pr_info("%d\n", ctrl->ext_val[i]);
 }
 static void __zattr_propagate_value(struct zio_obj_head *head,
 			       struct zio_attribute *zattr)
@@ -441,6 +435,7 @@ static void __zattr_propagate_value(struct zio_obj_head *head,
 	struct zio_cset *cset;
 	struct zio_channel *chan;
 
+	pr_debug("%s\n", __func__);
 	index = zattr->index;
 	value = zattr->value;
 	flags = zattr->flags;
@@ -450,27 +445,41 @@ static void __zattr_propagate_value(struct zio_obj_head *head,
 		for (i = 0; i < zdev->n_cset; ++i) {
 			cset = &zdev->cset[i];
 			for (j = 0; j < cset->n_chan; ++j)
-				__zattr_copy_value(&cset->chan[j].zattr_val,
+				__zattr_valcpy(&cset->chan[j].zattr_val,
 						   flags, index, value);
 		}
 		break;
 	case ZCSET:
 		cset = to_zio_cset(&head->kobj);
 		for (i = 0; i < cset->n_chan; ++i)
-			__zattr_copy_value(&cset->chan[i].zattr_val,
+			__zattr_valcpy(&cset->chan[i].zattr_val,
 					   flags, index, value);
 		break;
 	case ZCHAN:
 		chan = to_zio_chan(&head->kobj);
-		__zattr_copy_value(&chan->zattr_val, flags, index, value);
+		__zattr_valcpy(&chan->zattr_val, flags, index, value);
 		break;
 	case ZTI:
 		ti = to_zio_ti(&head->kobj);
-		__zattr_copy_value(&ti->zattr_val, flags, index, value);
+		__zattr_valcpy(&ti->zattr_val, flags, index, value);
 		break;
 	default:
 		return;
 	}
+}
+
+static void __zattr_init_ctrl(struct zio_obj_head *head,
+			      struct zio_attribute_set *zattr_set)
+{
+	int i;
+
+	pr_debug("%s\n", __func__);
+	/* copy standard attribute default value */
+	for (i = 0; i < zattr_set->n_std_attr; ++i)
+		__zattr_propagate_value(head, &zattr_set->std_zattr[i]);
+	/* copy extended attribute default value */
+	for (i = 0; i < zattr_set->n_ext_attr; ++i)
+		__zattr_propagate_value(head, &zattr_set->ext_zattr[i]);
 }
 
  /*
@@ -872,7 +881,8 @@ static int chan_register(struct zio_channel *chan)
 	err = __check_dev_zattr(&chan->cset->zdev->zattr_set, &chan->zattr_set);
 	if (err)
 		goto out_remove_sys;
-
+	/* copy default attribute value to ctrl */
+	__zattr_init_ctrl(&chan->head, &chan->zattr_set);
 	/* Create buffer */
 	err = __buffer_create_instance(chan);
 	if (err)
@@ -1040,7 +1050,8 @@ static int cset_register(struct zio_cset *cset)
 		if (err)
 			goto out_reg;
 	}
-
+	/* copy default attribute value to ctrl */
+	__zattr_init_ctrl(&cset->head, &cset->zattr_set);
 	/*
 	 * If no name was assigned, ZIO assigns it.  cset name is
 	 * set to the kobject name. kobject name has no length limit,
@@ -1244,7 +1255,8 @@ int zio_register_dev(struct zio_device *zdev, const char *name)
 		if (err)
 			goto out_cset;
 	}
-
+	/* copy default attribute value to ctrl */
+	__zattr_init_ctrl(&zdev->head, &zdev->zattr_set);
 	return 0;
 
 out_cset:
