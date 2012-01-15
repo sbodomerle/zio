@@ -17,6 +17,7 @@
 #include <linux/zio-trigger.h>
 
 #define ZOBJ_SYSFS_NAME "name"
+#define ZOBJ_SYSFS_ENABLE "enable"
 #define CSET_SYSFS_BUFFER "current_buffer"
 #define CSET_SYSFS_TRIGGER "current_trigger"
 
@@ -223,6 +224,9 @@ void zio_fire_trigger(struct zio_ti *ti)
 {
 	/* If the trigger runs too early, ti->cset is still NULL */
 	if (!ti->cset)
+		return;
+	/* chek if trigger is disabled */
+	if (unlikely((ti->flags & ZIO_STATUS) == ZIO_DISABLED))
 		return;
 	/* check if previouvs fire is still running*/
 	if ((ti->flags & ZTI_STATUS) == ZTI_STATUS_ON)
@@ -435,6 +439,39 @@ static struct zio_attribute_set *__get_zattr_set(struct zio_obj_head *head)
 	}
 	return zattr_set;
 }
+/* Retrieve flag from an object head */
+static unsigned long *__get_flag(struct zio_obj_head *head)
+{
+	unsigned long *flags;
+
+	switch (head->zobj_type) {
+	case ZDEV:
+		flags = &to_zio_dev(&head->kobj)->flags;
+		break;
+	case ZCSET:
+		flags = &to_zio_cset(&head->kobj)->flags;
+		break;
+	case ZCHAN:
+		flags = &to_zio_chan(&head->kobj)->flags;
+		break;
+	case ZTRIG:
+		flags = &to_zio_chan(&head->kobj)->flags;
+		break;
+	case ZBUF:
+		flags = &to_zio_chan(&head->kobj)->flags;
+		break;
+	case ZTI:
+		flags = &to_zio_ti(&head->kobj)->flags;
+		break;
+	case ZBI:
+		flags = &to_zio_bi(&head->kobj)->flags;
+		break;
+	default:
+		WARN(1, "ZIO: unknown zio object %i\n", head->zobj_type);
+		return NULL;
+	}
+	return flags;
+}
 
 static int zio_change_current_trigger(struct zio_cset *cset, char *name)
 {
@@ -630,7 +667,10 @@ static ssize_t zattr_show(struct kobject *kobj, struct attribute *attr,
 	/* print current buffer name */
 	if (unlikely(strcmp(attr->name, CSET_SYSFS_BUFFER) == 0))
 		return sprintf(buf, "%s\n", to_zio_cset(kobj)->zbuf->head.name);
-
+	/* print current enable status */
+	if (unlikely(strcmp(attr->name, ZOBJ_SYSFS_ENABLE) == 0))
+		return sprintf(buf, "%d\n",
+			  !((*__get_flag(to_zio_head(kobj))) & ZIO_DISABLED));
 
 	if (zattr->s_op->info_get) {
 		lock = __get_spinlock(to_zio_head(kobj));
@@ -643,6 +683,91 @@ static ssize_t zattr_show(struct kobject *kobj, struct attribute *attr,
 	len = sprintf(buf, "%i\n", zattr->value);
 	return len;
 }
+
+/* enable/disable a zio object*/
+static void __zobj_enable(struct kobject *kobj, unsigned int enable,
+			  unsigned int need_lock)
+{
+	unsigned long *flags;
+	int i, status;
+	struct zio_obj_head *head;
+	struct zio_device *zdev;
+	struct zio_cset *cset;
+	struct zio_ti *ti;
+	spinlock_t *lock;
+
+	pr_debug("%s\n", __func__);
+	head = to_zio_head(kobj);
+
+	/* lock object if needed */
+	lock = __get_spinlock(head);
+	if (need_lock)
+		spin_lock(lock);
+
+	flags = __get_flag(to_zio_head(kobj));
+	status = !((*flags) & ZIO_STATUS);
+	/* if the status is not changing */
+	if (!(enable ^ status)) {
+		goto out;
+	}
+	/* change status */
+	*flags = (*flags | ZIO_STATUS) & status;
+	switch (head->zobj_type) {
+	case ZDEV:
+		pr_debug("%s: zdev\n", __func__);
+
+		zdev = to_zio_dev(kobj);
+		/* enable/disable all cset */
+		for (i = 0; i < zdev->n_cset; ++i) {
+			__zobj_enable(&zdev->cset[i].head.kobj, enable, 0);
+		}
+		/* device callback */
+		break;
+	case ZCSET:
+		pr_debug("%s: zcset\n", __func__);
+
+		cset = to_zio_cset(kobj);
+		/* enable/disable trigger instance */
+		__zobj_enable(&cset->ti->head.kobj, enable, 1);
+		/* enable/disable all channel*/
+		for (i = 0; i < cset->n_chan; ++i) {
+			__zobj_enable(&cset->chan[i].head.kobj, enable, 0);
+		}
+		/* cset callback */
+		break;
+	case ZCHAN:
+		pr_debug("%s: zchan\n", __func__);
+		/* channel callback */
+		break;
+	case ZTI:
+		pr_debug("%s: zti\n", __func__);
+
+		ti = to_zio_ti(kobj);
+		/* if trigger is running, abort it*/
+		if ((*flags & ZTI_STATUS) == ZTI_STATUS_ON)
+			if(ti->t_op->abort)
+				ti->t_op->abort(ti->cset);
+		/* trigger instance callback */
+		if (ti->t_op->change_status) {
+			pr_debug("%s:%d\n", __func__, __LINE__);
+			ti->t_op->change_status(ti, status);
+		}
+		break;
+	/* following objects can't be enabled/disabled */
+	case ZBUF:
+	case ZTRIG:
+	case ZBI:
+		pr_debug("%s: others\n", __func__);
+		/* buffer instance callback */
+		break;
+	default:
+		WARN(1, "ZIO: unknown zio object %i\n", head->zobj_type);
+	}
+out:
+	if (need_lock)
+		spin_unlock(lock);
+}
+
 static ssize_t zattr_store(struct kobject *kobj, struct attribute *attr,
 				const char *buf, size_t size)
 {
@@ -668,9 +793,19 @@ static ssize_t zattr_store(struct kobject *kobj, struct attribute *attr,
 		err = zio_change_current_buffer(to_zio_cset(kobj), buf_tmp);
 		return err == 0 ? size : err;
 	}
+
 	err = strict_strtol(buf, 0, &val);
 	if (err)
 		return -EINVAL;
+
+	/* change enable status */
+	if (unlikely(strcmp(attr->name, ZOBJ_SYSFS_ENABLE) == 0 &&
+	    (val == 0 || val == 1))) {
+		__zobj_enable(kobj, val, 1);
+		return size;
+	}
+
+	/* device attributes */
 	if (zattr->s_op->conf_set) {
 		lock = __get_spinlock(to_zio_head(kobj));
 		spin_lock(lock);
@@ -695,6 +830,11 @@ static struct attribute default_cset_attrs[] = {
 			.name = ZOBJ_SYSFS_NAME,
 			.mode = 0444, /* read only */
 		},
+		{
+			/* enable/disable object */
+			.name = ZOBJ_SYSFS_ENABLE,
+			.mode = 0666, /* read write */
+		},
 		{	/* get/set trigger */
 			.name = CSET_SYSFS_TRIGGER,
 			.mode = 0666, /* read write */
@@ -708,6 +848,7 @@ static struct attribute *def_cset_attr_ptr[] = {
 	&default_cset_attrs[0],
 	&default_cset_attrs[1],
 	&default_cset_attrs[2],
+	&default_cset_attrs[3],
 	NULL,
 };
 static struct kobj_type zdkctype = { /* only for cset */
@@ -720,9 +861,14 @@ static struct attribute default_attrs[] = {
 			.name = ZOBJ_SYSFS_NAME,
 			.mode = 0444, /* read only */
 		},
+		{	/* enable/disable object */
+			.name = ZOBJ_SYSFS_ENABLE,
+			.mode = 0666, /* read write */
+		},
 };
 static struct attribute *def_attr_ptr[] = {
 	&default_attrs[0],
+	&default_attrs[1],
 	NULL,
 };
 

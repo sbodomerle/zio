@@ -112,14 +112,18 @@ static int ztt_config(struct zio_ti *ti, struct zio_control *ctrl)
 	pr_debug("%s:%d\n", __func__, __LINE__);
 	return 0;
 }
-
+static void ztt_start_timer(struct ztt_instance *ztt_instance, uint32_t ms)
+{
+	ztt_instance->next_run = jiffies + HZ;
+	ztt_instance->period = msecs_to_jiffies(ms);
+	mod_timer(&ztt_instance->timer, ztt_instance->next_run);
+}
 static struct zio_ti *ztt_create(struct zio_trigger_type *trig,
 				 struct zio_cset *cset,
 				 struct zio_control *ctrl, fmode_t flags)
 {
 	struct ztt_instance *ztt_instance;
 	struct zio_ti *ti;
-	uint32_t ms;
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
 
@@ -135,12 +139,7 @@ static struct zio_ti *ztt_create(struct zio_trigger_type *trig,
 	/* Fill own fields */
 	setup_timer(&ztt_instance->timer, ztt_fn,
 		    (unsigned long)(&ztt_instance->ti));
-	ztt_instance->next_run = jiffies + HZ;
-	ms = ztt_ext_attr[0].value;
-	ztt_instance->period = msecs_to_jiffies(ms); /* module param */
-
-	/* Start the timer (dangerous: ti is not filled) */
-	mod_timer(&ztt_instance->timer, ztt_instance->next_run);
+	ztt_start_timer(ztt_instance, ztt_ext_attr[0].value);
 
 	return ti;
 }
@@ -155,6 +154,20 @@ static void ztt_destroy(struct zio_ti *ti)
 	kfree(ti);
 }
 
+static void ztt_change_status(struct zio_ti *ti, unsigned int status)
+{
+	struct ztt_instance *ztt_instance;
+
+	pr_debug("%s:%d status=%d\n", __func__, __LINE__, status);
+	ztt_instance = to_ztt_instance(ti);
+
+	if (!status) {	/* enable */
+		ztt_start_timer(ztt_instance, ztt_instance->period);
+	} else {	/* disable */
+		/* FIXME kernel/timer.c don't use this is lock*/
+		del_timer_sync(&ztt_instance->timer);
+	}
+}
 static const struct zio_trigger_operations ztt_trigger_ops = {
 	.push_block = ztt_push_block,
 	.pull_block = NULL,
@@ -162,6 +175,7 @@ static const struct zio_trigger_operations ztt_trigger_ops = {
 	.config = ztt_config,
 	.create = ztt_create,
 	.destroy = ztt_destroy,
+	.change_status = ztt_change_status,
 };
 
 static struct zio_trigger_type ztt_trigger = {

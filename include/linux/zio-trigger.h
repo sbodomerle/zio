@@ -84,6 +84,8 @@ void zio_fire_trigger(struct zio_ti *ti);
  * the conf_set callback runs and the instance is notified) or by writing
  * a whole control to the control device. In this case the config method
  * is called by the write method.
+ *
+ * FIXME describe well abort and change_status
  */
 struct zio_trigger_operations {
 	int			(*push_block)(struct zio_ti *ti,
@@ -102,6 +104,9 @@ struct zio_trigger_operations {
 					  struct zio_control *ctrl,
 					  fmode_t flags);
 	void			(*destroy)(struct zio_ti *ti);
+	void			(*change_status)(struct zio_ti *ti,
+						 unsigned int status);
+	void			(*abort)(struct zio_cset *cset);
 };
 
 void zio_generic_data_done(struct zio_cset *cest);

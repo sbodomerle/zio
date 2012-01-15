@@ -68,7 +68,9 @@ static inline enum zio_object_type __zio_get_object_type(struct kobject *kobj)
 
 /* Bits 0..3 are reserved for use in all objects. By now only bit 1 is used */
 enum zobj_flags {
-	ZIO_DISABLED		= 0x1,	/* 0 (default) is enabled */
+	ZIO_STATUS		= 0x1,	/* 0 (default) is enabled */
+	ZIO_ENABLED		= 0x0,
+	ZIO_DISABLED		= 0x1,
 	ZIO_DIR			= 0x2,	/* 0 is input  - 1 is output*/
 	ZIO_DIR_INPUT		= 0x0,
 	ZIO_DIR_OUTPUT		= 0x2,
