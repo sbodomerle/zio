@@ -26,7 +26,7 @@ struct zio_trigger_type {
 	struct zio_device	*zdev_owner;
 	unsigned int		n_zdev_owner;
 };
-#define to_zio_trig(_kobj) container_of(_kobj, struct zio_trigger, head.kobj)
+#define to_zio_trig(ptr) container_of(ptr, struct zio_trigger_type, head.kobj)
 
 int __must_check zio_register_trig(struct zio_trigger_type *ztrig,
 				   const char *name);

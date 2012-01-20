@@ -395,10 +395,10 @@ static struct zio_attribute_set *__get_zattr_set(struct zio_obj_head *head)
 		zattr_set = &to_zio_chan(&head->kobj)->zattr_set;
 		break;
 	case ZTRIG:
-		zattr_set = &to_zio_chan(&head->kobj)->zattr_set;
+		zattr_set = &to_zio_trig(&head->kobj)->zattr_set;
 		break;
 	case ZBUF:
-		zattr_set = &to_zio_chan(&head->kobj)->zattr_set;
+		zattr_set = &to_zio_buf(&head->kobj)->zattr_set;
 		break;
 	case ZTI:
 		zattr_set = &to_zio_ti(&head->kobj)->zattr_set;

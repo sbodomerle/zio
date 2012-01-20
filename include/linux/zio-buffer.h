@@ -138,7 +138,7 @@ struct zio_buffer_type {
 	struct zio_device	*zdev_owner;
 	unsigned int		n_zdev_owner;
 };
-#define to_zio_buf(obj) container_of(obj, struct zio_buffer, head.kobj)
+#define to_zio_buf(ptr) container_of(ptr, struct zio_buffer_type, head.kobj)
 
 /* read and write may often be the generic ones */
 ssize_t zio_generic_read(struct file *, char __user *,
