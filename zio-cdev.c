@@ -30,6 +30,16 @@ static struct class_attribute zclass_attrs[] = {
 	__ATTR_NULL,
 };
 
+
+static int zio_dev_uevent(struct device *dev, struct kobj_uevent_env *env)
+{
+	unsigned long *flags ;
+
+	flags = dev_get_drvdata(dev);
+	add_uevent_var(env, "DEVMODE=%#o", (*flags & ZIO_DIR ? 0220 : 0440));
+
+	return 0;
+}
 static char *zio_devnode(struct device *dev, mode_t *mode)
 {
 	return kasprintf(GFP_KERNEL, "zio/%s", dev_name(dev));
@@ -41,9 +51,10 @@ static char *zio_devnode(struct device *dev, mode_t *mode)
  * reproduction of what class_create does but with some additional settings.
  */
 static struct class zio_class = {
-	.name		= "zio",
+	.name		= "zio-char-devices",
 	.owner		= THIS_MODULE,
 	.class_attrs	= zclass_attrs,
+	.dev_uevent	= zio_dev_uevent,
 	.devnode	= zio_devnode,
 };
 
@@ -193,7 +204,7 @@ int zio_create_chan_devices(struct zio_channel *chan)
 
 	devt_c = chan->cset->basedev + chan->index * 2;
 	pr_debug("%s:%d dev_t=0x%x\n", __func__, __LINE__, devt_c);
-	chan->ctrl_dev = device_create(&zio_class, NULL, devt_c, NULL,
+	chan->ctrl_dev = device_create(&zio_class, NULL, devt_c, &chan->flags,
 			"%s-%i-%i-ctrl",
 			chan->cset->zdev->head.name,
 			chan->cset->index,
@@ -205,7 +216,7 @@ int zio_create_chan_devices(struct zio_channel *chan)
 
 	devt_d = devt_c + 1;
 	pr_debug("%s:%d dev_t=0x%x\n", __func__, __LINE__, devt_d);
-	chan->data_dev = device_create(&zio_class, NULL, devt_d, NULL,
+	chan->data_dev = device_create(&zio_class, NULL, devt_d, &chan->flags,
 			"%s-%i-%i-data",
 			chan->cset->zdev->head.name,
 			chan->cset->index,
