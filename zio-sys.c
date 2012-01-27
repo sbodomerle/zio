@@ -399,10 +399,10 @@ static spinlock_t *__get_spinlock(struct zio_obj_head *head)
 		lock = &to_zio_chan(&head->kobj)->cset->zdev->lock;
 		break;
 	case ZTI: /* we might not want to take a lock but... */
-		lock = &to_zio_ti(&head->kobj)->lock;
+		lock = &to_zio_ti(&head->kobj)->cset->zdev->lock;
 		break;
 	case ZBI:
-		lock = &to_zio_bi(&head->kobj)->lock;
+		lock = &to_zio_bi(&head->kobj)->cset->zdev->lock;
 		break;
 	default:
 		WARN(1, "ZIO: unknown zio object %i\n", head->zobj_type);
