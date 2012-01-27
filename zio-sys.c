@@ -1433,9 +1433,9 @@ static int cset_register(struct zio_cset *cset)
 			goto out_tr;
 		cset->trig = trig;
 	}
-
+	spin_lock(&zstat->lock);
 	list_add(&cset->list_cset, &zstat->list_cset);
-
+	spin_unlock(&zstat->lock);
 	/* Private initialization function */
 	if (cset->init) {
 		err = cset->init(cset);
@@ -1479,7 +1479,9 @@ static void cset_unregister(struct zio_cset *cset)
 		cset->exit(cset);
 
 	/* Remove from csets list*/
+	spin_lock(&zstat->lock);
 	list_del(&cset->list_cset);
+	spin_unlock(&zstat->lock);
 	/* destroy instance and decrement trigger usage */
 	__ti_unregister(cset->trig, cset->ti);
 	__ti_destroy(cset->trig,  cset->ti);
