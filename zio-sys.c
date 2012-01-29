@@ -155,7 +155,9 @@ void zio_generic_data_done(struct zio_cset *cset)
 			zbuf->b_op->free_block(bi, block);
 	}
 out:
-	ti->flags &= (~ZTI_STATUS);
+	spin_lock(&cset->lock);
+	ti->flags &= (~ZTI_BUSY); /* Reset busy, now is idle */
+	spin_unlock(&cset->lock);
 }
 EXPORT_SYMBOL(zio_generic_data_done);
 
@@ -225,13 +227,14 @@ void zio_fire_trigger(struct zio_ti *ti)
 	/* If the trigger runs too early, ti->cset is still NULL */
 	if (!ti->cset)
 		return;
-	/* chek if trigger is disabled */
-	if (unlikely((ti->flags & ZIO_STATUS) == ZIO_DISABLED))
+
+	/* check if trigger is disabled or previous fire is still running */
+	if (unlikely((ti->flags & ZIO_STATUS) == ZIO_DISABLED ||
+			(ti->flags & ZTI_BUSY)))
 		return;
-	/* check if previouvs fire is still running*/
-	if ((ti->flags & ZTI_STATUS) == ZTI_STATUS_ON)
-		return;
-	ti->flags |= ZTI_STATUS_ON;
+	spin_lock(&ti->cset->lock);
+	ti->flags |= ZTI_BUSY;
+	spin_unlock(&ti->cset->lock);
 	/* Copy the stamp (we are software driven anyways) */
 	ti->current_ctrl->tstamp.secs = ti->tstamp.tv_sec;
 	ti->current_ctrl->tstamp.ticks = ti->tstamp.tv_nsec;
@@ -742,7 +745,7 @@ static void __zobj_enable(struct kobject *kobj, unsigned int enable,
 
 		ti = to_zio_ti(kobj);
 		/* if trigger is running, abort it*/
-		if ((*flags & ZTI_STATUS) == ZTI_STATUS_ON)
+		if (*flags & ZTI_BUSY)
 			if(ti->t_op->abort)
 				ti->t_op->abort(ti->cset);
 		/* trigger instance callback */
@@ -1360,7 +1363,7 @@ static int cset_register(struct zio_cset *cset)
 		err = PTR_ERR(cset->chan);
 		goto out_remove_sys;
 	}
-
+	spin_lock_init(&cset->lock);
 	/*
 	 * The cset must have a buffer type. If none is associated
 	 * to the cset, ZIO selects the preferred or default one.

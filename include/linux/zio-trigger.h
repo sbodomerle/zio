@@ -51,9 +51,7 @@ struct zio_ti {
 
 /* first 4bit are reserved for zio object universal flags */
 enum zti_flag_mask {
-	ZTI_STATUS = 0x10,
-	ZTI_STATUS_OFF = 0x00,	/* trigger is idle */
-	ZTI_STATUS_ON = 0x10,	/* trigger fire and transfer occurs */
+	ZTI_BUSY = 0x10,	/* trigger fire and transfer occurs */
 };
 
 #define to_zio_ti(_kobj) container_of(_kobj, struct zio_ti, head.kobj)
