@@ -49,11 +49,14 @@ struct zio_control {
 	/* byte 0 */
 	uint8_t major_version;
 	uint8_t minor_version;
-	uint8_t unused[2];
+	uint8_t more_ctrl;	/* number of further ctrl, for interleaved */
+	uint8_t alarms;		/* set by channel, persistent, write 1 to clr */
+
 	/* byte 4*/
 	uint32_t seq_num;	/* block sequence number */
 	uint32_t flags;		/* endianness etc, see below */
 	uint32_t nsamples;	/* number of samples in this data block */
+
 	/* byte 16 */
 	uint16_t ssize;		/* sample-size for each of them, in bytes */
 	uint16_t sbits;		/* sample-bits: number of valid bits */
@@ -61,25 +64,25 @@ struct zio_control {
 	uint16_t chan_i;	/* index of channel within cset */
 
 	/* byte 24 */
-	/* The control block includes what device the data belong to */
-	char devname[ZIO_NAME_LEN];
+	uint8_t hostid[8];	/* Macaddress or whatever unique */
 
-	/* byte 56 */
-	/* Each data block is associated with a trigger and its features */
-	char triggername[ZIO_NAME_LEN];
-
-	/* byte 88 */
+	/* byte 32 */
 	struct zio_timestamp tstamp;
 
-	/* byte 112 */
-	uint32_t ext_attr_mask;	/* mask of active extended attributes */
-	uint32_t std_attr_mask;	/* mask of active standard attributes */
-	/* byte 120 */
-	uint32_t std_attrs[32];	/* value of each standard attribute */
-	uint32_t ext_attrs[32];	/* value of each extended attribute */
+	/* byte 56 */
+	/* The control block includes what device the data belongs to */
+	char devname[ZIO_OBJ_NAME_LEN];
 
-	/* This filler must be updated if you change fields above */
-	uint8_t __fill_end[ZIO_CONTROL_SIZE - 120 - 4 * (32 + 32)];
+	/* byte 68 */
+	/* Each data block is associated with a trigger and its features */
+	char triggername[ZIO_OBJ_NAME_LEN];
+
+	/* byte 80 */
+	struct zio_ctrl_attr attr_channel;
+	struct zio_ctrl_attr attr_trigger;
+
+	/* byte 480 */
+	uint8_t __fill_end[ZIO_CONTROL_SIZE - 480];
 };
 
 /* The following flags are used in the control structure */
