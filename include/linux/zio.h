@@ -26,7 +26,7 @@
 #define ZIO_CHAN_MAXNUM 16
 
 #define ZIO_NMAX_CSET_MINORS (ZIO_CHAN_MAXNUM * 2)
-#define ZIO_NAME_OBJ 12 /* name for registered object */
+#define ZIO_OBJ_NAME_LEN 12 /* name for registered object */
 
 /* Name the data structures */
 struct zio_device; /* both type (a.k.a. driver) and instance (a.k.a. device) */
@@ -133,8 +133,8 @@ struct zio_cset {
 
 	struct list_head	list_cset;	/* for cset global list */
 	dev_t			basedev;	/* base for the minors */
-	char			zbuf_name[ZIO_NAME_OBJ];
-	char			trig_name[ZIO_NAME_OBJ];
+	char			zbuf_name[ZIO_OBJ_NAME_LEN];
+	char			trig_name[ZIO_OBJ_NAME_LEN];
 
 	struct zio_attribute	*cset_attrs;
 };
@@ -220,7 +220,7 @@ struct zio_object_list {
 };
 struct zio_object_list_item {
 	struct list_head	list;
-	char			name[ZIO_NAME_OBJ]; /* object name copy*/
+	char			name[ZIO_OBJ_NAME_LEN]; /* object name copy*/
 	struct module		*owner;
 	struct zio_obj_head	*obj_head;
 };

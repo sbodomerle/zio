@@ -482,7 +482,7 @@ static int zio_change_current_trigger(struct zio_cset *cset, char *name)
 	/* FIXME I can change the trigger? check it! */
 	/* FIXME get all necessary spinlock */
 	pr_debug("%s\n", __func__);
-	if (strlen(name) > ZIO_NAME_OBJ)
+	if (strlen(name) > ZIO_OBJ_NAME_LEN)
 		return -EINVAL; /* name too long */
 	if (unlikely(strcmp(name, trig_old->head.name) == 0))
 		return 0; /* is the current trigger */
@@ -531,7 +531,7 @@ static int zio_change_current_buffer(struct zio_cset *cset, char *name)
 
 	/* FIXME I can change the buffer? check it! */
 	pr_debug("%s\n", __func__);
-	if (strlen(name) > ZIO_NAME_OBJ)
+	if (strlen(name) > ZIO_OBJ_NAME_LEN)
 		return -EINVAL; /* name too long */
 	if (unlikely(strcmp(name, cset->zbuf->head.name) == 0))
 		return 0; /* is the current buffer */
@@ -773,13 +773,13 @@ static ssize_t zattr_store(struct kobject *kobj, struct attribute *attr,
 {
 	long val;
 	int err = 0;
-	char buf_tmp[ZIO_NAME_OBJ];
+	char buf_tmp[ZIO_OBJ_NAME_LEN];
 	struct zio_attribute *zattr = to_zio_zattr(attr);
 	spinlock_t *lock;
 
 	pr_debug("%s\n", __func__);
 	if (unlikely(strcmp(attr->name, CSET_SYSFS_TRIGGER) == 0)) {
-		if (strlen(buf) > ZIO_NAME_OBJ+1)
+		if (strlen(buf) > ZIO_OBJ_NAME_LEN + 1)
 			return -EINVAL; /* name too long */
 		sscanf(buf, "%s\n", buf_tmp);
 		err = zio_change_current_trigger(to_zio_cset(kobj), buf_tmp);
@@ -787,7 +787,7 @@ static ssize_t zattr_store(struct kobject *kobj, struct attribute *attr,
 	}
 	/* change current buffer */
 	if (unlikely(strcmp(attr->name, CSET_SYSFS_BUFFER) == 0)) {
-		if (strlen(buf) > ZIO_NAME_OBJ+1)
+		if (strlen(buf) > ZIO_OBJ_NAME_LEN + 1)
 			return -EINVAL; /* name too long */
 		sscanf(buf, "%s\n", buf_tmp);
 		err = zio_change_current_buffer(to_zio_cset(kobj), buf_tmp);
@@ -1513,10 +1513,10 @@ static int zobj_register(struct zio_object_list *zlist,
 	struct zio_object_list_item *item;
 
 	head->zobj_type = type;
-	if (strlen(name) > ZIO_NAME_OBJ)
+	if (strlen(name) > ZIO_OBJ_NAME_LEN)
 		pr_warning("ZIO: name too long, cut to %d characters\n",
-			   ZIO_NAME_OBJ);
-	strncpy(head->name, name, ZIO_NAME_OBJ);
+			   ZIO_OBJ_NAME_LEN);
+	strncpy(head->name, name, ZIO_OBJ_NAME_LEN);
 
 	/* Name must be unique */
 	err = zobj_unique_name(zlist, head->name);
@@ -1535,7 +1535,7 @@ static int zobj_register(struct zio_object_list *zlist,
 	}
 	item->obj_head = head;
 	item->owner = owner;
-	strncpy(item->name, head->name, ZIO_NAME_OBJ);
+	strncpy(item->name, head->name, ZIO_OBJ_NAME_LEN);
 	/* add to the object list*/
 	spin_lock(&zstat->lock);
 	list_add(&item->list, &zlist->list);
