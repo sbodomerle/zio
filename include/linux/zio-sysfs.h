@@ -7,6 +7,7 @@
 #include <linux/types.h>
 
 #include <linux/zio.h>
+#include <linux/zio-user.h>
 
 /*
  * zio_attribute: the attribute to access device parameters.
@@ -66,14 +67,6 @@ struct zio_attribute_set {
 	struct zio_attribute	*ext_zattr;
 	unsigned int		n_ext_attr;
 	struct attribute_group	group;
-};
-
-struct zio_ctrl_attr {
-	uint16_t std_mask;
-	uint16_t unused;
-	uint32_t ext_mask;
-	uint32_t std_val[16];
-	uint32_t ext_val[32];
 };
 
 enum zattr_standard_zdev {

@@ -7,9 +7,11 @@
 #define ZIO_MAJOR_VERSION 0
 #define ZIO_MINOR_VERSION 2
 
-#define ZIO_NAME_LEN 32 /* full name */
+#define ZIO_OBJ_NAME_LEN 12 /* name for registered object and ctrl struct */
 
 #ifdef __KERNEL__ /* Nothing more is for user space */
+
+#define ZIO_NAME_LEN 32 /* full name */
 
 #include <linux/kobject.h>
 #include <linux/sysfs.h>
@@ -26,7 +28,6 @@
 #define ZIO_CHAN_MAXNUM 16
 
 #define ZIO_NMAX_CSET_MINORS (ZIO_CHAN_MAXNUM * 2)
-#define ZIO_OBJ_NAME_LEN 12 /* name for registered object */
 
 /* Name the data structures */
 struct zio_device; /* both type (a.k.a. driver) and instance (a.k.a. device) */

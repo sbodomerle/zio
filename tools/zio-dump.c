@@ -13,7 +13,7 @@
 #include <sys/select.h>
 
 #include <linux/zio.h>
-#include <linux/zio-buffer.h>
+#include <linux/zio-user.h>
 
 unsigned char buf[1024*1024];
 char *prgname;
