@@ -243,19 +243,6 @@ static const struct zio_buffer_operations zbk_buffer_ops = {
 	.destroy =	zbk_destroy,
 };
 
-/*
- * File operations. We only have read and write: mmap is definitely
- * not suitable here, and open/release are not needed.
- */
-
-static const struct file_operations zbk_file_ops = {
-	.owner =	THIS_MODULE,
-	.read =		zio_generic_read,
-	.write =	zio_generic_write,
-	.poll =		zio_generic_poll,
-	.release =	zio_generic_release,
-};
-
 static struct zio_buffer_type zbk_buffer = {
 	.owner =	THIS_MODULE,
 	.zattr_set = {
@@ -263,7 +250,7 @@ static struct zio_buffer_type zbk_buffer = {
 	},
 	.s_op = &zbk_sysfs_ops,
 	.b_op = &zbk_buffer_ops,
-	.f_op = &zbk_file_ops,
+	.f_op = &zio_generic_file_operations,
 };
 
 static int __init zbk_init(void)

@@ -26,26 +26,27 @@ struct zio_buffer_type {
 	struct module		*owner;
 	struct list_head	list; /* instances, and list lock */
 	struct spinlock		lock;
-	unsigned long		flags; /* to be defined */
+	unsigned long		flags;
 
-	/* file operations (read/write etc) are buffer-specific too */
 	const struct zio_sysfs_operations	*s_op;
 	const struct zio_buffer_operations	*b_op;
+	/*
+	 * file operations (read/write etc) are buffer-specific too, but
+	 * you are strongly suggested to use zio_generic_file_operations. 
+	 * If the field is NULL, you'll get ENODEV when opening the cdev.
+	 */
 	const struct file_operations		*f_op;
+	const struct vm_operations		*v_op;
 
 	/* default attributes for instance */
 	struct zio_attribute_set		zattr_set;
 };
 #define to_zio_buf(ptr) container_of(ptr, struct zio_buffer_type, head.kobj)
 
-/* read and write may often be the generic ones */
-ssize_t zio_generic_read(struct file *, char __user *,
-			 size_t, loff_t *);
-ssize_t zio_generic_write(struct file *, const char __user *,
-			  size_t, loff_t *);
-unsigned int zio_generic_poll(struct file *, struct poll_table_struct *);
-int zio_generic_release(struct inode *inode, struct file *f);
+/* buffer_type->flags */
+#define ZIO_BFLAG_ALLOC_FOPS	0x00000001 /* set by zio-core */
 
+extern const struct file_operations zio_generic_file_operations;
 
 int __must_check zio_register_buf(struct zio_buffer_type *zbuf,
 				  const char *name);
@@ -140,11 +141,5 @@ struct zio_f_priv {
 	struct zio_channel *chan; /* where current block and buffer live */
 	enum zio_cdev_type type;
 };
-
-ssize_t zio_generic_read(struct file *f, char __user *ubuf,
-			 size_t count, loff_t *offp);
-ssize_t zio_generic_write(struct file *f, const char __user *ubuf,
-			  size_t count, loff_t *offp);
-unsigned int zio_generic_poll(struct file *f, struct poll_table_struct *w);
 
 #endif /* __ZIO_BUFFER_H__ */

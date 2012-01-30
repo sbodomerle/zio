@@ -1671,10 +1671,16 @@ int zio_register_buf(struct zio_buffer_type *zbuf, const char *name)
 	if (!zbuf || !name)
 		return -EINVAL;
 
+	err = zio_init_buffer_fops(zbuf);
+	if (err < 0)
+		return err;
+
 	err = zobj_register(&zstat->all_buffer_types, &zbuf->head,
 			    ZBUF, zbuf->owner, name);
-	if (err)
+	if (err) {
+		zio_fini_buffer_fops(zbuf);
 		return err;
+	}
 	zbuf->zattr_set.n_std_attr = ZATTR_STD_NUM_ZBUF;
 	INIT_LIST_HEAD(&zbuf->list);
 	spin_lock_init(&zbuf->lock);
@@ -1687,6 +1693,7 @@ void zio_unregister_buf(struct zio_buffer_type *zbuf)
 {
 	if (!zbuf)
 		return;
+	zio_fini_buffer_fops(zbuf);
 	zobj_unregister(&zstat->all_buffer_types, &zbuf->head);
 }
 EXPORT_SYMBOL(zio_unregister_buf);

@@ -266,6 +266,9 @@ void zio_default_buffer_exit(void);
 int zio_default_trigger_init(void);
 void zio_default_trigger_exit(void);
 
+int zio_init_buffer_fops(struct zio_buffer_type *zbuf);
+int zio_fini_buffer_fops(struct zio_buffer_type *zbuf);
+
 #endif /* __ZIO_INTERNAL__ */
 
 #endif /* __KERNEL__ */

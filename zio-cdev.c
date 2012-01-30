@@ -125,9 +125,15 @@ static int zio_f_open(struct inode *ino, struct file *f)
 	chan = __zio_minor_to_chan(ino->i_rdev);
 	if (!chan) {
 		pr_err("ZIO: can't retrieve channel for minor %i\n", minor);
+		zio_device_put(ino->i_rdev);
 		return -EBUSY;
 	}
 	zbuf = chan->cset->zbuf;
+	if (!zbuf->f_op) {
+		zio_device_put(ino->i_rdev);
+		return -ENODEV;
+	}
+
 	f->private_data = NULL;
 	priv = kzalloc(sizeof(struct zio_f_priv), GFP_KERNEL);
 	if (!priv)
@@ -370,7 +376,7 @@ static int __zio_write_allowed(struct zio_f_priv *priv)
  * work for most buffer types, and are exported for use in their
  * buffer operations.
  */
-ssize_t zio_generic_read(struct file *f, char __user *ubuf,
+static ssize_t zio_generic_read(struct file *f, char __user *ubuf,
 			 size_t count, loff_t *offp)
 {
 	struct zio_f_priv *priv = f->private_data;
@@ -418,9 +424,8 @@ ssize_t zio_generic_read(struct file *f, char __user *ubuf,
 	}
 	return count;
 }
-EXPORT_SYMBOL(zio_generic_read);
 
-ssize_t zio_generic_write(struct file *f, const char __user *ubuf,
+static ssize_t zio_generic_write(struct file *f, const char __user *ubuf,
 			  size_t count, loff_t *offp)
 {
 	struct zio_f_priv *priv = f->private_data;
@@ -475,9 +480,9 @@ ssize_t zio_generic_write(struct file *f, const char __user *ubuf,
 	*offp += count;
 	return count;
 }
-EXPORT_SYMBOL(zio_generic_write);
 
-unsigned int zio_generic_poll(struct file *f, struct poll_table_struct *w)
+static unsigned int zio_generic_poll(struct file *f,
+				     struct poll_table_struct *w)
 {
 	struct zio_f_priv *priv = f->private_data;
 	struct zio_bi *bi = priv->chan->bi;
@@ -485,9 +490,8 @@ unsigned int zio_generic_poll(struct file *f, struct poll_table_struct *w)
 	poll_wait(f, &bi->q, w);
 	return __zio_read_allowed(priv) | __zio_write_allowed(priv);
 }
-EXPORT_SYMBOL(zio_generic_poll);
 
-int zio_generic_release(struct inode *inode, struct file *f)
+static int zio_generic_release(struct inode *inode, struct file *f)
 {
 	struct zio_f_priv *priv = f->private_data;
 
@@ -496,5 +500,45 @@ int zio_generic_release(struct inode *inode, struct file *f)
 	zio_device_put(inode->i_rdev);
 	return 0;
 }
-EXPORT_SYMBOL(zio_generic_release);
 
+const struct file_operations zio_generic_file_operations = {
+	/* no owner: this template is copied over */
+	.read =		zio_generic_read,
+	.write =	zio_generic_write,
+	.poll =		zio_generic_poll,
+	.release =	zio_generic_release,
+};
+/* Export, so buffers can use it or internal function */
+EXPORT_SYMBOL(zio_generic_file_operations);
+
+/* Currently, this is a "all or nothing" choice */
+int zio_init_buffer_fops(struct zio_buffer_type *zbuf)
+{
+	struct file_operations *ops;
+
+	/* Current fops may be NULL (buffer for in-kernel data handling */
+	if (!zbuf->f_op)
+		return 0;
+	if (zbuf->f_op != &zio_generic_file_operations)
+		return 0;
+
+	/* If it's the generic ones, we must clone to fit the owner field */
+	ops = kzalloc(sizeof(*ops), GFP_KERNEL);
+	if (!ops)
+		return -ENOMEM;
+	zbuf->flags |= ZIO_BFLAG_ALLOC_FOPS;
+	*ops = zio_generic_file_operations;
+	ops->owner = zbuf->owner;
+	zbuf->f_op = ops;
+	return 0;
+}
+
+int zio_fini_buffer_fops(struct zio_buffer_type *zbuf)
+{
+	if (!(zbuf->flags & ZIO_BFLAG_ALLOC_FOPS))
+		return 0;
+	zbuf->flags &= ~ZIO_BFLAG_ALLOC_FOPS;
+	kfree(zbuf->f_op);
+	zbuf->f_op = &zio_generic_file_operations;
+	return 0;
+}
