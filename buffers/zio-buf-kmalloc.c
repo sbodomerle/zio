@@ -263,18 +263,17 @@ static struct zio_buffer_type zbk_buffer = {
 	.f_op = &zbk_file_ops,
 };
 
-static int zbk_init(void)
+static int __init zbk_init(void)
 {
 	return zio_register_buf(&zbk_buffer, "kmalloc");
 }
 
-static void zbk_exit(void)
+static void __exit zbk_exit(void)
 {
 	zio_unregister_buf(&zbk_buffer);
 	/* FIXME REMOVE all instances left */
 }
 
-module_init(zbk_init);
-module_exit(zbk_exit);
-MODULE_AUTHOR("Alessandro Rubini");
-MODULE_LICENSE("GPL");
+/* This is the default buffer, and is part of zio-core: no module init/exit */
+int __init  __attribute__((alias("zbk_init"))) zio_default_buffer_init(void);
+void __exit __attribute__((alias("zbk_exit"))) zio_default_buffer_exit(void);

@@ -1762,6 +1762,12 @@ static int __init zio_init(void)
 			"triggers");
 	zlist_register(&zstat->all_buffer_types, zstat->kobj, ZBUF,
 			"buffers");
+	err = zio_default_buffer_init();
+	if (err)
+		pr_warn("%s: cannot register default buffer\n", __func__);
+	err = zio_default_trigger_init();
+	if (err)
+		pr_warn("%s: cannot register default trigger\n", __func__);
 	pr_info("zio-core had been loaded\n");
 	return 0;
 
@@ -1773,6 +1779,8 @@ out_cdev:
 
 static void __exit zio_exit(void)
 {
+	zio_default_trigger_exit();
+	zio_default_buffer_exit();
 	/* Remove the three object lists*/
 	zlist_unregister(&zstat->all_devices);
 	zlist_unregister(&zstat->all_buffer_types);
@@ -1792,6 +1800,7 @@ static void __exit zio_exit(void)
 subsys_initcall(zio_init);
 module_exit(zio_exit);
 
-MODULE_AUTHOR("Federico Vaga <federico.vaga@gmail.com>");
+MODULE_AUTHOR("Federico Vaga and Alessandro Rubini");
+/* Federico wrote the core, Alessandro wrote default trigger and buffer */
 MODULE_DESCRIPTION("ZIO - ZIO Input Output");
 MODULE_LICENSE("GPL");

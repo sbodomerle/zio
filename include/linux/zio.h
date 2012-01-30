@@ -260,7 +260,13 @@ void __zio_unregister_cdev(void);
 
 int zio_create_chan_devices(struct zio_channel *zchan);
 void zio_destroy_chan_devices(struct zio_channel *zchan);
-#endif /* INTERNAL */
+
+int zio_default_buffer_init(void);
+void zio_default_buffer_exit(void);
+int zio_default_trigger_init(void);
+void zio_default_trigger_exit(void);
+
+#endif /* __ZIO_INTERNAL__ */
 
 #endif /* __KERNEL__ */
 #endif /* __ZIO_H__ */

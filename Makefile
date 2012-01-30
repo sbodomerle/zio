@@ -1,6 +1,8 @@
 LINUX ?= /lib/modules/$(shell uname -r)/build
 
 zio-core-objs := zio-cdev.o zio-sys.o
+zio-core-objs += buffers/zio-buf-kmalloc.o triggers/zio-trig-user.o
+
 obj-m = zio-core.o
 obj-m += drivers/
 obj-m += buffers/

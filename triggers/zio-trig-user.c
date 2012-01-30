@@ -123,7 +123,7 @@ static void __exit ztu_exit(void)
 	zio_unregister_trig(&ztu_trigger);
 }
 
-module_init(ztu_init);
-module_exit(ztu_exit);
-MODULE_AUTHOR("Alessandro Rubini");
-MODULE_LICENSE("GPL");
+
+/* This is the default trigger, and is part of zio-core: no module init/exit */
+int __init  __attribute__((alias("ztu_init"))) zio_default_trigger_init(void);
+void __exit __attribute__((alias("ztu_exit"))) zio_default_trigger_exit(void);
