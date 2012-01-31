@@ -84,6 +84,7 @@ enum zattr_standard_trig {
 };
 enum zattr_standard_zbuf {
 	ZATTR_ZBUF_MAXLEN = 0,	/* max number of element in buffer */
+	ZATTR_ZBUF_MAXKB,	/* max number of kB in buffer */
 	ZATTR_STD_NUM_ZBUF,	/* used to size arrays */
 };
 
