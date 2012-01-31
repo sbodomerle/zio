@@ -479,7 +479,6 @@ static int zio_change_current_trigger(struct zio_cset *cset, char *name)
 	struct zio_ti *ti, *ti_old = cset->ti;
 	int err;
 
-	/* FIXME I can change the trigger? check it! */
 	/* FIXME get all necessary spinlock */
 	pr_debug("%s\n", __func__);
 	if (strlen(name) > ZIO_OBJ_NAME_LEN)
@@ -529,7 +528,6 @@ static int zio_change_current_buffer(struct zio_cset *cset, char *name)
 	struct zio_bi **bi_vector;
 	int i, j, err;
 
-	/* FIXME I can change the buffer? check it! */
 	pr_debug("%s\n", __func__);
 	if (strlen(name) > ZIO_OBJ_NAME_LEN)
 		return -EINVAL; /* name too long */
@@ -1057,7 +1055,7 @@ static int __bi_register(struct zio_buffer_type *zbuf,
 	spin_unlock(&zbuf->lock);
 	bi->cset = chan->cset;
 	chan->bi = bi;
-	/* Done. This cset->bi marks everything is running (FIXME?) */
+	/* Done. This chan->bi marks everything is running (FIXME: audit) */
 	mb();
 	bi->chan = chan;
 
@@ -1154,7 +1152,7 @@ static int __ti_register(struct zio_trigger_type *trig, struct zio_cset *cset,
 	list_add(&ti->list, &trig->list);
 	spin_unlock(&trig->lock);
 	cset->ti = ti;
-	/* Done. This cset->ti marks everything is running (FIXME?) */
+	/* Done. This cset->ti marks everything is running (FIXME: audit) */
 	mb();
 	ti->cset = cset;
 

@@ -90,12 +90,8 @@ static inline void zio_device_put(dev_t devt)
 {
 	struct zio_channel *chan;
 
-	/*
-	 * FIXME there is a little concurrency; to resolve this, get the owner
-	 * from device list by searching by minor
-	 */
 	chan = __zio_minor_to_chan(devt);
-	/* it is impossbile chan = NULL because __zio_device_get() found it */
+	/* chan can't be NULL because __zio_device_get() found it */
 	module_put(chan->cset->zdev->owner);
 }
 
@@ -138,7 +134,6 @@ static int zio_f_open(struct inode *ino, struct file *f)
 		priv->type = ZIO_CDEV_CTRL;
 	f->private_data = priv;
 
-	/* replace zio fops with buffer fops (FIXME: make it a lib function */
 	mutex_lock(&zmutex);
 	old_fops = f->f_op;
 	new_fops = fops_get(zbuf->f_op);
@@ -378,10 +373,8 @@ ssize_t zio_generic_read(struct file *f, char __user *ubuf,
 	if (priv->type == ZIO_CDEV_CTRL && count < ZIO_CONTROL_SIZE)
 		return -EINVAL;
 
-	if ((bi->flags & ZIO_DIR) == ZIO_DIR_OUTPUT) {
-		/* FIXME: read_control for output channels is missing */
+	if ((bi->flags & ZIO_DIR) == ZIO_DIR_OUTPUT)
 		return -EINVAL;
-	}
 
 	if (!__zio_read_allowed(priv)) {
 		if (f->f_flags & O_NONBLOCK)
@@ -428,10 +421,8 @@ ssize_t zio_generic_write(struct file *f, const char __user *ubuf,
 	pr_debug("%s:%d type %s\n", __func__, __LINE__,
 		priv->type == ZIO_CDEV_CTRL ? "ctrl" : "data");
 
-	if ((bi->flags & ZIO_DIR) == ZIO_DIR_INPUT) {
-		/* FIXME: write_control for input channels is missing */
+	if ((bi->flags & ZIO_DIR) == ZIO_DIR_INPUT)
 		return -EINVAL;
-	}
 
 	if (!__zio_write_allowed(priv)) {
 		if (f->f_flags & O_NONBLOCK)

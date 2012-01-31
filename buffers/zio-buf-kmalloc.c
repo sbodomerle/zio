@@ -271,7 +271,6 @@ static int __init zbk_init(void)
 static void __exit zbk_exit(void)
 {
 	zio_unregister_buf(&zbk_buffer);
-	/* FIXME REMOVE all instances left */
 }
 
 /* This is the default buffer, and is part of zio-core: no module init/exit */

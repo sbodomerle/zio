@@ -77,7 +77,6 @@ static void ztt_fn(unsigned long arg)
 
 	/* When a trigger fires, we must prepare our control and timestamp */
 	getnstimeofday(&ti->tstamp);
-	/* FIXME: where is the jiffi count placed? */
 
 	ztt_instance = to_ztt_instance(ti);
 	zio_fire_trigger(ti);

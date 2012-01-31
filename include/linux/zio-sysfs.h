@@ -91,8 +91,6 @@ extern const char zio_zdev_attr_names[ZATTR_STD_NUM_ZDEV][ZIO_NAME_LEN];
 extern const char zio_trig_attr_names[ZATTR_STD_NUM_TRIG][ZIO_NAME_LEN];
 extern const char zio_zbuf_attr_names[ZATTR_STD_NUM_ZBUF][ZIO_NAME_LEN];
 
-
-/* FIXME: check this DECLARE stuff */
 #define DEFINE_ZATTR_STD(_type, _name) struct zio_attribute \
 	_name[ZATTR_STD_NUM_##_type]
 

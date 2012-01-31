@@ -35,9 +35,6 @@ struct zio_buffer_type {
 
 	/* default attributes for instance */
 	struct zio_attribute_set		zattr_set;
-	/* FIXME: how "own" devices are listed (here or elsewhere?) */
-	struct zio_device	*zdev_owner;
-	unsigned int		n_zdev_owner;
 };
 #define to_zio_buf(ptr) container_of(ptr, struct zio_buffer_type, head.kobj)
 
