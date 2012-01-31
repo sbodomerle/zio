@@ -31,6 +31,9 @@ struct zbk_instance {
 };
 #define to_zbki(bi) container_of(bi, struct zbk_instance, bi)
 
+static struct kmem_cache *zbk_slab;
+
+
 /* The list in the structure above collects a bunch of these */
 struct zbk_item {
 	struct zio_block block;
@@ -66,10 +69,11 @@ static struct zio_block *zbk_alloc_block(struct zio_bi *bi,
 	pr_debug("%s:%d\n", __func__, __LINE__);
 
 	/* alloc item and data. Control remains null at this point */
-	item = kzalloc(sizeof(*item), gfp);
+	item = kmem_cache_alloc(zbk_slab, gfp);
 	data = kmalloc(datalen, gfp);
 	if (!item || !data)
 		goto out_free;
+	memset(item, 0, sizeof(*item));
 	item->block.data = data;
 	item->block.datalen = datalen;
 	item->instance = zbki;
@@ -80,7 +84,7 @@ static struct zio_block *zbk_alloc_block(struct zio_bi *bi,
 
 out_free:
 	kfree(data);
-	kfree(item);
+	kmem_cache_free(zbk_slab, item);
 	return ERR_PTR(-ENOMEM);
 }
 
@@ -96,7 +100,7 @@ static void zbk_free_block(struct zio_bi *bi, struct zio_block *block)
 	zbki = item->instance;
 	kfree(block->data);
 	zio_free_control(zio_get_ctrl(block));
-	kfree(item);
+	kmem_cache_free(zbk_slab, item);
 }
 
 /* When write() stores the first block, we try pushing it */
@@ -228,7 +232,7 @@ static void zbk_destroy(struct zio_bi *bi)
 		item = list_entry(pos, struct zbk_item, list);
 		zbk_free_block(&zbki->bi, &item->block);
 	}
-	kfree(zbki);
+	kmem_cache_free(zbk_slab, zbki);
 }
 
 static const struct zio_buffer_operations zbk_buffer_ops = {
@@ -265,12 +269,22 @@ static struct zio_buffer_type zbk_buffer = {
 
 static int __init zbk_init(void)
 {
-	return zio_register_buf(&zbk_buffer, "kmalloc");
+	int ret;
+
+	zbk_slab = KMEM_CACHE(zbk_item, 0);
+	if (!zbk_slab)
+		return -ENOMEM;
+	ret = zio_register_buf(&zbk_buffer, "kmalloc");
+	if (ret < 0)
+		kmem_cache_destroy(zbk_slab);
+	return ret;
+
 }
 
 static void __exit zbk_exit(void)
 {
 	zio_unregister_buf(&zbk_buffer);
+	kmem_cache_destroy(zbk_slab);
 }
 
 /* This is the default buffer, and is part of zio-core: no module init/exit */
