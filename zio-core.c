@@ -32,13 +32,13 @@ struct zio_control *zio_alloc_control(gfp_t gfp)
 		ctrl->flags |= ZIO_CONTROL_LITTLE_ENDIAN;
 	return ctrl;
 }
-EXPORT_SYMBOL(zio_alloc_control); /* used by buffers */
+EXPORT_SYMBOL(zio_alloc_control);
 
 void zio_free_control(struct zio_control *ctrl)
 {
 	kmem_cache_free(zio_ctrl_slab, ctrl);
 }
-EXPORT_SYMBOL(zio_free_control); /* used by buffers */
+EXPORT_SYMBOL(zio_free_control);
 
 int __init zio_slab_init(void)
 {
