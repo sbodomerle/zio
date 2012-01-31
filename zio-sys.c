@@ -512,11 +512,10 @@ static int zio_change_current_trigger(struct zio_cset *cset, char *name)
 	/* Rename trigger-tmp to trigger */
 	err = kobject_rename(&ti->head.kobj, "trigger");
 	if (err)
-		goto out_rename;
+		WARN(1, "%s: cannot rename trigger folder for"
+			" cset%d\n", __func__, cset->index);
 	return 0;
 
-out_rename:
-	__ti_unregister(trig, ti);
 out_reg:
 	__ti_destroy(trig, ti);
 out:
@@ -524,10 +523,9 @@ out:
 	return err;
 }
 
-/* FIXME test this function when a new kind of buffer is available */
 static int zio_change_current_buffer(struct zio_cset *cset, char *name)
 {
-	struct zio_buffer_type *zbuf;
+	struct zio_buffer_type *zbuf, *zbuf_old = cset->zbuf;
 	struct zio_bi **bi_vector;
 	int i, j, err;
 
@@ -547,7 +545,7 @@ static int zio_change_current_buffer(struct zio_cset *cset, char *name)
 		err = -ENOMEM;
 		goto out;
 	}
-
+	/* Create a new buffer instance for each channel of the cset */
 	for (i = 0; i < cset->n_chan; ++i) {
 		bi_vector[i] = __bi_create_and_init(zbuf, &cset->chan[i]);
 		if (IS_ERR(bi_vector[i])) {
@@ -555,23 +553,39 @@ static int zio_change_current_buffer(struct zio_cset *cset, char *name)
 			err = PTR_ERR(bi_vector[i]);
 			goto out_create;
 		}
+		err = __bi_register(zbuf, &cset->chan[i], bi_vector[i],
+				    "buffer-tmp");
+		if (err) {
+			pr_err("%s can't register buffer instance\n", __func__);
+			__bi_destroy(zbuf, bi_vector[i]);
+			goto out_create;
+		}
 	}
 
 	for (i = 0; i < cset->n_chan; ++i) {
-		/* delete old buffer instance */
-		__bi_unregister(cset->zbuf, cset->chan[i].bi);
-		__bi_destroy(cset->zbuf, cset->chan[i].bi);
-		/* register new buffer instance */
-		__bi_register(zbuf, &cset->chan[i], bi_vector[i], "buffer-tmp");
+		/* Delete old buffer instance */
+		__bi_unregister(zbuf_old, cset->chan[i].bi);
+		__bi_destroy(zbuf_old, cset->chan[i].bi);
+		/* Assign new buffer instance */
 		cset->chan[i].bi = bi_vector[i];
+		/* Rename buffer-tmp to trigger */
+		err = kobject_rename(&cset->chan[i].bi->head.kobj, "buffer");
+		if (err)
+			WARN(1, "%s: cannot rename buffer folder for"
+				" cset%d:chan%d\n", __func__, cset->index, i);
 	}
+
 	kfree(bi_vector);
 	cset->zbuf = zbuf;
+	zio_buffer_put(zbuf_old);
 
 	return 0;
+
 out_create:
-	for (j = i-1; j >= 0; --j)
+	for (j = i-1; j >= 0; --j) {
+		__bi_unregister(zbuf, bi_vector[j]);
 		__bi_destroy(zbuf, bi_vector[j]);
+	}
 	kfree(bi_vector);
 out:
 	zio_buffer_put(zbuf);
