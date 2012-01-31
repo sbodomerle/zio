@@ -124,8 +124,7 @@ struct zio_buffer_operations {
 	struct zio_block *	(*retr_block) (struct zio_bi *bi);
 
 	struct zio_bi *		(*create)(struct zio_buffer_type *zbuf,
-					  struct zio_channel *chan,
-					  fmode_t f_flags);
+					  struct zio_channel *chan);
 	void			(*destroy)(struct zio_bi *bi);
 };
 

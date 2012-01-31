@@ -1005,7 +1005,7 @@ static struct zio_bi *__bi_create_and_init(struct zio_buffer_type *zbuf,
 
 	pr_debug("%s\n", __func__);
 	/* Create buffer */
-	bi = zbuf->b_op->create(zbuf, chan, FMODE_READ);
+	bi = zbuf->b_op->create(zbuf, chan);
 	if (IS_ERR(bi)) {
 		pr_err("ZIO %s: can't create buffer, error %ld\n",
 		       __func__, PTR_ERR(bi));

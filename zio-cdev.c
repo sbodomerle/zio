@@ -124,7 +124,7 @@ static int zio_f_open(struct inode *ino, struct file *f)
 
 	/* if there is no instance, then create a new one */
 	if (!chan->bi)
-		chan->bi = zbuf->b_op->create(zbuf, chan, FMODE_READ);
+		chan->bi = zbuf->b_op->create(zbuf, chan);
 	priv->chan = chan;
 
 	/* even number is control, odd number is data */

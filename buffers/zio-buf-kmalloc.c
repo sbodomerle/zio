@@ -16,7 +16,6 @@
 #include <linux/fs.h>
 #include <linux/spinlock.h>
 #include <linux/types.h>
-#include <linux/uaccess.h>
 
 #include <linux/zio.h>
 #include <linux/zio-buffer.h>
@@ -202,7 +201,7 @@ out_unlock:
 
 /* Create is called by zio for each channel electing to use this buffer type */
 static struct zio_bi *zbk_create(struct zio_buffer_type *zbuf,
-	struct zio_channel *chan, fmode_t f_flags)
+				 struct zio_channel *chan)
 {
 	struct zbk_instance *zbki;
 

@@ -42,8 +42,7 @@ of them are implemented in zio-buf-kmalloc.c, which may be used as
 reference to better understand the role of each method:
 
 	struct zio_bi *(*create)(struct zio_buffer_type *zbuf,
-				 struct zio_channel *ch,
-				 fmode_t f_flags);
+				 struct zio_channel *ch);
 	void (*destroy)(struct zio_bi *bi);
 
 The create() operation allocates and initializes an instance of the
@@ -52,7 +51,9 @@ first time. The operation returns a zio buffer instance (zio_bi),
 which is the generic descriptor of a buffer instance. ZIO handles
 only zio_bi, so complex buffer structures must contain the zio_bi
 structure and use container_of() to access the private enclosing
-structure.
+structure. create() can use default attributes of its buffer type at
+creation time; a copy for this specific instance is created by
+zio-core after the function returns.
 
 destroy() deallocates a buffer instance. ZIO calls destroy() when the
 channel is unregistered from ZIO or when the user assigns a different
