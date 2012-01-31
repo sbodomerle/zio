@@ -13,8 +13,6 @@ obj-m += tools/
 # WARNING: the line below doesn't work in-kernel if you compile with O=
 EXTRA_CFLAGS += -I$(obj)/include/
 
-EXTRA_CFLAGS += -DDEBUG
-
 all: modules tools
 
 modules:
