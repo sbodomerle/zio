@@ -41,7 +41,7 @@ static struct zio_attribute ztt_ext_attr[] = {
 	ZATTR_EXT_REG("ms-period", S_IRUGO | S_IWUGO,
 		      ZTT_ATTR_PERIOD, 2000),
 };
-int ztt_conf_set(struct kobject *kobj, struct zio_attribute *zattr,
+static int ztt_conf_set(struct kobject *kobj, struct zio_attribute *zattr,
 		uint32_t  usr_val)
 {
 	struct zio_ti *ti = to_zio_ti(kobj);
@@ -65,7 +65,7 @@ int ztt_conf_set(struct kobject *kobj, struct zio_attribute *zattr,
 	return 0;
 }
 
-struct zio_sysfs_operations ztt_s_ops = {
+static struct zio_sysfs_operations ztt_s_ops = {
 	.conf_set = ztt_conf_set,
 };
 

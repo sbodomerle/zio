@@ -37,7 +37,7 @@ static struct zio_attribute zti_ext_attr[] = {
 	ZATTR_EXT_REG("irq", S_IRUGO, ZTI_ATTR_IRQ, -1),
 	ZATTR_EXT_REG("gpio", S_IRUGO, ZTI_ATTR_GPIO, -1),
 };
-int zti_conf_set(struct kobject *kobj, struct zio_attribute *zattr,
+static int zti_conf_set(struct kobject *kobj, struct zio_attribute *zattr,
 		uint32_t  usr_val)
 {
 	struct zio_ti *ti = to_zio_ti(kobj);
@@ -56,11 +56,11 @@ int zti_conf_set(struct kobject *kobj, struct zio_attribute *zattr,
 	return 0;
 }
 
-struct zio_sysfs_operations zti_s_ops = {
+static struct zio_sysfs_operations zti_s_ops = {
 	.conf_set = zti_conf_set,
 };
 
-irqreturn_t zti_handler(int irq, void *dev_id)
+static irqreturn_t zti_handler(int irq, void *dev_id)
 {
 	struct zio_ti *ti = dev_id;
 
