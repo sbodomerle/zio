@@ -1745,6 +1745,9 @@ static int __init zio_init(void)
 	BUILD_BUG_ON(ZATTR_STD_NUM_ZBUF != ARRAY_SIZE(zio_zbuf_attr_names));
 	BUILD_BUG_ON(ZATTR_STD_NUM_TRIG != ARRAY_SIZE(zio_trig_attr_names));
 
+	err = zio_slab_init();
+	if (err)
+		return err;
 	/* Initialize char device */
 	err = __zio_register_cdev();
 	if (err)
@@ -1774,6 +1777,7 @@ static int __init zio_init(void)
 out_kobj:
 	__zio_unregister_cdev();
 out_cdev:
+	zio_slab_exit();
 	return err;
 }
 
@@ -1792,6 +1796,7 @@ static void __exit zio_exit(void)
 
 	/* Remove char device */
 	__zio_unregister_cdev();
+	zio_slab_exit();
 
 	pr_info("zio-core had been unloaded\n");
 	return;

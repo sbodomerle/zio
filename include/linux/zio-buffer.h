@@ -16,27 +16,6 @@
 
 #define ZIO_DEFAULT_BUFFER "kmalloc" /* For devices with no own buffer type */
 
-/* FIXME: use a kmem_cache and real functions for control alloc/free */
-static inline struct zio_control *zio_alloc_control(gfp_t gfp)
-{
-	struct zio_control *ctrl;
-
-	ctrl = kzalloc(sizeof(*ctrl), gfp);
-	if (!ctrl)
-		return NULL;
-	ctrl->major_version = ZIO_MAJOR_VERSION;
-	ctrl->minor_version = ZIO_MINOR_VERSION;
-	if (ntohl(1) == 1)
-		ctrl->flags |= ZIO_CONTROL_BIG_ENDIAN;
-	else
-		ctrl->flags |= ZIO_CONTROL_LITTLE_ENDIAN;
-	return ctrl;
-}
-static inline void zio_free_control(struct zio_control *ctrl)
-{
-	kfree(ctrl);
-}
-
 /*
  * The following structure defines a buffer type, with methods.
  * An instance is created for each channel using it
@@ -74,6 +53,13 @@ int zio_generic_release(struct inode *inode, struct file *f);
 int __must_check zio_register_buf(struct zio_buffer_type *zbuf,
 				  const char *name);
 void zio_unregister_buf(struct zio_buffer_type *zbuf);
+
+/* We have our own kmem_cache (a.k.a. slab) for control structures */
+int zio_slab_init(void);
+void zio_slab_exit(void);
+struct zio_control *zio_alloc_control(gfp_t gfp);
+void zio_free_control(struct zio_control *ctrl);
+
 
 struct zio_bi {
 	struct zio_obj_head	head;
