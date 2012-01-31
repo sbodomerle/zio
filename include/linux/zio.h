@@ -5,7 +5,7 @@
 
 /* ZIO_VERSION: is a zio_class attribute to identify the framework version*/
 #define ZIO_MAJOR_VERSION 0
-#define ZIO_MINOR_VERSION 3
+#define ZIO_MINOR_VERSION 4
 
 #define ZIO_OBJ_NAME_LEN 12 /* name for registered object and ctrl struct */
 

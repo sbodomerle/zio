@@ -70,19 +70,23 @@ struct zio_control {
 	struct zio_timestamp tstamp;
 
 	/* byte 56 */
+	uint32_t mem_offset;	/* position in mmap buffer of this block */
+	uint32_t reserved;	/* possibly another offset, or space for 64b */
+
+	/* byte 64 */
 	/* The control block includes what device the data belongs to */
 	char devname[ZIO_OBJ_NAME_LEN];
 
-	/* byte 68 */
+	/* byte 76 */
 	/* Each data block is associated with a trigger and its features */
 	char triggername[ZIO_OBJ_NAME_LEN];
 
-	/* byte 80 */
+	/* byte 88 */
 	struct zio_ctrl_attr attr_channel;
 	struct zio_ctrl_attr attr_trigger;
 
-	/* byte 480 */
-	uint8_t __fill_end[ZIO_CONTROL_SIZE - 480];
+	/* byte 488 */
+	uint8_t __fill_end[ZIO_CONTROL_SIZE - 488];
 };
 
 /* The following flags are used in the control structure */
