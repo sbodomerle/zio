@@ -4,6 +4,7 @@
 HOST_EXTRACFLAGS += -I$(M)/include/
 
 hostprogs-y := zio-dump
+hostprogs-y += zio-cat-file
 
 # The following is ugly, please forgive me by now
 user: $(hostprogs-y)
