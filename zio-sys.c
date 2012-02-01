@@ -192,9 +192,11 @@ static void __zio_fire_input_trigger(struct zio_ti *ti)
 						ctrl->ssize * ctrl->nsamples,
 						GFP_ATOMIC);
 		if (IS_ERR(block)) {
-			if (!errdone++)
+			/* Remove the following print, it's common */
+			if (0 && !errdone++)
 				pr_err("%s: can't alloc block\n", __func__);
 			zio_free_control(ctrl);
+			chan->active_block = NULL;
 			continue;
 		}
 		chan->active_block = block;
