@@ -1041,6 +1041,7 @@ static struct zio_bi *__bi_create_and_init(struct zio_buffer_type *zbuf,
 	/* Initialize buffer */
 	bi->b_op = zbuf->b_op;
 	bi->f_op = zbuf->f_op;
+	bi->v_op = zbuf->v_op;
 	bi->flags |= (chan->flags & ZIO_DIR);
 	bi->head.zobj_type = ZBI;
 	snprintf(bi->head.name, ZIO_NAME_LEN, "%s-%s-%d-%d",

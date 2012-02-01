@@ -8,6 +8,7 @@
 #include <linux/zio.h>
 #include <linux/gfp.h>
 #include <linux/fs.h>
+#include <linux/mm.h>
 #include <linux/list.h>
 #include <linux/spinlock.h>
 #include <linux/wait.h>
@@ -36,7 +37,7 @@ struct zio_buffer_type {
 	 * If the field is NULL, you'll get ENODEV when opening the cdev.
 	 */
 	const struct file_operations		*f_op;
-	const struct vm_operations		*v_op;
+	const struct vm_operations_struct	*v_op;
 
 	/* default attributes for instance */
 	struct zio_attribute_set		zattr_set;
@@ -75,6 +76,7 @@ struct zio_bi {
 
 	const struct zio_buffer_operations	*b_op;
 	const struct file_operations		*f_op;
+	const struct vm_operations_struct	*v_op;
 };
 #define to_zio_bi(_kobj) container_of(_kobj, struct zio_bi, head.kobj)
 

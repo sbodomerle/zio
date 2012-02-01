@@ -4,6 +4,7 @@
 #include <linux/slab.h>
 #include <linux/types.h>
 #include <linux/fs.h>
+#include <linux/mm.h>
 #include <linux/mutex.h>
 #include <linux/poll.h>
 #include <linux/sched.h>
@@ -481,6 +482,22 @@ static ssize_t zio_generic_write(struct file *f, const char __user *ubuf,
 	return count;
 }
 
+static int zio_generic_mmap(struct file *f, struct vm_area_struct *vma)
+{
+	struct zio_f_priv *priv = f->private_data;
+	struct zio_bi *bi = priv->chan->bi;
+	const struct vm_operations_struct *v_op = bi->v_op;
+
+	if (!v_op)
+		return -ENODEV; /* according to man page */
+	/* The buffer instance may usecount, so notifiy it and allow
+	   it to fail */
+	vma->vm_ops = v_op;
+	if (v_op->open)
+		v_op->open(vma); /* returns void */
+	return 0;
+}
+
 static unsigned int zio_generic_poll(struct file *f,
 				     struct poll_table_struct *w)
 {
@@ -506,6 +523,7 @@ const struct file_operations zio_generic_file_operations = {
 	.read =		zio_generic_read,
 	.write =	zio_generic_write,
 	.poll =		zio_generic_poll,
+	.mmap =		zio_generic_mmap,
 	.release =	zio_generic_release,
 };
 /* Export, so buffers can use it or internal function */
