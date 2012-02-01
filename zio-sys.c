@@ -482,8 +482,16 @@ static int zio_change_current_trigger(struct zio_cset *cset, char *name)
 	struct zio_ti *ti, *ti_old = cset->ti;
 	int err;
 
-	/* FIXME get all necessary spinlock */
 	pr_debug("%s\n", __func__);
+	spin_lock(&cset->lock);
+	if (ti_old->flags & ZTI_BUSY) {
+		spin_unlock(&cset->lock);
+		return -EBUSY;
+	}
+	/* Set ti BUSY, so it cannot fire */
+	ti_old->flags |= ZTI_BUSY;
+	spin_unlock(&cset->lock);
+
 	if (strlen(name) > ZIO_OBJ_NAME_LEN)
 		return -EINVAL; /* name too long */
 	if (unlikely(strcmp(name, trig_old->head.name) == 0))
