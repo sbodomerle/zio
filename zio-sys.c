@@ -1113,7 +1113,6 @@ static struct zio_ti *__ti_create_and_init(struct zio_trigger_type *trig,
 	}
 	/* Initialize trigger */
 	ti->t_op = trig->t_op;
-	ti->f_op = trig->f_op;
 	ti->flags |= cset->flags & ZIO_DIR;
 	ti->head.zobj_type = ZTI;
 	snprintf(ti->head.name, ZIO_NAME_LEN, "%s-%s-%d",

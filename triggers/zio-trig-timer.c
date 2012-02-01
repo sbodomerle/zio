@@ -186,7 +186,6 @@ static struct zio_trigger_type ztt_trigger = {
 	},
 	.s_op = &ztt_s_ops,
 	.t_op = &ztt_trigger_ops,
-	.f_op = NULL, /* we use buffer fops */
 };
 
 /*

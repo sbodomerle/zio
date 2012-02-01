@@ -79,19 +79,6 @@ trigger will push blocks to the buffer; for output it will release
 the blocks.  zio-core offers zio_generic_data_done() for triggers
 that don't need special handling.
 
-	File Operations
-	===============
-
-The trigger may include a non-NULL f_ops pointer. Most triggers will
-not need it, but for example "app-request" does, because it needs to
-look at individual read and write calls performed by applications.
-ZIO will use these file operations (instead of the buffer file operations)
-when the open method of the char device detects that the active trigger
-declares a non-NULL f_ops field.  These operations will most
-likely fall back to buffer->f_ops for most of their actual work.
-
-See zio-trig-app-request.c for details about how this is used.
-
 	When the trigger fires
 	======================
 
