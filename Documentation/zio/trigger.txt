@@ -79,6 +79,20 @@ trigger will push blocks to the buffer; for output it will release
 the blocks.  zio-core offers zio_generic_data_done() for triggers
 that don't need special handling.
 
+     	void (*abort)(struct zio_cset *cset);
+
+This function is called to stop a running acquisition before the data_done
+invocation. ZIO calls this function when a trigger is disabled during a
+data transfer.
+
+	void (*change_status)(struct zio_ti *ti, unsigned int status);
+
+ZIO invokes this function each time user enable or disable the trigger. The
+status value is the new status of the trigger: 0 for disable and 1 for enable.
+The function activates or deactivates the trigger depending on status. If the
+trigger is running and the user disable it before the data_done, ZIO calls
+sequentially abort and then change_status.
+
 	When the trigger fires
 	======================
 

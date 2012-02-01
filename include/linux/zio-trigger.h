@@ -69,13 +69,18 @@ void zio_fire_trigger(struct zio_ti *ti);
  * the data has been transferred for the cset, the device calls back the
  * trigger. For output, data_done frees the blocks and prepares new
  * blocks if possible; for input, data_done pushes material to the buffers.
+ * If the transfer must be interrupted before the invocation of data_done,
+ * the abort function must be called.
  *
  * Then, a trigger instance is configured either by sysfs (and this means
  * the conf_set callback runs and the instance is notified) or by writing
  * a whole control to the control device. In this case the config method
  * is called by the write method.
  *
- * FIXME describe well abort and change_status
+ * A trigger can be enabled or disabled; each time the trigger status changes,
+ * ZIO invokes change_status. The trigger driver must use change_status to
+ * start and stop the trigger depending on status value.
+ *
  */
 struct zio_trigger_operations {
 	int			(*push_block)(struct zio_ti *ti,
