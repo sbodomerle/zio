@@ -55,7 +55,7 @@ static int zgp_output(struct zio_cset *cset)
 		for (i = 0; i < zgp_nout; i++)
 			gpio_set_value(zgp_out[i], datum & (1 << i));
 	}
-	return 1; /* done */
+	return 0; /* done */
 }
 
 /* Similarly, this inputs a cset. Again, currently one channel only */
@@ -80,7 +80,7 @@ static int zgp_input(struct zio_cset *cset)
 			((unsigned char *)block->data)[j] = datum;
 		}
 	}
-	return 1; /* done */
+	return 0; /* done */
 }
 
 static struct zio_device_operations zgp_d_op = {
