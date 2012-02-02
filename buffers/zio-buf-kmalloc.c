@@ -231,7 +231,7 @@ static void zbk_destroy(struct zio_bi *bi)
 		item = list_entry(pos, struct zbk_item, list);
 		zbk_free_block(&zbki->bi, &item->block);
 	}
-	kmem_cache_free(zbk_slab, zbki);
+	kfree(zbki);
 }
 
 static const struct zio_buffer_operations zbk_buffer_ops = {
