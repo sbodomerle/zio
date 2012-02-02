@@ -12,5 +12,5 @@ clean:
 	rm -f $(hostprogs-y) *~ *.o
 
 %: %.c
-	$(CC) $(HOST_EXTRACFLAGS) -Wall $^ -o $@
+	$(HOSTCC) $(HOST_EXTRACFLAGS) -Wall $^ -o $@
 
