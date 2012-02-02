@@ -950,7 +950,7 @@ static int __check_attr(struct attribute *attr,
 static int zattr_set_create(struct zio_obj_head *head,
 			    const struct zio_sysfs_operations *s_op)
 {
-	int n_attr, i, j, attr_count = 0, err;
+	int n_attr, i, j, attr_count = 0, err = 0;
 	struct zio_attribute_set *zattr_set;
 	struct attribute_group *group;
 
@@ -1006,7 +1006,10 @@ ext:
 		zattr_set->ext_zattr[j].flags |= ZATTR_TYPE_EXT;
 	}
 out:
-	return sysfs_create_group(&head->kobj, group);
+	err = sysfs_create_group(&head->kobj, group);
+	if (err)
+		kfree(group->attrs);
+	return err;
 }
 /* Remove an existent set of attributes */
 static void zattr_set_remove(struct zio_obj_head *head)
@@ -1061,6 +1064,7 @@ static void __bi_destroy(struct zio_buffer_type *zbuf, struct zio_bi *bi)
 {
 	pr_debug("%s\n", __func__);
 	zbuf->b_op->destroy(bi);
+	__zattr_set_free(&bi->zattr_set);
 }
 static int __bi_register(struct zio_buffer_type *zbuf,
 			 struct zio_channel *chan,
@@ -1090,7 +1094,6 @@ static int __bi_register(struct zio_buffer_type *zbuf,
 	return 0;
 
 out_sysfs:
-	__zattr_set_free(&bi->zattr_set);
 	kobject_del(&bi->head.kobj);
 out_kobj:
 	kobject_put(&bi->head.kobj);
@@ -1105,7 +1108,6 @@ static void __bi_unregister(struct zio_buffer_type *zbuf, struct zio_bi *bi)
 	spin_unlock(&zbuf->lock);
 	/* Remove from sysfs */
 	zattr_set_remove(&bi->head);
-	__zattr_set_free(&bi->zattr_set);
 	kobject_del(&bi->head.kobj);
 	kobject_put(&bi->head.kobj);
 }
@@ -1158,6 +1160,7 @@ static void __ti_destroy(struct zio_trigger_type *trig, struct zio_ti *ti)
 {
 	pr_debug("%s\n", __func__);
 	trig->t_op->destroy(ti);
+	__zattr_set_free(&ti->zattr_set);
 	zio_free_control(ti->current_ctrl);
 }
 static int __ti_register(struct zio_trigger_type *trig, struct zio_cset *cset,
@@ -1186,7 +1189,6 @@ static int __ti_register(struct zio_trigger_type *trig, struct zio_cset *cset,
 	return 0;
 
 out_sysfs:
-	__zattr_set_free(&ti->zattr_set);
 	kobject_del(&ti->head.kobj);
 out_kobj:
 	kobject_put(&ti->head.kobj);
@@ -1201,7 +1203,6 @@ static void __ti_unregister(struct zio_trigger_type *trig, struct zio_ti *ti)
 	spin_unlock(&trig->lock);
 	/* Remove from sysfs */
 	zattr_set_remove(&ti->head);
-	__zattr_set_free(&ti->zattr_set);
 	kobject_del(&ti->head.kobj);
 	kobject_put(&ti->head.kobj);
 }
@@ -1324,7 +1325,7 @@ static struct zio_channel *cset_alloc_chan(struct zio_cset *cset)
 	for (i = 0; i < cset->n_chan; ++i) {
 		memcpy(cset->chan + i, cset->chan_template,
 		       sizeof(struct zio_channel));
-		__zattr_set_copy(&cset->chan->zattr_set,
+		__zattr_set_copy(&cset->chan[i].zattr_set,
 				 &cset->chan_template->zattr_set);
 	}
 
@@ -1332,10 +1333,16 @@ static struct zio_channel *cset_alloc_chan(struct zio_cset *cset)
 }
 static inline void cset_free_chan(struct zio_cset *cset)
 {
+	int i;
+
 	pr_debug("%s:%d\n", __func__, __LINE__);
 	/* Only allocated channels need to be freed */
-	if (cset->flags & ZCSET_CHAN_ALLOC)
-		kfree(cset->chan);
+	if (!(cset->flags & ZCSET_CHAN_ALLOC))
+		return;
+	if(cset->chan_template)
+		for (i = 0; i < cset->n_chan; ++i)
+			__zattr_set_free(&cset->chan[i].zattr_set);
+	kfree(cset->chan);
 }
 
 static int cset_register(struct zio_cset *cset)
@@ -1488,6 +1495,8 @@ out_sysfs:
 out_add:
 	/* we must _put even if it returned error */
 	kobject_put(&cset->head.kobj);
+	/* Release a group of minors */
+	__zio_minorbase_put(cset);
 	return err;
 }
 
