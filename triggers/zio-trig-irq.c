@@ -123,7 +123,7 @@ static struct zio_ti *zti_create(struct zio_trigger_type *trig,
 static void zti_destroy(struct zio_ti *ti)
 {
 	pr_debug("%s:%d\n", __func__, __LINE__);
-	free_irq(zti_irq, &ti);
+	free_irq(zti_irq, ti);
 	kfree(ti);
 }
 
