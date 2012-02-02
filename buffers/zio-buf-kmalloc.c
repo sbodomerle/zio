@@ -257,7 +257,9 @@ static int __init zbk_init(void)
 {
 	int ret;
 
-	zbk_slab = KMEM_CACHE(zbk_item, 0);
+	/* Can't use "zbk_item" as name and KMEM_CACHE_NAMED is not there */
+	zbk_slab = kmem_cache_create("zio-kmalloc", sizeof(struct zbk_item),
+				     __alignof__(struct zbk_item), 0, NULL);
 	if (!zbk_slab)
 		return -ENOMEM;
 	ret = zio_register_buf(&zbk_buffer, "kmalloc");
