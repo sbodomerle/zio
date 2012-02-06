@@ -9,8 +9,6 @@
 *.pdf
 *.toc
 *.aux
-*.ps
-*.eps
 *.log
 *.lof
 *.bib
