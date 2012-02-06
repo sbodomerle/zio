@@ -1,0 +1,114 @@
+%!PS-Adobe-2.0 EPSF-1.2
+%%Creator: Alessandro Rubini
+%%Title: crap
+%%BoundingBox: 0 0 200 200
+%%EndComments
+
+0 0 moveto
+
+/minx 0 def
+/miny 0 def
+/maxx 600 def
+/maxy 600 def
+
+3 3 scale
+0 setlinecap 1 setlinejoin
+
+/grid {
+	gsave
+	.8 .8 .8 setrgbcolor
+	.2 setlinewidth
+	% vertical lines
+	minx 10 maxx {
+		dup
+		miny moveto maxy lineto stroke
+	} for
+	% horizontal lines
+	miny 10 maxy {
+		dup
+		minx exch moveto maxx exch lineto stroke
+	} for
+} def
+
+
+/centerstring { % fontname width string -- fontsize
+    gsave
+    3 2 roll findfont setfont          % width string
+    dup 3 1 roll                       % string width string
+    stringwidth pop div dup 3 1 roll   % scale string scale
+    dup neg 0 exch rmoveto             % scale string scale
+    currentfont exch scalefont setfont % scale string
+    show
+    grestore
+} def
+
+/centeratsize { % x y string --
+	gsave
+	3 1 roll moveto 
+	dup stringwidth pop 2 div neg 0 rmoveto show
+	grestore
+} def
+
+
+
+/rect {  %  x y wid hei --
+	4 copy
+	gsave .8 .8 .8 setrgbcolor rectfill grestore
+	/hei exch def
+	/wid exch def
+	moveto
+	wid 0 rlineto 0 hei rlineto
+	wid neg 0 rlineto closepath
+	stroke
+} def
+
+/colrect { % r g b r g b x y wid hei --
+    newpath
+    /rhei exch def
+    /rwid exch def
+    moveto
+    rwid 0 rlineto 0 rhei rlineto
+    rwid neg 0 rlineto closepath
+    gsave setrgbcolor fill grestore
+    setrgbcolor stroke
+} def
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%grid
+
+0 0 0 setrgbcolor
+.5 setlinewidth
+
+/Helvetica-Bold findfont 20 scalefont setfont
+
+%1 1 1 .99 .99 .99  0 0 210 80 colrect 
+/bluforrect {.2 .2 .5    .8 .8 1} def
+/greforrect {.2 .5 .2    .8 1 .8} def
+/redforrect {.5 .2 .2    1 .8 .8} def
+
+/Helvetica-Bold findfont 7 scalefont setfont
+
+% righe di controllo
+.5 setlinewidth 0 0 0 setrgbcolor
+60 140 moveto 10 0 rlineto 20 20 rlineto 10 0 rlineto stroke
+60 130 moveto 80 0 rlineto stroke
+
+% arrowhead
+100 160 moveto -6 1.5 rlineto 0 -3 rlineto closepath fill
+140 130 moveto -6 1.5 rlineto 0 -3 rlineto closepath fill
+
+%block
+redforrect    30 120 30 30 colrect
+	      45 140 (Block) centeratsize
+
+greforrect    100 140 30 30 colrect
+	      115 160 (Control) centeratsize
+	      115 145 (512 b) centeratsize
+
+bluforrect    140 40 30 100 colrect
+	      155 130 (Data) centeratsize
+
+      
+
+
+showpage

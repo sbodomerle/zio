@@ -1,0 +1,147 @@
+%!PS-Adobe-2.0 EPSF-1.2
+%%Creator: Alessandro Rubini
+%%Title: crap
+%%BoundingBox: 0 0 600 600
+%%EndComments
+
+2 2 scale
+0 0 moveto
+
+/minx 0 def
+/miny 0 def
+/maxx 300 def
+/maxy 300 def
+
+0 setlinecap 1 setlinejoin
+
+/grid {
+	gsave
+	.8 .8 .8 setrgbcolor
+	.2 setlinewidth
+	% vertical lines
+	minx 10 maxx {
+		dup
+		miny moveto maxy lineto stroke
+	} for
+	% horizontal lines
+	miny 10 maxy {
+		dup
+		minx exch moveto maxx exch lineto stroke
+	} for
+} def
+
+
+/centerstring { % fontname width string -- fontsize
+    gsave
+    3 2 roll findfont setfont          % width string
+    dup 3 1 roll                       % string width string
+    stringwidth pop div dup 3 1 roll   % scale string scale
+    dup neg 0 exch rmoveto             % scale string scale
+    currentfont exch scalefont setfont % scale string
+    show
+    grestore
+} def
+
+/centeratsize { % x y string --
+	gsave
+	3 1 roll moveto 
+	dup stringwidth pop 2 div neg 0 rmoveto show
+	grestore
+} def
+
+
+
+/rect {  %  x y wid hei --
+	4 copy
+	gsave .8 .8 .8 setrgbcolor rectfill grestore
+	/hei exch def
+	/wid exch def
+	moveto
+	wid 0 rlineto 0 hei rlineto
+	wid neg 0 rlineto closepath
+	stroke
+} def
+
+/colrect { % r g b r g b x y wid hei --
+    newpath
+    /rhei exch def
+    /rwid exch def
+    moveto
+    rwid 0 rlineto 0 rhei rlineto
+    rwid neg 0 rlineto closepath
+    gsave setrgbcolor fill grestore
+    setrgbcolor stroke
+} def
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%grid
+
+0 0 0 setrgbcolor
+.5 setlinewidth
+
+/Helvetica-Bold findfont 20 scalefont setfont
+
+%1 1 1 .99 .99 .99  0 0 210 80 colrect 
+/bluforrect {.2 .2 .5    .8 .8 1} def
+/greforrect {.2 .5 .2    .8 1 .8} def
+/redforrect {.5 .2 .2    1 .8 .8} def
+
+
+%block
+greforrect    30 10 240 280 colrect
+
+150 267 (Control Structure) centeratsize
+
+/Courier findfont 5 scalefont setfont
+0 0 0 setrgbcolor 
+/line { %string --
+	gsave show grestore
+	0 -5.85 rmoveto
+} def
+
+43 260 moveto
+
+() line
+(/* byte 0 */) line
+(uint8_t major_version;) line
+(uint8_t minor_version;) line
+(uint8_t more_ctrl;      /* number of further ctrl, for interleaved    */) line
+(uint8_t alarms;         /* set by channel, persistent, write 1 to clr */) line
+() line
+(/* byte 4*/) line
+(uint32_t seq_num;       /* block sequence number                      */) line
+(uint32_t flags;         /* endianness etc, see below                  */) line
+(uint32_t nsamples;      /* number of samples in this data block       */) line
+() line
+(/* byte 16 */) line
+(uint16_t ssize;         /* sample-size for each of them, in bytes     */) line
+(uint16_t sbits;         /* sample-bits: number of valid bits          */) line
+(uint16_t cset_i;        /* index of channel-set within device         */) line
+(uint16_t chan_i;        /* index of channel within cset               */) line
+() line
+(/* byte 24 */) line
+(uint8_t hostid[8];      /* Macaddress or whatever unique              */) line
+() line
+(/* byte 32 */) line
+(struct zio_timestamp tstamp;) line
+() line
+(/* byte 56 */) line
+(uint32_t mem_offset;    /* position in mmap buffer of this block      */) line
+(uint32_t reserved;      /* possibly another offset, or space for 64b  */) line
+() line
+(/* byte 64 */) line
+(/* The control block includes what device the data belongs to         */) line
+(char devname[ZIO_OBJ_NAME_LEN];) line
+() line
+(/* byte 76 */) line
+(/* Each data block is associated with a trigger and its features      */) line
+(char triggername[ZIO_OBJ_NAME_LEN];) line
+() line
+(/* byte 88 */) line
+(struct zio_ctrl_attr attr_channel;) line
+(struct zio_ctrl_attr attr_trigger;) line
+() line
+(/* byte 488 */) line
+(uint8_t __fill_end[ZIO_CONTROL_SIZE - 488];) line
+
+showpage
