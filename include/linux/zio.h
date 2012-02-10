@@ -203,6 +203,20 @@ static inline struct zio_channel *__first_enabled_chan(struct zio_cset *cset,
 		     (cptr = __first_enabled_chan(cset, cptr));	\
 		     cptr++)
 
+/*
+ * Return the number of enabled channel on a cset. Be careful: device
+ * spinlock must be taken before invoke this function and it can be released
+ * after the complete consumption of the information provided by this function
+ */
+static inline unsigned int __get_n_chan_enabled(struct zio_cset *cset) {
+	struct zio_channel *chan;
+	unsigned int n_chan = 0;
+
+	cset_for_each(cset, chan)
+		++n_chan;
+	return n_chan;
+}
+
 /* We suggest all drivers have these options */
 #define ZIO_PARAM_TRIGGER(_name) \
 	char *_name; \
