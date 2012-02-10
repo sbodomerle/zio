@@ -113,36 +113,40 @@ static int zio_f_open(struct inode *ino, struct file *f)
 	struct zio_channel *chan;
 	struct zio_buffer_type *zbuf;
 	const struct file_operations *old_fops, *new_fops;
-	int ret = -EINVAL, minor;
+	int err, minor;
 
 	pr_debug("%s:%i\n", __func__, __LINE__);
-	if (f->f_flags & FMODE_WRITE)
-		goto out;
-
 	if (!zio_device_get(ino->i_rdev))
 		return -ENODEV;
 
 	minor = iminor(ino);
 	chan = __zio_minor_to_chan(ino->i_rdev);
 	if (!chan) {
-		pr_err("ZIO: can't retrieve channel for minor %i\n", minor);
-		zio_device_put(ino->i_rdev);
-		return -EBUSY;
+		pr_err("%s: can't retrieve channel for minor %i\n",
+			__func__, minor);
+		err = -EBUSY;
+		goto out;
 	}
 	zbuf = chan->cset->zbuf;
 	if (!zbuf->f_op) {
-		zio_device_put(ino->i_rdev);
-		return -ENODEV;
+		pr_err("%s: no file operations provided by \"%s\" buffer\n",
+			__func__, zbuf->head.name);
+		err = -ENODEV;
+		goto out;
 	}
-
 	f->private_data = NULL;
 	priv = kzalloc(sizeof(struct zio_f_priv), GFP_KERNEL);
-	if (!priv)
-		return -ENOMEM;
-
+	if (!priv) {
+		err = -ENOMEM;
+		goto out;
+	}
 	/* if there is no instance, then create a new one */
-	if (!chan->bi)
-		chan->bi = zbuf->b_op->create(zbuf, chan);
+	if (!chan->bi) {
+		WARN(1, "%s: chan%d in cset%d had no buffer instance",
+			__func__, chan->index, chan->cset->index);
+		err = -ENODEV;
+		goto out;
+	}
 	priv->chan = chan;
 
 	/* even number is control, odd number is data */
@@ -155,10 +159,10 @@ static int zio_f_open(struct inode *ino, struct file *f)
 	mutex_lock(&zmutex);
 	old_fops = f->f_op;
 	new_fops = fops_get(zbuf->f_op);
-	ret = 0;
+	err = 0;
 	if (new_fops->open)
-		ret = new_fops->open(ino, f);
-	if (ret) {
+		err = new_fops->open(ino, f);
+	if (err) {
 		fops_put(zbuf->f_op);
 		mutex_unlock(&zmutex);
 		goto out;
@@ -170,7 +174,8 @@ static int zio_f_open(struct inode *ino, struct file *f)
 
 out:
 	kfree(priv);
-	return ret;
+	zio_device_put(ino->i_rdev);
+	return err;
 }
 
 static const struct file_operations zfops = {
