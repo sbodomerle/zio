@@ -38,7 +38,7 @@ as channels as well.
 	==========
 
 Most configuration and information in ZIO happens through sysfs.
-See sysfs.txt for information about attributes. (FIXME: sysfs.txt)
+See sysfs.txt for information about attributes.
 
 	Data Transfers
 	==============

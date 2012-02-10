@@ -1,0 +1,59 @@
+Spinlocks
+=========
+
+zio_status->lock
+----------------
+ZIO takes track of all registered devices, csets, trigger types and 
+buffer types with a list for each object. When you add or remove an 
+element from these lists, alock must be taken. These lists can be 
+modified only during registration and unregistration operations,
+nowhere else.
+
+
+zio_device->lock
+----------------
+This lock is used to serialize every configuration operation performed
+through zio attributes. Independently from which ZIO object is the
+owner of the ZIO attribute, the correspondent zio_device lock is taken:
+
+	zio_device->lock
+	zio_cset->zdev->lock
+	zio_channel->cset->zdev->lock
+	zio_ti->cset->zdev->lock
+	zio_bi->cset->zdev->lock
+
+Device, buffer and trigger are registered as different objects but 
+are usually on the same peripheral; so, registers which correspond to
+zio attributes are all on the same peripheral. If buffer or trigger
+are not on the same peripheral of device, it is usally because are software
+implementation, then taking the zio_device->lock still works. In the
+rare case where buffer or trigger are not on the same peripheral of
+device and they are not software implemented and they can be shared with
+other devices, then, you must handle concurrency within your drivers.
+
+This lock is also used to protect the enable status of device, cset,
+channel and trigger instance. When one of these element change its
+status, no one else can change its status or modify any zio attributes.
+In this case the trigger operations abort() and change_status() run in a
+locked contest.
+
+zio_cset->lock
+--------------
+This lock is used to protect the concurrent access to transfer
+informations such as: ti->flags ZTI_STATUS bit
+
+
+
+zio_bi->lock
+------------
+zio_ti->lock
+------------
+/* FIXME useless ?*/
+
+
+zio_buffer_type->lock and zio_trigger_type->lock
+---------------------
+Both types take track of every instances created with a list. When a
+new instance is added or removed from its list, the correspondent
+lock must be taken. ZIO modifies these list only during registration
+and unregistration of the correspondent instance.
