@@ -60,33 +60,32 @@ struct zio_control {
 	/* byte 16 */
 	uint16_t ssize;		/* sample-size for each of them, in bytes */
 	uint16_t sbits;		/* sample-bits: number of valid bits */
+
+	/* byte 20 */
+	/* This block of information uniquely identifies the channel */
+	uint8_t hostid[8];	/* Macaddress or whatever unique */
+	char devname[ZIO_OBJ_NAME_LEN];
+	uint32_t dev_id;	/* Driver-specific id */
 	uint16_t cset_i;	/* index of channel-set within device */
 	uint16_t chan_i;	/* index of channel within cset */
 
-	/* byte 24 */
-	uint8_t hostid[8];	/* Macaddress or whatever unique */
-
-	/* byte 32 */
+	/* byte 48 */
 	struct zio_timestamp tstamp;
 
-	/* byte 56 */
+	/* byte 72 */
 	uint32_t mem_offset;	/* position in mmap buffer of this block */
 	uint32_t reserved;	/* possibly another offset, or space for 64b */
 
-	/* byte 64 */
-	/* The control block includes what device the data belongs to */
-	char devname[ZIO_OBJ_NAME_LEN];
-
-	/* byte 76 */
+	/* byte 80 */
 	/* Each data block is associated with a trigger and its features */
 	char triggername[ZIO_OBJ_NAME_LEN];
 
-	/* byte 88 */
+	/* byte 92 */
 	struct zio_ctrl_attr attr_channel;
 	struct zio_ctrl_attr attr_trigger;
 
-	/* byte 488 */
-	uint8_t __fill_end[ZIO_CONTROL_SIZE - 488];
+	/* byte 492 */
+	uint8_t __fill_end[ZIO_CONTROL_SIZE - 492];
 };
 
 /* The following flags are used in the control structure */

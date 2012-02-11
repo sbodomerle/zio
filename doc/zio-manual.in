@@ -521,33 +521,32 @@ struct zio_control {
         /* byte 16 */
         uint16_t ssize;         /* sample-size for each of them, in bytes */
         uint16_t sbits;         /* sample-bits: number of valid bits */
+
+        /* byte 20 */
+        /* This block of information uniquely identifies the channel */
+        uint8_t hostid[8];      /* Macaddress or whatever unique */
+        char devname[ZIO_OBJ_NAME_LEN];
+        uint32_t dev_id;        /* Driver-specific id */
         uint16_t cset_i;        /* index of channel-set within device */
         uint16_t chan_i;        /* index of channel within cset */
 
-        /* byte 24 */
-        uint8_t hostid[8];      /* Macaddress or whatever unique */
-
-        /* byte 32 */
+        /* byte 48 */
         struct zio_timestamp tstamp;
 
-        /* byte 56 */
+        /* byte 72 */
         uint32_t mem_offset;    /* position in mmap buffer of this block */
         uint32_t reserved;      /* possibly another offset, or space for 64b */
 
-        /* byte 64 */
-        /* The control block includes what device the data belongs to */
-        char devname[ZIO_OBJ_NAME_LEN];
-
-        /* byte 76 */
+        /* byte 80 */
         /* Each data block is associated with a trigger and its features */
         char triggername[ZIO_OBJ_NAME_LEN];
 
-        /* byte 88 */
+        /* byte 92 */
         struct zio_ctrl_attr attr_channel;
         struct zio_ctrl_attr attr_trigger;
 
-        /* byte 488 */
-        uint8_t __fill_end[ZIO_CONTROL_SIZE - 488];
+        /* byte 492 */
+        uint8_t __fill_end[ZIO_CONTROL_SIZE - 492];
 };
 @end smallexample
 
@@ -562,7 +561,7 @@ soon -- while auditing and completing support for it.
 @item major_version
 @itemx minor_version
 
-	The version is currently 0.4, as defined by @code{ZIO_MAJOR_VERSION}
+	The version is currently 0.5, as defined by @code{ZIO_MAJOR_VERSION}
         and @code{ZIO_MINOR_VERSION} (in @code{zio.h}). The version is used
         to ensure all actors agree on the meaning of the fields. Since version
         1, we ansure that all minor version changes will be compatible (i.e.,
@@ -611,12 +610,6 @@ soon -- while auditing and completing support for it.
         and sample bits are both needed because we may have something like
         5-bit samples aligned in 32-bit words.
 
-@cindex index of cset and channel
-@item cset_i
-@itemx chan_i
-
-	The index of the cset and the channel within the device
-
 @cindex host identifier
 @item hostid
 
@@ -626,7 +619,28 @@ soon -- while auditing and completing support for it.
         data generation or consumtions, ensuring proper routing. The
         meaning of the field is application-specific; it may be a MAC
         address or whatever. We plan to add a default @i{hostid} value
-        for input channels, set as a module parameter.
+        for the ZIO runtime, set as a module parameter.
+
+@cindex index of cset and channel
+@item devname
+@itemx dev_id
+@itemx cset_i
+@itemx chan_i
+
+	These four fields allow to uniquely identify the channel within
+        the current host. The @code{devname} identifies the driver producing
+        or consuming data; @code{dev_id} is a driver-specific field
+        used to identify different instances of the same driver, @code{cset_i}
+        and @code{chan_i} are the indexes of cset and channel within the
+        device.
+
+	The @code{dev_id} field is not currently used, but it will be
+        as soon as the bus abstraction is added to ZIO.
+
+	For input, all fields are set by ZIO; for output they are ignored
+        if data reaches ZIO through char devices. The network interface
+        of the framework will use these fields to reach the channel
+        associated to output data flows.
 
 @cindex timestamp
 @item struct zio_timestamp tstamp
@@ -645,14 +659,11 @@ soon -- while auditing and completing support for it.
         @i{data} pointer in the block structure is valid nonetheless.
 
 @cindex name of device and trigger
-@item devname
-@itemx triggername
+@item triggername
 
-	Name of the device this control refers to and of the trigger
-        currently active. For input, the names are filled by ZIO, for
-        output they may be used by applications to route packets or
-        switch triggers, but ZIO ignores them when the block is fed to
-        output character devices.
+	Name of the trigger currently active. For input, the name
+        is filled by ZIO, for output, ZIO ignores it (so it can be
+        left blank).
 
 @item attr_channel
 @itemx attr_trigger
