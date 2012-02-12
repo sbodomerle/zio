@@ -137,11 +137,12 @@ struct zio_cset {
 
 /* first 4bit are reserved for zio object universal flags */
 enum zcset_flags {
-	ZCSET_TYPE		= 0x10,	/* 0 is digital - 1 is analog*/
+	ZCSET_TYPE		= 0x70,	/* digital, analog, time, TBD... */
 	ZCSET_TYPE_DIGITAL	= 0x00,
 	ZCSET_TYPE_ANALOG	= 0x10,
-	ZCSET_CHAN_ALLOC	= 0x20, /* 1 if channels are allocated by zio*/
-	ZCSET_CHAN_ALLOC_ON	= 0x20,
+	ZCSET_TYPE_TIME		= 0x20,
+	ZCSET_CHAN_ALLOC	= 0x80, /* 1 if channels are allocated by zio*/
+	ZCSET_CHAN_ALLOC_ON	= 0x80,
 	ZCSET_CHAN_ALLOC_OFF	= 0x00,
 };
 

@@ -928,11 +928,15 @@ or used by the developer are:
         significant bits, but they are expected to share the sample
         size in the data blocks.
 
+@cindex ZCSET_TYPE_DIGITAL
+@cindex ZCSET_TYPE_ANALOG
+@cindex ZCSET_TYPE_TIME
 @item unsigned long flags
 
-	Currently only the type: @code{ZCSET_TYPE_DIGITAL} or
-	@code{ZCSET_TYPE_ANALOG}. The flag has only informative value.
-@c FIXME: CSET_TYPE_TIME
+	Currently only the type: @code{ZCSET_TYPE_DIGITAL},
+	@code{ZCSET_TYPE_ANALOG} or @code{ZCSET_TYPE_TIME} (other types
+        may be added in the future, we reserved for 8 of them).
+        The flag has only informative value.
 
 @cindex channel template
 @item struct zio_channel *chan_template
