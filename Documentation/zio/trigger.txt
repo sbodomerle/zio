@@ -66,7 +66,7 @@ locally or notifying the user).
 The method asks the trigger for a new block. It may be called by
 the buffer, if it wants a block immediately. The trigger that offers
 this method (which may be NULL) is responsible for storing a block
-when available.  Since driver->input_cset completes asynchronously, this
+when available.  Since cset->raw_io completes asynchronously, this
 method can't return a block directly.  The block that will be stored
 may be shorter than what the trigger would have stored in the buffer
 by itself.
@@ -120,8 +120,7 @@ asynchronous code that runs the event will just need to call
 This function, part of zio-core, calls the internal helpers
 __zio_fire_input_trigger for input or __zio_fire_output_trigger for
 output. For input, block allocation is performed for each
-non-disabled channel, and drv->input_cset is called.
-For output, drv->outoput_cset is called.
+non-disabled channel, and cset->raw_io is called.
 
 You can refer to "zio-trig-timer" for an example of a multi-instance
 generic timer and to "zio-trig-app-request" for a non-conventional

@@ -83,18 +83,15 @@ static int zgp_input(struct zio_cset *cset)
 	return 0; /* done */
 }
 
-static struct zio_device_operations zgp_d_op = {
-	.output_cset =		zgp_output,
-	.input_cset =		zgp_input,
-};
-
 static struct zio_cset zgp_cset[] = {
 	{
+		.raw_io =	zgp_output,
 		.n_chan =	1,
 		.ssize =	1,
 		.flags =	ZIO_DIR_OUTPUT | ZCSET_TYPE_ANALOG,
 	},
 	{
+		.raw_io =	zgp_input,
 		.n_chan =	1,
 		.ssize =	1,
 		.flags =	ZIO_DIR_INPUT | ZCSET_TYPE_ANALOG,
@@ -102,7 +99,6 @@ static struct zio_cset zgp_cset[] = {
 };
 static struct zio_device zgp_dev = {
 	.owner =		THIS_MODULE,
-	.d_op =			&zgp_d_op,
 	.cset =			zgp_cset,
 	.n_cset =		ARRAY_SIZE(zgp_cset),
 

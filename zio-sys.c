@@ -201,7 +201,7 @@ static void __zio_fire_input_trigger(struct zio_ti *ti)
 		}
 		chan->active_block = block;
 	}
-	if (!zdev->d_op->input_cset(cset)) {
+	if (!cset->raw_io(cset)) {
 		/* It succeeded immediately */
 		ti->t_op->data_done(cset);
 	}
@@ -210,12 +210,11 @@ static void __zio_fire_input_trigger(struct zio_ti *ti)
 static void __zio_fire_output_trigger(struct zio_ti *ti)
 {
 	struct zio_cset *cset = ti->cset;
-	struct zio_device *zdev = cset->zdev;
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
 
 	/* We are expected to already have a block in active channels */
-	if (!zdev->d_op->output_cset(cset)) {
+	if (!cset->raw_io(cset)) {
 		/* It succeeded immediately */
 		ti->t_op->data_done(cset);
 	}
@@ -1613,10 +1612,6 @@ int zio_register_dev(struct zio_device *zdev, const char *name)
 {
 	int err = 0, i, j;
 
-	if (!zdev->d_op) {
-		pr_err("%s: new devices has no operations\n", __func__);
-		return -EINVAL;
-	}
 	if (!zdev->owner) {
 		pr_err("%s: new device has no owner\n", __func__);
 		return -EINVAL;

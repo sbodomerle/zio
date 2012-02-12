@@ -87,7 +87,6 @@ struct zio_device {
 	unsigned long				flags;
 	struct zio_attribute_set		zattr_set;
 	const struct zio_sysfs_operations	*s_op;
-	const struct zio_device_operations	*d_op;
 
 	/* The full device is an array of csets */
 	struct zio_cset			*cset;
@@ -96,11 +95,6 @@ struct zio_device {
 	/* We can state what its preferred buffer and trigger are (NULL ok) */
 	char *preferred_buffer;
 	char *preferred_trigger;
-};
-
-struct zio_device_operations {
-	int (*input_cset)(struct zio_cset *cset);
-	int (*output_cset)(struct zio_cset *cset);
 };
 
 int __must_check zio_register_dev(struct zio_device *zdev, const char *name);
@@ -115,6 +109,7 @@ struct zio_cset {
 	struct zio_buffer_type	*zbuf;		/* buffer type for bi */
 	struct zio_trigger_type *trig;		/* trigger type for ti*/
 	struct zio_ti		*ti;		/* trigger instance */
+	int			(*raw_io)(struct zio_cset *cset);
 	spinlock_t		lock;		 /* for all I/O ops */
 
 	unsigned		ssize;		/* sample size (bytes) */
@@ -127,8 +122,8 @@ struct zio_cset {
 	struct zio_channel	*chan;
 	unsigned int		n_chan;
 
-	int (*init)(struct zio_cset *cset);
-	void (*exit)(struct zio_cset *cset);
+	int			(*init)(struct zio_cset *cset);
+	void			(*exit)(struct zio_cset *cset);
 
 	void			*priv_d;	/* private for the device */
 

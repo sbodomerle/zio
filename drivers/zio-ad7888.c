@@ -137,12 +137,11 @@ int ad7888_input_cset(struct zio_cset *cset)
 struct zio_sysfs_operations ad7888_s_op = {
 	.conf_set = ad7888_conf_set,
 };
-struct zio_device_operations ad7888_d_op = {
-	.input_cset = ad7888_input_cset,
-};
+
 /* channel sets available */
 static struct zio_cset ad7888_ain_cset[] = {
 	{
+		.raw_io = ad7888_input_cset,
 		.ssize = 2,
 		.n_chan = 8,
 		.flags = ZCSET_TYPE_ANALOG |	/* is analog */
@@ -152,7 +151,6 @@ static struct zio_cset ad7888_ain_cset[] = {
 struct zio_device zdev_ad7888 = {
 	.owner = THIS_MODULE,
 	.s_op = &ad7888_s_op,
-	.d_op = &ad7888_d_op,
 	.flags = 0,
 	.cset = ad7888_ain_cset,
 	.n_cset = ARRAY_SIZE(ad7888_ain_cset),

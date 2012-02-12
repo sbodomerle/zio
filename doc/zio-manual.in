@@ -891,14 +891,6 @@ are:
 	The structure includes the @code{info_get} and @code{conf_set}
         methods that act on ZIO attributes. See @ref{The Attributes}.
 
-@cindex device operations
-@item const struct zio_device_operations *d_op
-
-	The device operations are used to request input or output
-        from/to a specific cset in the device. @b{Note:} we are
-        going to remove them and have a @code{raw_io} function for
-        each cset instead.
-
 @end table
 
 We won't describe further details of @code{struct zio_device} at this point,
@@ -913,10 +905,20 @@ hierarchy because all data transfers are cset-wide. Each cset
 includes a pointer to the current trigger and buffer types.
 
 @tindex zio_cset
-The most important fields of @code{Struct zio_cset} to be filled
+The most important fields of @code{struct zio_cset} to be filled
 or used by the developer are:
 
 @table @code
+
+@cindex raw_io
+@item int (*raw_io)(struct zio_cset *cset)
+
+	This is the function that performs actual I/O or schedules it
+        to be performed when the internal trigger fires. If the
+        function returns 0, the input or output operation has already
+        been completed. A return value of @code{-EAGAIN} means that
+        cset code will call @code{trigger->data_done} at a later time.
+        Other return values are used to report real errors.
 
 @cindex sample size
 @item  unsigned ssize
