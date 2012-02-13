@@ -698,6 +698,9 @@ static ssize_t zattr_show(struct kobject *kobj, struct attribute *attr,
 		return sprintf(buf, "%d\n",
 			  !((*__get_flag(to_zio_head(kobj))) & ZIO_DISABLED));
 
+	/* only read attributes can avoid s_op declaration */
+	if (!zattr->s_op)
+		goto out;
 	if (zattr->s_op->info_get) {
 		lock = __get_spinlock(to_zio_head(kobj));
 		spin_lock(lock);
@@ -706,6 +709,7 @@ static ssize_t zattr_show(struct kobject *kobj, struct attribute *attr,
 		if (err)
 			return err;
 	}
+out:
 	len = sprintf(buf, "%i\n", zattr->value);
 	return len;
 }
