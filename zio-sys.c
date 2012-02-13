@@ -1227,7 +1227,8 @@ static int chan_register(struct zio_channel *chan)
 		goto out_add;
 
 	/* Create sysfs channel attributes */
-	chan->zattr_set.n_std_attr = ZATTR_STD_NUM_ZDEV;
+	if (chan->zattr_set.std_zattr)
+		chan->zattr_set.n_std_attr = ZATTR_STD_NUM_ZDEV;
 	err = zattr_set_create(&chan->head, chan->cset->zdev->s_op);
 	if (err)
 		goto out_sysfs;
@@ -1379,7 +1380,8 @@ static int cset_register(struct zio_cset *cset)
 	if (err)
 		goto out_add;
 	/* Create sysfs cset attributes */
-	cset->zattr_set.n_std_attr = ZATTR_STD_NUM_ZDEV;
+	if (cset->zattr_set.std_zattr)
+		cset->zattr_set.n_std_attr = ZATTR_STD_NUM_ZDEV;
 	err = zattr_set_create(&cset->head, cset->zdev->s_op);
 	if (err)
 		goto out_sysfs;
@@ -1621,7 +1623,9 @@ int zio_register_dev(struct zio_device *zdev, const char *name)
 			    ZDEV, zdev->owner, name);
 	if (err)
 		goto out;
-	zdev->zattr_set.n_std_attr = ZATTR_STD_NUM_ZDEV;
+
+	if (zdev->zattr_set.std_zattr)
+		zdev->zattr_set.n_std_attr = ZATTR_STD_NUM_ZDEV;
 	spin_lock_init(&zdev->lock);
 	/* Create standard and extended sysfs attribute for device */
 	err = zattr_set_create(&zdev->head, zdev->s_op);
@@ -1686,7 +1690,8 @@ int zio_register_buf(struct zio_buffer_type *zbuf, const char *name)
 		zio_fini_buffer_fops(zbuf);
 		return err;
 	}
-	zbuf->zattr_set.n_std_attr = ZATTR_STD_NUM_ZBUF;
+	if (zbuf->zattr_set.std_zattr)
+		zbuf->zattr_set.n_std_attr = ZATTR_STD_NUM_ZBUF;
 	INIT_LIST_HEAD(&zbuf->list);
 	spin_lock_init(&zbuf->lock);
 
@@ -1720,7 +1725,8 @@ int zio_register_trig(struct zio_trigger_type *trig, const char *name)
 			    ZTRIG, trig->owner, name);
 	if (err)
 		return err;
-	trig->zattr_set.n_std_attr = ZATTR_STD_NUM_TRIG;
+	if (trig->zattr_set.std_zattr)
+		trig->zattr_set.n_std_attr = ZATTR_STD_NUM_TRIG;
 	INIT_LIST_HEAD(&trig->list);
 	spin_lock_init(&trig->lock);
 
