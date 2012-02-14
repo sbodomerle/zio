@@ -38,6 +38,7 @@ const char zio_trig_attr_names[ZATTR_STD_NUM_TRIG][ZIO_NAME_LEN] = {
 EXPORT_SYMBOL(zio_trig_attr_names);
 const char zio_zbuf_attr_names[ZATTR_STD_NUM_ZBUF][ZIO_NAME_LEN] = {
 	[ZATTR_ZBUF_MAXLEN]	= "max-buffer-len",
+	[ZATTR_ZBUF_MAXKB]	= "max-buffer-kb",
 };
 EXPORT_SYMBOL(zio_zbuf_attr_names);
 
