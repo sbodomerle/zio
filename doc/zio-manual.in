@@ -1,6 +1,6 @@
 \input texinfo    @c -*-texinfo-*-
 %
-% mini-ipc.in - main file for the documentation
+% zio-manual.in - main file for the documentation
 %
 %%%%
 
@@ -1323,8 +1323,107 @@ described earlier in this manual.
 @node Locking Policies
 @section Locking Policies
 
-Still to be written. Feel free to express your interest in this
-section to the mailing list.
+@cindex locking policies
+@cindex spin locks in ZIO
+@cindex critical sections
+@cindex race conditions
+In order to safely work with ZIO, developers should be aware of the
+locking policies that are already in place. With this knowledge
+they can handle their critical sections without over-locking or
+under-locking in preventing race conditions.
+
+In general, we tried to centralize locking in order to simplify the
+task of writing ZIO drivers.
+
+The following locks are defined used in ZIO core and data structures:
+
+@table @code
+
+@item zio_status->lock
+
+	This is used internally to take care of all registered devices,
+        csets, trigger types and buffer types. The core hosts a list
+        for each of the item types and a single lock is used for all
+        of them.  These lists, anyways, can be modified only when ZIO
+        modules register or unregister themselves.
+
+@cindex device lock
+@item zio_device->lock
+
+	This lock is used to serialize every configuration performed
+        through zio attributes. This applies to all configurations
+        pertaining the device and its dependent levels, including
+        buffer and trigger instances. In other words, all @code{conf_set}
+        and @code{info_get} calls are serialized device-wise.
+
+@cindex cset lock
+@item zio_cset->lock
+
+	The cset structure includes a lock that is used to
+        serialize access to the @code{ti->flags} bits (e.g.:
+        @code{ZTI_BUSY}, that signals that a trigger is pending).
+        I/O itself is serialized by trigger code: only one trigger event
+        can be pending for each cset, using the BUSY flag.
+
+@item zio_buffer_type->lock
+@itemx zio_trigger_type->lock
+
+	Each buffer and trigger type has a lock, which is used
+        by the core when instances are created or destroyed. Thus,
+        such operations are serialized and sub-modules are safe without
+        arranging for their own locking policies.
+
+@item zio_bi->lock
+@itemx zio_ti->lock
+
+	These locks are initialized by the core before calling the
+        respective create function. Buffer and trigger types can use
+        them without declaring a spinlock in their own structures.
+        Buffers distributed with the core use this lock.
+
+@end table
+
+From the table above, it's clear how the device lock, used for
+configuration, is the most used ZIO spinlock.  Even though
+device, buffer and trigger are registered as different objects, they
+live on the same peripheral device. Thus, you most often need to
+serialize configuration on the device as a whole, because
+configuration parameters are usually stored in hardware registers.
+
+If the trigger and buffer modules are device-specific, they may need
+to access the device spin lock, too. While this doesn't apply to
+generic triggers or buffers, taking the device lock won't have bad
+effects, and the associated overhead is minimal.
+
+If your buffers or triggers request a different kind of locking
+(e.g., you need to serialize some sections with a scope bigger
+than the single device), you'll need to arrange for your own locking.
+
+The following lines show how to reach the device lock from the various
+objects used withing the ZIO framework:
+
+@example
+   zio_device->lock
+   zio_cset->zdev->lock
+   zio_channel->cset->zdev->lock
+   zio_ti->cset->zdev->lock
+   zio_bi->cset->zdev->lock
+@end example
+
+The device lock is also used to protect the enable/disable bit of
+device, cset, channel and trigger instance.  For this reason,
+please note that the @i{abort} and @i{change_status} trigger
+operations are called while holding the device lock.
+
+ZIO sub-modules should arrange for any other locking requirements.
+Buffer modules will typically ensure consistency of the data space
+within each instance (i.e., concurrency of @code{store_block} and
+@code{retr_block}) (they can use @code{bi->lock} for this).  Trigger
+modules will need to protect modification of their status flag, like
+the utility functions @code{zio_generic_data_done} and
+@code{zio_fire_trigger} do (they can use @code{ti->lock} to this aim).
+Device modules will need to serialize some of their non-atomic
+hardware access primitives, in this case by declaring their own locks.
 
 @c ==========================================================================
 @node Writing a Device
