@@ -13,7 +13,6 @@
 
 #define ZIO_NAME_LEN 32 /* full name */
 
-#include <linux/kobject.h>
 #include <linux/sysfs.h>
 #include <linux/device.h>
 #include <linux/types.h>
@@ -53,18 +52,18 @@ enum zio_object_type {
 
 /* zio_obj_head is for internal use only, as explained above */
 struct zio_obj_head {
-	struct kobject		kobj;
+	struct device		dev;
 	enum zio_object_type	zobj_type;
 	char			name[ZIO_NAME_LEN];
 };
-#define to_zio_head(_kobj) container_of(_kobj, struct zio_obj_head, kobj)
-#define to_zio_dev(_kobj) container_of(_kobj, struct zio_device, head.kobj)
-#define to_zio_cset(_kobj) container_of(_kobj, struct zio_cset, head.kobj)
-#define to_zio_chan(_kobj) container_of(_kobj, struct zio_channel, head.kobj)
+#define to_zio_head(_dev) container_of(_dev, struct zio_obj_head, dev)
+#define to_zio_dev(_dev) container_of(_dev, struct zio_device, head.dev)
+#define to_zio_cset(_dev) container_of(_dev, struct zio_cset, head.dev)
+#define to_zio_chan(_dev) container_of(_dev, struct zio_channel, head.dev)
 
-static inline enum zio_object_type __zio_get_object_type(struct kobject *kobj)
+static inline enum zio_object_type __zio_get_object_type(struct device *dev)
 {
-	return to_zio_head(kobj)->zobj_type;
+	return to_zio_head(dev)->zobj_type;
 }
 
 /* Bits 0..3 are reserved for use in all objects. By now only bit 1 is used */

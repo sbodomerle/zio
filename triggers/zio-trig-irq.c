@@ -37,7 +37,7 @@ static struct zio_attribute zti_ext_attr[] = {
 	ZATTR_EXT_REG("irq", S_IRUGO, ZTI_ATTR_IRQ, -1),
 	ZATTR_EXT_REG("gpio", S_IRUGO, ZTI_ATTR_GPIO, -1),
 };
-static int zti_conf_set(struct kobject *kobj, struct zio_attribute *zattr,
+static int zti_conf_set(struct device *dev, struct zio_attribute *zattr,
 		uint32_t  usr_val)
 {
 	pr_debug("%s:%d\n", __func__, __LINE__);

@@ -81,13 +81,13 @@ static struct zio_attribute zattr_dev_ext_ad7888[] = {
 			      AD788x_PM_ADDR, 0x0),
 };
 
-static int ad788x_conf_set(struct kobject *kobj, struct zio_attribute *zattr,
+static int ad788x_conf_set(struct device *dev, struct zio_attribute *zattr,
 		uint32_t  usr_val)
 {
 	unsigned long mask = zattr->priv.addr;
 	struct ad788x *ad788x_tmp;
 
-	ad788x_tmp = to_ad788x(to_zio_dev(kobj));
+	ad788x_tmp = to_ad788x(to_zio_dev(dev));
 	switch (mask) {
 	case AD788x_PM_ADDR:		/* power management */
 		if (usr_val < 4)

@@ -391,19 +391,19 @@ static spinlock_t *__get_spinlock(struct zio_obj_head *head)
 
 	switch (head->zobj_type) {
 	case ZDEV:
-		lock = &to_zio_dev(&head->kobj)->lock;
+		lock = &to_zio_dev(&head->dev)->lock;
 		break;
 	case ZCSET:
-		lock = &to_zio_cset(&head->kobj)->zdev->lock;
+		lock = &to_zio_cset(&head->dev)->zdev->lock;
 		break;
 	case ZCHAN:
-		lock = &to_zio_chan(&head->kobj)->cset->zdev->lock;
+		lock = &to_zio_chan(&head->dev)->cset->zdev->lock;
 		break;
 	case ZTI: /* we might not want to take a lock but... */
-		lock = &to_zio_ti(&head->kobj)->cset->zdev->lock;
+		lock = &to_zio_ti(&head->dev)->cset->zdev->lock;
 		break;
 	case ZBI:
-		lock = &to_zio_bi(&head->kobj)->cset->zdev->lock;
+		lock = &to_zio_bi(&head->dev)->cset->zdev->lock;
 		break;
 	default:
 		WARN(1, "ZIO: unknown zio object %i\n", head->zobj_type);
@@ -419,25 +419,25 @@ static struct zio_attribute_set *__get_zattr_set(struct zio_obj_head *head)
 
 	switch (head->zobj_type) {
 	case ZDEV:
-		zattr_set = &to_zio_dev(&head->kobj)->zattr_set;
+		zattr_set = &to_zio_dev(&head->dev)->zattr_set;
 		break;
 	case ZCSET:
-		zattr_set = &to_zio_cset(&head->kobj)->zattr_set;
+		zattr_set = &to_zio_cset(&head->dev)->zattr_set;
 		break;
 	case ZCHAN:
-		zattr_set = &to_zio_chan(&head->kobj)->zattr_set;
+		zattr_set = &to_zio_chan(&head->dev)->zattr_set;
 		break;
 	case ZTRIG:
-		zattr_set = &to_zio_trig(&head->kobj)->zattr_set;
+		zattr_set = &to_zio_trig(&head->dev)->zattr_set;
 		break;
 	case ZBUF:
-		zattr_set = &to_zio_buf(&head->kobj)->zattr_set;
+		zattr_set = &to_zio_buf(&head->dev)->zattr_set;
 		break;
 	case ZTI:
-		zattr_set = &to_zio_ti(&head->kobj)->zattr_set;
+		zattr_set = &to_zio_ti(&head->dev)->zattr_set;
 		break;
 	case ZBI:
-		zattr_set = &to_zio_bi(&head->kobj)->zattr_set;
+		zattr_set = &to_zio_bi(&head->dev)->zattr_set;
 		break;
 	default:
 		WARN(1, "ZIO: unknown zio object %i\n", head->zobj_type);
@@ -452,25 +452,25 @@ static unsigned long *__get_flag(struct zio_obj_head *head)
 
 	switch (head->zobj_type) {
 	case ZDEV:
-		flags = &to_zio_dev(&head->kobj)->flags;
+		flags = &to_zio_dev(&head->dev)->flags;
 		break;
 	case ZCSET:
-		flags = &to_zio_cset(&head->kobj)->flags;
+		flags = &to_zio_cset(&head->dev)->flags;
 		break;
 	case ZCHAN:
-		flags = &to_zio_chan(&head->kobj)->flags;
+		flags = &to_zio_chan(&head->dev)->flags;
 		break;
 	case ZTRIG:
-		flags = &to_zio_chan(&head->kobj)->flags;
+		flags = &to_zio_chan(&head->dev)->flags;
 		break;
 	case ZBUF:
-		flags = &to_zio_chan(&head->kobj)->flags;
+		flags = &to_zio_chan(&head->dev)->flags;
 		break;
 	case ZTI:
-		flags = &to_zio_ti(&head->kobj)->flags;
+		flags = &to_zio_ti(&head->dev)->flags;
 		break;
 	case ZBI:
-		flags = &to_zio_bi(&head->kobj)->flags;
+		flags = &to_zio_bi(&head->dev)->flags;
 		break;
 	default:
 		WARN(1, "ZIO: unknown zio object %i\n", head->zobj_type);
@@ -523,7 +523,7 @@ static int zio_change_current_trigger(struct zio_cset *cset, char *name)
 	cset->trig = trig;
 	cset->ti = ti;
 	/* Rename trigger-tmp to trigger */
-	err = kobject_rename(&ti->head.kobj, "trigger");
+	err = device_rename(&ti->head.dev, "trigger");
 	if (err)
 		WARN(1, "%s: cannot rename trigger folder for"
 			" cset%d\n", __func__, cset->index);
@@ -587,7 +587,7 @@ static int zio_change_current_buffer(struct zio_cset *cset, char *name)
 		/* Assign new buffer instance */
 		cset->chan[i].bi = bi_vector[i];
 		/* Rename buffer-tmp to trigger */
-		err = kobject_rename(&cset->chan[i].bi->head.kobj, "buffer");
+		err = device_rename(&cset->chan[i].bi->head.dev, "buffer");
 		if (err)
 			WARN(1, "%s: cannot rename buffer folder for"
 				" cset%d:chan%d\n", __func__, cset->index, i);
@@ -642,7 +642,7 @@ static void __zattr_propagate_value(struct zio_obj_head *head,
 	pr_debug("%s\n", __func__);
 	switch (head->zobj_type) {
 	case ZDEV:
-		zdev = to_zio_dev(&head->kobj);
+		zdev = to_zio_dev(&head->dev);
 		for (i = 0; i < zdev->n_cset; ++i) {
 			cset = &zdev->cset[i];
 			for (j = 0; j < cset->n_chan; ++j) {
@@ -652,18 +652,18 @@ static void __zattr_propagate_value(struct zio_obj_head *head,
 		}
 		break;
 	case ZCSET:
-		cset = to_zio_cset(&head->kobj);
+		cset = to_zio_cset(&head->dev);
 		for (i = 0; i < cset->n_chan; ++i) {
 			ctrl = cset->chan[i].current_ctrl;
 			__zattr_valcpy(&ctrl->attr_channel, zattr);
 		}
 		break;
 	case ZCHAN:
-		ctrl = to_zio_chan(&head->kobj)->current_ctrl;
+		ctrl = to_zio_chan(&head->dev)->current_ctrl;
 		__zattr_valcpy(&ctrl->attr_channel, zattr);
 		break;
 	case ZTI:
-		ti = to_zio_ti(&head->kobj);
+		ti = to_zio_ti(&head->dev);
 		/* Update all channel current control */
 		for (i = 0; i < ti->cset->n_chan; ++i) {
 			chan = &ti->cset->chan[i];
@@ -673,7 +673,6 @@ static void __zattr_propagate_value(struct zio_obj_head *head,
 				(zattr->flags & ZATTR_TYPE) == ZATTR_TYPE_STD)
 				chan->current_ctrl->nsamples = zattr->value;
 		}
-
 		break;
 	default:
 		return;
@@ -774,56 +773,12 @@ static int __zattr_dev_init_ctrl(struct zio_device *zdev)
 	}
 	return 0;
 }
- /*
- * Zio objects all handle uint32_t values. So the show and store
- * are centralized here, and each device has its own get_info and set_conf
- * which handle binary 32-bit numbers. Both the function are locked to prevent
- * concurrency issue when editing device register.
- */
-static ssize_t zattr_show(struct kobject *kobj, struct attribute *attr,
-				char *buf)
-{
-	int err = 0;
-	ssize_t len = 0;
-	spinlock_t *lock;
-	struct zio_attribute *zattr = to_zio_zattr(attr);
-
-	pr_debug("%s\n", __func__);
-	/* print device name */
-	if (unlikely(strcmp(attr->name, ZOBJ_SYSFS_NAME) == 0))
-		return sprintf(buf, "%s\n", to_zio_head(kobj)->name);
-	/* print current trigger name */
-	if (unlikely(strcmp(attr->name, CSET_SYSFS_TRIGGER) == 0))
-		return sprintf(buf, "%s\n", to_zio_cset(kobj)->trig->head.name);
-	/* print current buffer name */
-	if (unlikely(strcmp(attr->name, CSET_SYSFS_BUFFER) == 0))
-		return sprintf(buf, "%s\n", to_zio_cset(kobj)->zbuf->head.name);
-	/* print current enable status */
-	if (unlikely(strcmp(attr->name, ZOBJ_SYSFS_ENABLE) == 0))
-		return sprintf(buf, "%d\n",
-			  !((*__get_flag(to_zio_head(kobj))) & ZIO_DISABLED));
-
-	/* only read attributes can avoid s_op declaration */
-	if (!zattr->s_op)
-		goto out;
-	if (zattr->s_op->info_get) {
-		lock = __get_spinlock(to_zio_head(kobj));
-		spin_lock(lock);
-		err = zattr->s_op->info_get(kobj, zattr, &zattr->value);
-		spin_unlock(lock);
-		if (err)
-			return err;
-	}
-out:
-	len = sprintf(buf, "%i\n", zattr->value);
-	return len;
-}
 
 /*
  * enable/disable a zio object
  * must be called while holding the zio_device spinlock
  */
-static void __zobj_enable(struct kobject *kobj, unsigned int enable)
+static void __zobj_enable(struct device *dev, unsigned int enable)
 {
 	unsigned long *flags;
 	int i, status;
@@ -833,9 +788,9 @@ static void __zobj_enable(struct kobject *kobj, unsigned int enable)
 	struct zio_ti *ti;
 
 	pr_debug("%s\n", __func__);
-	head = to_zio_head(kobj);
+	head = to_zio_head(dev);
 
-	flags = __get_flag(to_zio_head(kobj));
+	flags = __get_flag(to_zio_head(dev));
 	status = !((*flags) & ZIO_STATUS);
 	/* if the status is not changing */
 	if (!(enable ^ status))
@@ -846,23 +801,21 @@ static void __zobj_enable(struct kobject *kobj, unsigned int enable)
 	case ZDEV:
 		pr_debug("%s: zdev\n", __func__);
 
-		zdev = to_zio_dev(kobj);
+		zdev = to_zio_dev(dev);
 		/* enable/disable all cset */
-		for (i = 0; i < zdev->n_cset; ++i) {
-			__zobj_enable(&zdev->cset[i].head.kobj, enable);
-		}
+		for (i = 0; i < zdev->n_cset; ++i)
+			__zobj_enable(&zdev->cset[i].head.dev, enable);
 		/* device callback */
 		break;
 	case ZCSET:
 		pr_debug("%s: zcset\n", __func__);
 
-		cset = to_zio_cset(kobj);
+		cset = to_zio_cset(dev);
 		/* enable/disable trigger instance */
-		__zobj_enable(&cset->ti->head.kobj, enable);
+		__zobj_enable(&cset->ti->head.dev, enable);
 		/* enable/disable all channel*/
-		for (i = 0; i < cset->n_chan; ++i) {
-			__zobj_enable(&cset->chan[i].head.kobj, enable);
-		}
+		for (i = 0; i < cset->n_chan; ++i)
+			__zobj_enable(&cset->chan[i].head.dev, enable);
 		/* cset callback */
 		break;
 	case ZCHAN:
@@ -872,7 +825,7 @@ static void __zobj_enable(struct kobject *kobj, unsigned int enable)
 	case ZTI:
 		pr_debug("%s: zti\n", __func__);
 
-		ti = to_zio_ti(kobj);
+		ti = to_zio_ti(dev);
 		/* if trigger is running, abort it*/
 		spin_lock(&ti->cset->lock);
 		if (*flags & ZTI_BUSY) {
@@ -882,10 +835,8 @@ static void __zobj_enable(struct kobject *kobj, unsigned int enable)
 		}
 		spin_unlock(&ti->cset->lock);
 		/* trigger instance callback */
-		if (ti->t_op->change_status) {
-			pr_debug("%s:%d\n", __func__, __LINE__);
+		if (ti->t_op->change_status)
 			ti->t_op->change_status(ti, status);
-		}
 		break;
 	/* following objects can't be enabled/disabled */
 	case ZBUF:
@@ -899,116 +850,208 @@ static void __zobj_enable(struct kobject *kobj, unsigned int enable)
 	}
 }
 
-static ssize_t zattr_store(struct kobject *kobj, struct attribute *attr,
-				const char *buf, size_t size)
+/* Print the name of a zio object */
+static ssize_t zobj_show_name(struct device *dev,
+			       struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%s\n", to_zio_head(dev)->name);
+}
+/* Print the current trigger name */
+static ssize_t zobj_show_cur_trig(struct device *dev,
+				  struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%s\n", to_zio_cset(dev)->trig->head.name);
+}
+/* Change the current trigger */
+static ssize_t zobj_store_cur_trig(struct device *dev,
+				   struct device_attribute *attr,
+				   const char *buf, size_t count)
+{
+	char buf_tmp[ZIO_OBJ_NAME_LEN];
+	int err;
+
+	if (strlen(buf) > ZIO_OBJ_NAME_LEN+1)
+		return -EINVAL; /* name too long */
+	sscanf(buf, "%s\n", buf_tmp);
+	err = zio_change_current_trigger(to_zio_cset(dev), buf_tmp);
+	return err ? err : count;
+}
+/* Print the current buffer name */
+static ssize_t zobj_show_cur_zbuf(struct device *dev,
+				 struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%s\n", to_zio_cset(dev)->zbuf->head.name);
+}
+/* Change the current buffer */
+static ssize_t zobj_store_cur_zbuf(struct device *dev,
+				   struct device_attribute *attr,
+				   const char *buf, size_t count)
+{
+	char buf_tmp[ZIO_OBJ_NAME_LEN];
+	int err;
+
+	if (strlen(buf) > ZIO_OBJ_NAME_LEN+1)
+		return -EINVAL; /* name too long */
+	sscanf(buf, "%s\n", buf_tmp);
+	err = zio_change_current_buffer(to_zio_cset(dev), buf_tmp);
+	return err ? err : count;
+}
+/* Print the current enable status */
+static ssize_t zobj_show_enable(struct device *dev,
+				 struct device_attribute *attr, char *buf)
+{
+	int status;
+
+	status = !((*__get_flag(to_zio_head(dev))) & ZIO_DISABLED);
+	return sprintf(buf, "%d\n", status);
+}
+/* Change the current enable status */
+static ssize_t zobj_store_enable(struct device *dev,
+				 struct device_attribute *attr,
+				 const char *buf, size_t count)
 {
 	long val;
-	int err = 0;
-	char buf_tmp[ZIO_OBJ_NAME_LEN];
-	struct zio_attribute *zattr = to_zio_zattr(attr);
+	int err;
 	spinlock_t *lock;
-
-	pr_debug("%s\n", __func__);
-	if (unlikely(strcmp(attr->name, CSET_SYSFS_TRIGGER) == 0)) {
-		if (strlen(buf) > ZIO_OBJ_NAME_LEN + 1)
-			return -EINVAL; /* name too long */
-		sscanf(buf, "%s\n", buf_tmp);
-		err = zio_change_current_trigger(to_zio_cset(kobj), buf_tmp);
-		return err == 0 ? size : err;
-	}
-	/* change current buffer */
-	if (unlikely(strcmp(attr->name, CSET_SYSFS_BUFFER) == 0)) {
-		if (strlen(buf) > ZIO_OBJ_NAME_LEN + 1)
-			return -EINVAL; /* name too long */
-		sscanf(buf, "%s\n", buf_tmp);
-		err = zio_change_current_buffer(to_zio_cset(kobj), buf_tmp);
-		return err == 0 ? size : err;
-	}
 
 	err = strict_strtol(buf, 0, &val);
 	if (err)
 		return -EINVAL;
 
-	lock = __get_spinlock(to_zio_head(kobj));
+	lock = __get_spinlock(to_zio_head(dev));
 	/* change enable status */
-	if (unlikely(strcmp(attr->name, ZOBJ_SYSFS_ENABLE) == 0 &&
+	if (unlikely(strcmp(attr->attr.name, ZOBJ_SYSFS_ENABLE) == 0 &&
 	    (val == 0 || val == 1))) {
 		spin_lock(lock);
-		__zobj_enable(kobj, val);
+		__zobj_enable(dev, val);
 		spin_unlock(lock);
-		return size;
+		return count;
 	}
 
-	/* device attributes */
-	if (zattr->s_op->conf_set) {
+	return count;
+}
+/*
+ * Zio objects all handle uint32_t values. So the show and store
+ * are centralized here, and each device has its own get_info and set_conf
+ * which handle binary 32-bit numbers. Both the function are locked to prevent
+ * concurrency issue when editing device register.
+ */
+static ssize_t zattr_show(struct device *dev, struct device_attribute *attr,
+		char *buf)
+{
+	struct zio_attribute *zattr = to_zio_zattr(attr);
+	ssize_t len = 0;
+
+
+	pr_debug("%s\n", __func__);
+	if (!zattr->s_op)
+		goto out;
+	if (zattr->s_op->info_get) {
+		struct zio_obj_head *head = to_zio_head(dev);
+		spinlock_t *lock;
+		int err = 0;
+
+		lock = __get_spinlock(head);
 		spin_lock(lock);
-		err = zattr->s_op->conf_set(kobj, zattr, (uint32_t)val);
-		if (err) {
-			spin_unlock(lock);
-			return err;
-		}
-		zattr->value = (uint32_t)val;
-		__zattr_propagate_value(to_zio_head(kobj), zattr);
+		err = zattr->s_op->info_get(dev, zattr, &zattr->value);
 		spin_unlock(lock);
+		if (err)
+			return err;
 	}
-	return size;
+out:
+	len = sprintf(buf, "%i\n", zattr->value);
+	return len;
 }
 
-static const struct sysfs_ops zio_attribute_ktype_ops = {
-	.show  = zattr_show,
-	.store = zattr_store,
+static ssize_t zattr_store(struct device *dev, struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+	struct zio_attribute *zattr = to_zio_zattr(attr);
+	struct zio_obj_head *head = to_zio_head(dev);
+	spinlock_t *lock;
+	long val;
+	int err;
+
+	pr_debug("%s\n", __func__);
+
+	if (strict_strtol(buf, 0, &val))
+		return -EINVAL;
+
+	/* device attributes */
+	if (!zattr->s_op->conf_set)
+		return -EINVAL;
+
+	lock = __get_spinlock(head);
+	spin_lock(lock);
+	err = zattr->s_op->conf_set(dev, zattr, (uint32_t)val);
+	if (err) {
+		spin_unlock(lock);
+		return err;
+	}
+	zattr->value = (uint32_t)val;
+	__zattr_propagate_value(head, zattr);
+	spin_unlock(lock);
+
+	return count;
+}
+
+static ssize_t zio_show_version(struct bus_type *bus, char *buf)
+{
+	return sprintf(buf, "%d.%d\n", ZIO_MAJOR_VERSION, ZIO_MINOR_VERSION);
+}
+
+/* Attributes to change buffer and trigger instance*/
+static DEVICE_ATTR(current_trigger, 0666, zobj_show_cur_trig,
+					  zobj_store_cur_trig);
+static DEVICE_ATTR(current_buffer, 0666, zobj_show_cur_zbuf,
+					 zobj_store_cur_zbuf);
+
+/* Bus definition */
+static struct bus_attribute def_bus_attrs[] = {
+	__ATTR(version, 0444, zio_show_version, NULL),
+	__ATTR_NULL,
 };
-static struct attribute default_cset_attrs[] = {
-		{	/* show the name */
-			.name = ZOBJ_SYSFS_NAME,
-			.mode = 0444, /* read only */
-		},
-		{
-			/* enable/disable object */
-			.name = ZOBJ_SYSFS_ENABLE,
-			.mode = 0666, /* read write */
-		},
-		{	/* get/set trigger */
-			.name = CSET_SYSFS_TRIGGER,
-			.mode = 0666, /* read write */
-		},
-		{	/* get/set buffer */
-			.name = CSET_SYSFS_BUFFER,
-			.mode = 0666, /* read write */
-		},
+static struct device_attribute def_device_attrs[] = {
+	__ATTR(name, 0444, zobj_show_name, NULL),
+	__ATTR(enable, 0666, zobj_show_enable, zobj_store_enable),
+	__ATTR_NULL,
 };
-static struct attribute *def_cset_attr_ptr[] = {
-	&default_cset_attrs[0],
-	&default_cset_attrs[1],
-	&default_cset_attrs[2],
-	&default_cset_attrs[3],
+static struct attribute *def_device_attrs_ptr[] = {
+	&def_device_attrs[0].attr,
+	&def_device_attrs[1].attr,
 	NULL,
 };
-static struct kobj_type zdkctype = { /* only for cset */
-	.release   = NULL,
-	.sysfs_ops = &zio_attribute_ktype_ops,
-	.default_attrs = def_cset_attr_ptr,
+static const struct attribute_group def_device_groups[] = {
+	{
+		.attrs = def_device_attrs_ptr,
+	},
 };
-static struct attribute default_attrs[] = {
-		{	/* show the name */
-			.name = ZOBJ_SYSFS_NAME,
-			.mode = 0444, /* read only */
-		},
-		{	/* enable/disable object */
-			.name = ZOBJ_SYSFS_ENABLE,
-			.mode = 0666, /* read write */
-		},
-};
-static struct attribute *def_attr_ptr[] = {
-	&default_attrs[0],
-	&default_attrs[1],
+static const struct attribute_group *def_device_groups_ptr[] = {
+	&def_device_groups[0],
 	NULL,
+};
+static int zio_match(struct device *dev, struct device_driver *drv)
+{
+	pr_debug("%s %s\n", __func__, dev->init_name);
+	return 0;
+}
+struct bus_type zio_bus_type = {
+	.name = "zio",
+	.bus_attrs = def_bus_attrs,
+	//.dev_attrs = def_device_attrs,
+	.match = zio_match,
 };
 
-static struct kobj_type zdktype = { /* for all the other object */
-	.release   = NULL,
-	.sysfs_ops = &zio_attribute_ktype_ops,
-	.default_attrs = def_attr_ptr,
+/* Device types */
+void zio_device_release(struct device *dev)
+{
+	return;
+}
+
+struct device_type zobj_device_type = {
+	.name = "zio object device type",
+	.release = zio_device_release,
+	.groups = def_device_groups_ptr,
 };
 
 
@@ -1017,7 +1060,7 @@ static int __check_dev_zattr(struct zio_attribute_set *parent,
 {
 	int i, j;
 
-	pr_debug("%s\n", __func__);
+	pr_debug("%s %d\n", __func__, this->n_std_attr);
 	/* verify standard attribute */
 	for (i = 0; i < this->n_std_attr; ++i) {
 		if (this->std_zattr[i].index == ZATTR_INDEX_NONE)
@@ -1031,7 +1074,7 @@ static int __check_dev_zattr(struct zio_attribute_set *parent,
 			if (this->std_zattr[i].index ==
 						parent->std_zattr[j].index) {
 				pr_err("ZIO: attribute conflict for %s\n",
-				       this->std_zattr[i].attr.name);
+				       this->std_zattr[i].attr.attr.name);
 				return -EINVAL;
 			}
 		}
@@ -1054,40 +1097,68 @@ static int __check_attr(struct attribute *attr,
 	return 0;
 }
 
+static struct attribute_group *__allocate_group(int n_attr)
+{
+	struct attribute_group *group;
+
+	group = kzalloc(sizeof(struct attribute_group), GFP_KERNEL);
+	if (!group)
+		return ERR_PTR(-ENOMEM);
+	group->attrs = kzalloc(sizeof(struct attribute) * n_attr, GFP_KERNEL);
+	if (!group->attrs)
+		return ERR_PTR(-ENOMEM);
+	return group;
+}
+
 /* create a set of zio attributes: the standard one and the extended one */
 static int zattr_set_create(struct zio_obj_head *head,
 			    const struct zio_sysfs_operations *s_op)
 {
-	int n_attr, i, j, attr_count = 0, err = 0;
+	int i, err, a_count, g_count = 0, g = 0;
+	const struct attribute_group **groups;
 	struct zio_attribute_set *zattr_set;
-	struct attribute_group *group;
+	struct attribute *attr;
 
 	pr_debug("%s\n", __func__);
 	zattr_set = __get_zattr_set(head);
 	if (!zattr_set)
 		return -EINVAL; /* message already printed */
 
-	group = &zattr_set->group;
-	n_attr = (zattr_set->n_std_attr + zattr_set->n_ext_attr);
-	if (!n_attr || (!zattr_set->std_zattr && !zattr_set->ext_zattr)) {
+	if (zattr_set->std_zattr && zattr_set->n_std_attr)
+		++g_count;	/* There are standard attributes */
+	else
 		zattr_set->n_std_attr = 0;
+	if (zattr_set->ext_zattr && zattr_set->n_ext_attr)
+		++g_count;	/* There are extended attributes */
+	else
 		zattr_set->n_ext_attr = 0;
-		return 0;
-	}
-	group->attrs = kzalloc(sizeof(struct attribute) * n_attr, GFP_KERNEL);
-	if (!group->attrs)
+	if (head->zobj_type == ZCSET)
+		++g_count;	/* cset need current_(trigger|buffer)*/
+
+	if (!g_count)
+		goto out;
+
+	/* Allocate needed groups. dev->groups is null ended */
+	groups = kzalloc(sizeof(struct attribute_group*) * (g_count + 1),
+			 GFP_KERNEL);
+	if (!groups)
 		return -ENOMEM;
 
-	if (!zattr_set->std_zattr)
+	/* Allocate standard attribute group */
+	if (!zattr_set->std_zattr || !zattr_set->n_std_attr)
 		goto ext;
-	/* standard attribute */
-	for (i = 0; i < zattr_set->n_std_attr; ++i) {
-		err = __check_attr(&zattr_set->std_zattr[i].attr, s_op);
+	groups[g] = __allocate_group(zattr_set->n_std_attr);
+	if (IS_ERR(groups[0]))
+		return PTR_ERR(groups[g]);
+	for (i = 0, a_count = 0; i < zattr_set->n_std_attr; ++i) {
+		attr = &zattr_set->std_zattr[i].attr.attr;
+		err = __check_attr(attr, s_op);
 		switch (err) {
 		case 0:
 			/* valid attribute */
-			group->attrs[attr_count++] =
-						&zattr_set->std_zattr[i].attr;
+			groups[g]->attrs[a_count++] = attr;
+			zattr_set->std_zattr[i].attr.show = zattr_show;
+			zattr_set->std_zattr[i].attr.store = zattr_store;
 			zattr_set->std_zattr[i].s_op = s_op;
 			zattr_set->std_zattr[i].index = i;
 			break;
@@ -1098,40 +1169,61 @@ static int zattr_set_create(struct zio_obj_head *head,
 			return err;
 		}
 	}
+	++g;
 ext:
-	if (!zattr_set->ext_zattr)
-		goto out;
-	/* extended attribute */
-	for (j = 0; j < zattr_set->n_ext_attr; ++j) {
-		err = __check_attr(&zattr_set->ext_zattr[j].attr, s_op);
+	/* Allocate extended attribute group */
+	if (!zattr_set->ext_zattr || !zattr_set->n_ext_attr)
+		goto cset;
+	groups[g] = __allocate_group(zattr_set->n_ext_attr);
+	if (IS_ERR(groups[g]))
+		return PTR_ERR(groups[g]);
+	pr_debug("%s %p", __func__, groups[g]);
+	for (i = 0, a_count = 0; i < zattr_set->n_ext_attr; ++i) {
+		attr = &zattr_set->ext_zattr[i].attr.attr;
+		err = __check_attr(attr, s_op);
 		if (err)
 			return err;
-
 		/* valid attribute */
-		group->attrs[attr_count++] = &zattr_set->ext_zattr[j].attr;
-		zattr_set->ext_zattr[j].s_op = s_op;
-		zattr_set->ext_zattr[j].index = j; /* FIXME useless for zdev*/
-		zattr_set->ext_zattr[j].flags |= ZATTR_TYPE_EXT;
+
+		groups[1]->attrs[a_count++] = attr;
+		zattr_set->ext_zattr[i].attr.show = zattr_show;
+		zattr_set->ext_zattr[i].attr.store = zattr_store;
+		zattr_set->ext_zattr[i].s_op = s_op;
+		zattr_set->ext_zattr[i].index = i; /* FIXME useless for zdev*/
+		zattr_set->ext_zattr[i].flags |= ZATTR_TYPE_EXT;
 	}
+	++g;
+cset:
+	/* Allocate cset special attributes */
+	if (head->zobj_type != ZCSET)
+		goto out_assign;
+	groups[g] = __allocate_group(2);
+	if (IS_ERR(groups[2]))
+		return PTR_ERR(groups[g]);
+	groups[g]->attrs[0] = &dev_attr_current_buffer.attr;
+	groups[g]->attrs[1] = &dev_attr_current_trigger.attr;
+	++g;
+out_assign:
+	groups[g] = NULL;
+	head->dev.groups = groups;
 out:
-	err = sysfs_create_group(&head->kobj, group);
-	if (err)
-		kfree(group->attrs);
-	return err;
+	return 0;
 }
 /* Remove an existent set of attributes */
 static void zattr_set_remove(struct zio_obj_head *head)
 {
 	struct zio_attribute_set *zattr_set;
+	int i;
 
 	zattr_set = __get_zattr_set(head);
 	if (!zattr_set)
 		return;
-	if (!zattr_set->group.attrs)
+	if (! head->dev.groups)
 		return;
-	/* remove all standard and extended attributes */
-	sysfs_remove_group(&head->kobj, &zattr_set->group);
-	kfree(zattr_set->group.attrs);
+	for (i = 0; head->dev.groups[i]; ++i) {
+		kfree(head->dev.groups[i]->attrs);
+		kfree(head->dev.groups[i]);
+	}
 }
 
 /* create and initialize a new buffer instance */
@@ -1154,6 +1246,9 @@ static struct zio_bi *__bi_create_and_init(struct zio_buffer_type *zbuf,
 	bi->f_op = zbuf->f_op;
 	bi->v_op = zbuf->v_op;
 	bi->flags |= (chan->flags & ZIO_DIR);
+	/* Initialize head */
+	bi->head.dev.type = &zobj_device_type;
+	bi->head.dev.parent = &chan->head.dev;
 	bi->head.zobj_type = ZBI;
 	snprintf(bi->head.name, ZIO_NAME_LEN, "%s-%s-%d-%d",
 		 zbuf->head.name, chan->cset->zdev->head.name,
@@ -1181,14 +1276,16 @@ static int __bi_register(struct zio_buffer_type *zbuf,
 	int err;
 
 	pr_debug("%s\n", __func__);
-	/* register whitin sysfs */
-	err = kobject_init_and_add(&bi->head.kobj, &zdktype, &chan->head.kobj,
-				   name);
-	if (err)
-		goto out_kobj;
+	bi->head.dev.init_name = name;
+	/* Create attributes */
 	err = zattr_set_create(&bi->head, zbuf->s_op);
 	if (err)
-		goto out_sysfs;
+		goto out;
+	/* Register buffer instance */
+	err = device_register(&bi->head.dev);
+	if (err)
+		goto out_reg;
+
 	/* Add to buffer instance list */
 	spin_lock(&zbuf->lock);
 	list_add(&bi->list, &zbuf->list);
@@ -1199,10 +1296,9 @@ static int __bi_register(struct zio_buffer_type *zbuf,
 
 	return 0;
 
-out_sysfs:
-	kobject_del(&bi->head.kobj);
-out_kobj:
-	kobject_put(&bi->head.kobj);
+out_reg:
+	zattr_set_remove(&bi->head);
+out:
 	return err;
 }
 static void __bi_unregister(struct zio_buffer_type *zbuf, struct zio_bi *bi)
@@ -1212,10 +1308,9 @@ static void __bi_unregister(struct zio_buffer_type *zbuf, struct zio_bi *bi)
 	spin_lock(&zbuf->lock);
 	list_del(&bi->list);
 	spin_unlock(&zbuf->lock);
-	/* Remove from sysfs */
+	device_unregister(&bi->head.dev);
+	/* Remove zio attribute */
 	zattr_set_remove(&bi->head);
-	kobject_del(&bi->head.kobj);
-	kobject_put(&bi->head.kobj);
 }
 
 /* create and initialize a new trigger instance */
@@ -1236,6 +1331,9 @@ static struct zio_ti *__ti_create_and_init(struct zio_trigger_type *trig,
 	/* Initialize trigger */
 	ti->t_op = trig->t_op;
 	ti->flags |= cset->flags & ZIO_DIR;
+	/* Initialize head */
+	ti->head.dev.type = &zobj_device_type;
+	ti->head.dev.parent = &cset->head.dev;
 	ti->head.zobj_type = ZTI;
 	snprintf(ti->head.name, ZIO_NAME_LEN, "%s-%s-%d",
 		 trig->head.name, cset->zdev->head.name, cset->index);
@@ -1262,14 +1360,15 @@ static int __ti_register(struct zio_trigger_type *trig, struct zio_cset *cset,
 	int err;
 
 	pr_debug("%s\n", __func__);
-	/* register whitin sysfs */
-	err = kobject_init_and_add(&ti->head.kobj, &zdktype, &cset->head.kobj,
-				   name);
-	if (err)
-		goto out_kobj;
+	ti->head.dev.init_name = name;
+	/* Create attributes */
 	err = zattr_set_create(&ti->head, trig->s_op);
 	if (err)
-		goto out_sysfs;
+		goto out;
+	/* Register trigger instance */
+	err = device_register(&ti->head.dev);
+	if (err)
+		goto out_reg;
 	/* Add to trigger instance list */
 	spin_lock(&trig->lock);
 	list_add(&ti->list, &trig->list);
@@ -1279,10 +1378,9 @@ static int __ti_register(struct zio_trigger_type *trig, struct zio_cset *cset,
 
 	return 0;
 
-out_sysfs:
-	kobject_del(&ti->head.kobj);
-out_kobj:
-	kobject_put(&ti->head.kobj);
+out_reg:
+	zattr_set_remove(&ti->head);
+out:
 	return err;
 }
 static void __ti_unregister(struct zio_trigger_type *trig, struct zio_ti *ti)
@@ -1292,10 +1390,9 @@ static void __ti_unregister(struct zio_trigger_type *trig, struct zio_ti *ti)
 	spin_lock(&trig->lock);
 	list_del(&ti->list);
 	spin_unlock(&trig->lock);
-	/* Remove from sysfs */
+	device_unregister(&ti->head.dev);
+	/* Remove zio attributes */
 	zattr_set_remove(&ti->head);
-	kobject_del(&ti->head.kobj);
-	kobject_put(&ti->head.kobj);
 }
 
 /*
@@ -1357,25 +1454,33 @@ static int chan_register(struct zio_channel *chan)
 		chan->cset->ti->zattr_set.std_zattr[ZATTR_TRIG_NSAMPLES].value;
 	chan->current_ctrl = ctrl;
 
+	/* Initialize head */
+	if (strlen(chan->head.name) == 0)
+		snprintf(chan->head.name, ZIO_NAME_LEN, "chan%i", chan->index);
+	chan->head.dev.init_name = chan->head.name;
+	chan->head.dev.type = &zobj_device_type;
+	chan->head.dev.parent = &chan->cset->head.dev;
 	chan->head.zobj_type = ZCHAN;
-	err = kobject_init_and_add(&chan->head.kobj, &zdktype,
-			&chan->cset->head.kobj, "chan%i", chan->index);
-	if (err)
-		goto out_add;
 
 	/* Create sysfs channel attributes */
 	if (chan->zattr_set.std_zattr)
 		chan->zattr_set.n_std_attr = ZATTR_STD_NUM_ZDEV;
 	err = zattr_set_create(&chan->head, chan->cset->zdev->s_op);
 	if (err)
-		goto out_sysfs;
+		goto out;
+	/* Register channel */
+	err = device_register(&chan->head.dev);
+	if (err)
+		goto out_reg;
 	/* Check attribute hierarchy */
 	err = __check_dev_zattr(&chan->cset->zattr_set, &chan->zattr_set);
 	if (err)
 		goto out_remove_sys;
+	pr_debug("%s:%d\n", __func__, __LINE__);
 	err = __check_dev_zattr(&chan->cset->zdev->zattr_set, &chan->zattr_set);
 	if (err)
 		goto out_remove_sys;
+
 	/* Create buffer */
 	bi = __bi_create_and_init(chan->cset->zbuf, chan);
 	if (IS_ERR(bi)) {
@@ -1399,7 +1504,8 @@ static int chan_register(struct zio_channel *chan)
 	 * anyways.
 	 */
 	if (!strlen(chan->head.name))
-		strncpy(chan->head.name, chan->head.kobj.name, ZIO_NAME_LEN);
+		strncpy(chan->head.name, dev_name(&chan->head.dev),
+			ZIO_NAME_LEN);
 	return 0;
 
 out_create:
@@ -1407,12 +1513,9 @@ out_create:
 out_bi_destroy:
 	__bi_destroy(chan->cset->zbuf, bi);
 out_remove_sys:
+	device_unregister(&chan->head.dev);
+out_reg:
 	zattr_set_remove(&chan->head);
-out_sysfs:
-	kobject_del(&chan->head.kobj);
-out_add:
-	/* we must _put even if it returned error */
-	kobject_put(&chan->head.kobj);
 out:
 	zio_free_control(ctrl);
 	return err;
@@ -1427,10 +1530,8 @@ static void chan_unregister(struct zio_channel *chan)
 	/* destroy buffer instance */
 	__bi_unregister(chan->cset->zbuf, chan->bi);
 	__bi_destroy(chan->cset->zbuf, chan->bi);
-	/* remove sysfs cset attributes */
+	device_unregister(&chan->head.dev);
 	zattr_set_remove(&chan->head);
-	kobject_del(&chan->head.kobj);
-	kobject_put(&chan->head.kobj);
 	zio_free_control(chan->current_ctrl);
 }
 
@@ -1492,7 +1593,7 @@ static int cset_register(struct zio_cset *cset)
 	struct zio_ti *ti = NULL;
 	char *name;
 
-	pr_debug("%s:%d\n", __func__, __LINE__);
+	pr_debug("%s\n", __func__);
 	if (!cset)
 		return -EINVAL;
 
@@ -1512,23 +1613,28 @@ static int cset_register(struct zio_cset *cset)
 		pr_err("ZIO: no minors available\n");
 		return -EBUSY;
 	}
-
+	/* Initialize head */
+	if (strlen(cset->head.name) == 0)
+		snprintf(cset->head.name, ZIO_NAME_LEN, "cset%i", cset->index);
+	cset->head.dev.init_name = cset->head.name;
+	cset->head.dev.type = &zobj_device_type;
+	cset->head.dev.parent = &cset->zdev->head.dev;
 	cset->head.zobj_type = ZCSET;
-	err = kobject_init_and_add(&cset->head.kobj, &zdkctype,
-			&cset->zdev->head.kobj, "cset%i", cset->index);
-	if (err)
-		goto out_add;
 	/* Create sysfs cset attributes */
 	if (cset->zattr_set.std_zattr)
 		cset->zattr_set.n_std_attr = ZATTR_STD_NUM_ZDEV;
 	err = zattr_set_create(&cset->head, cset->zdev->s_op);
 	if (err)
-		goto out_sysfs;
+		goto out;
+	/* Register cset */
+	err = device_register(&cset->head.dev);
+	if (err)
+		goto out_dev_reg;
 	/* Check attribute hierarchy */
 	err = __check_dev_zattr(&cset->zdev->zattr_set, &cset->zattr_set);
 	if (err)
 		goto out_remove_sys;
-
+	pr_debug("%s:%d\n", __func__, __LINE__);
 	cset->chan = cset_alloc_chan(cset);
 	if (IS_ERR(cset->chan)) {
 		err = PTR_ERR(cset->chan);
@@ -1553,6 +1659,7 @@ static int cset_register(struct zio_cset *cset)
 		}
 		cset->zbuf = zbuf;
 	}
+
 	/*
 	 * If no name was assigned, ZIO assigns it.  cset name is
 	 * set to the kobject name. kobject name has no length limit,
@@ -1561,7 +1668,8 @@ static int cset_register(struct zio_cset *cset)
 	 * anyways.
 	 */
 	if (!strlen(cset->head.name))
-		strncpy(cset->head.name, cset->head.kobj.name, ZIO_NAME_LEN);
+		strncpy(cset->head.name, dev_name(&cset->head.dev),
+			ZIO_NAME_LEN);
 
 	/*
 	 * The cset must have a trigger type. If none  is associated
@@ -1630,13 +1738,10 @@ out_trig:
 out_buf:
 	cset_free_chan(cset);
 out_remove_sys:
+	device_unregister(&cset->head.dev);
+out_dev_reg:
 	zattr_set_remove(&cset->head);
-out_sysfs:
-	kobject_del(&cset->head.kobj);
-out_add:
-	/* we must _put even if it returned error */
-	kobject_put(&cset->head.kobj);
-	/* Release a group of minors */
+out:
 	__zio_minorbase_put(cset);
 	return err;
 }
@@ -1668,10 +1773,8 @@ static void cset_unregister(struct zio_cset *cset)
 	zio_buffer_put(cset->zbuf);
 	cset->zbuf = NULL;
 	cset_free_chan(cset);
-	/* Remove from sysfs */
+	device_unregister(&cset->head.dev);
 	zattr_set_remove(&cset->head);
-	kobject_del(&cset->head.kobj);
-	kobject_put(&cset->head.kobj);
 	/* Release a group of minors */
 	__zio_minorbase_put(cset);
 }
@@ -1682,14 +1785,12 @@ static void cset_unregister(struct zio_cset *cset)
  */
 static int zobj_register(struct zio_object_list *zlist,
 			 struct zio_obj_head *head,
-			 enum zio_object_type type,
 			 struct module *owner,
 			 const char *name)
 {
 	int err;
 	struct zio_object_list_item *item;
 
-	head->zobj_type = type;
 	if (strlen(name) > ZIO_OBJ_NAME_LEN)
 		pr_warning("ZIO: name too long, cut to %d characters\n",
 			   ZIO_OBJ_NAME_LEN);
@@ -1699,10 +1800,12 @@ static int zobj_register(struct zio_object_list *zlist,
 	err = zobj_unique_name(zlist, head->name);
 	if (err)
 		goto out;
-	err = kobject_init_and_add(&head->kobj, &zdktype, zlist->kobj,
-					head->name);
+	head->dev.init_name = head->name;
+	head->dev.type = &zobj_device_type;
+	head->dev.bus = &zio_bus_type;
+	err = device_register(&head->dev);
 	if (err)
-		goto out_kobj;
+		goto out;
 
 	/* Add to object list */
 	item = kmalloc(sizeof(struct zio_object_list_item), GFP_KERNEL);
@@ -1720,9 +1823,7 @@ static int zobj_register(struct zio_object_list *zlist,
 	return 0;
 
 out_km:
-	kobject_del(&head->kobj);
-out_kobj:
-	kobject_put(&head->kobj); /* we must _put even if it returned error */
+	device_unregister(&head->dev);
 out:
 	return err;
 }
@@ -1744,9 +1845,7 @@ static void zobj_unregister(struct zio_object_list *zlist,
 			break;
 		}
 	}
-
-	kobject_del(&head->kobj);
-	kobject_put(&head->kobj);
+	device_unregister(&head->dev);
 }
 
 /* Register a zio device */
@@ -1758,20 +1857,20 @@ int zio_register_dev(struct zio_device *zdev, const char *name)
 		pr_err("%s: new device has no owner\n", __func__);
 		return -EINVAL;
 	}
-	/* Register the device */
-	err = zobj_register(&zstat->all_devices, &zdev->head,
-			    ZDEV, zdev->owner, name);
-	if (err)
-		goto out;
 
+	zdev->head.zobj_type = ZDEV;
 	if (zdev->zattr_set.std_zattr)
 		zdev->zattr_set.n_std_attr = ZATTR_STD_NUM_ZDEV;
 	spin_lock_init(&zdev->lock);
 	/* Create standard and extended sysfs attribute for device */
 	err = zattr_set_create(&zdev->head, zdev->s_op);
 	if (err)
-		goto out_sysfs;
-	pr_debug("%s:%d\n", __func__, __LINE__);
+		goto out;
+	/* Register the device */
+	err = zobj_register(&zstat->all_devices, &zdev->head, zdev->owner, name);
+	if (err)
+		goto out_reg;
+
 	/* Register all child channel sets */
 	for (i = 0; i < zdev->n_cset; i++) {
 		zdev->cset[i].index = i;
@@ -1790,8 +1889,9 @@ int zio_register_dev(struct zio_device *zdev, const char *name)
 out_cset:
 	for (j = i-1; j >= 0; j--)
 		cset_unregister(zdev->cset + j);
-out_sysfs:
 	zobj_unregister(&zstat->all_devices, &zdev->head);
+out_reg:
+	zattr_set_remove(&zdev->head);
 out:
 	return err;
 }
@@ -1808,10 +1908,8 @@ void zio_unregister_dev(struct zio_device *zdev)
 	/* Unregister all child channel sets */
 	for (i = 0; i < zdev->n_cset; i++)
 		cset_unregister(&zdev->cset[i]);
-	/* Remove from sysfs */
-	zattr_set_remove(&zdev->head);
-	/* Unregister the device */
 	zobj_unregister(&zstat->all_devices, &zdev->head);
+	zattr_set_remove(&zdev->head);
 }
 EXPORT_SYMBOL(zio_unregister_dev);
 
@@ -1827,8 +1925,9 @@ int zio_register_buf(struct zio_buffer_type *zbuf, const char *name)
 	if (err < 0)
 		return err;
 
+	zbuf->head.zobj_type = ZBUF;
 	err = zobj_register(&zstat->all_buffer_types, &zbuf->head,
-			    ZBUF, zbuf->owner, name);
+			    zbuf->owner, name);
 	if (err) {
 		zio_fini_buffer_fops(zbuf);
 		return err;
@@ -1861,11 +1960,11 @@ int zio_register_trig(struct zio_trigger_type *trig, const char *name)
 
 	if (!trig->zattr_set.std_zattr)
 		goto err_nsamp;
-	if (!trig->zattr_set.std_zattr[ZATTR_TRIG_NSAMPLES].attr.mode)
+	if (!trig->zattr_set.std_zattr[ZATTR_TRIG_NSAMPLES].attr.attr.mode)
 		goto err_nsamp;
-
+	trig->head.zobj_type = ZTRIG;
 	err = zobj_register(&zstat->all_trigger_types, &trig->head,
-			    ZTRIG, trig->owner, name);
+			    trig->owner, name);
 	if (err)
 		return err;
 	if (trig->zattr_set.std_zattr)
@@ -1920,6 +2019,7 @@ static void zlist_unregister(struct zio_object_list *zlist)
 	kobject_put(zlist->kobj);
 }
 
+
 static int __init zio_init(void)
 {
 	int err;
@@ -1935,16 +2035,18 @@ static int __init zio_init(void)
 	err = zio_slab_init();
 	if (err)
 		return err;
+	/* Register ZIO bus */
+	err = bus_register(&zio_bus_type);
+	if (err)
+		goto out;
 	/* Initialize char device */
 	err = __zio_register_cdev();
 	if (err)
 		goto out_cdev;
-
-	/* Create the zio container */
+	/* Create the zio container FIXME REMOVE ME WITH DEVICE */
 	zstat->kobj = kobject_create_and_add("zio", NULL);
 	if (!zstat->kobj)
 		goto out_kobj;
-
 	/* Register the three object lists (device, buffer and trigger) */
 	zlist_register(&zstat->all_devices, zstat->kobj, ZDEV,
 			"devices");
@@ -1964,6 +2066,8 @@ static int __init zio_init(void)
 out_kobj:
 	__zio_unregister_cdev();
 out_cdev:
+	bus_unregister(&zio_bus_type);
+out:
 	zio_slab_exit();
 	return err;
 }
@@ -1983,8 +2087,9 @@ static void __exit zio_exit(void)
 
 	/* Remove char device */
 	__zio_unregister_cdev();
+	/* Remove ZIO bus */
+	bus_unregister(&zio_bus_type);
 	zio_slab_exit();
-
 	pr_info("zio-core had been unloaded\n");
 	return;
 }

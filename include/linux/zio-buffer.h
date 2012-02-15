@@ -42,7 +42,7 @@ struct zio_buffer_type {
 	/* default attributes for instance */
 	struct zio_attribute_set		zattr_set;
 };
-#define to_zio_buf(ptr) container_of(ptr, struct zio_buffer_type, head.kobj)
+#define to_zio_buf(ptr) container_of(ptr, struct zio_buffer_type, head.dev)
 
 /* buffer_type->flags */
 #define ZIO_BFLAG_ALLOC_FOPS	0x00000001 /* set by zio-core */
@@ -78,7 +78,7 @@ struct zio_bi {
 	const struct file_operations		*f_op;
 	const struct vm_operations_struct	*v_op;
 };
-#define to_zio_bi(_kobj) container_of(_kobj, struct zio_bi, head.kobj)
+#define to_zio_bi(obj) container_of(obj, struct zio_bi, head.dev)
 
 /* The block is the basic data item being transferred */
 struct zio_block {

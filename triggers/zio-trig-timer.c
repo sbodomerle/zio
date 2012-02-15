@@ -41,14 +41,13 @@ static struct zio_attribute ztt_ext_attr[] = {
 	ZATTR_EXT_REG("ms-period", S_IRUGO | S_IWUGO,
 		      ZTT_ATTR_PERIOD, 2000),
 };
-static int ztt_conf_set(struct kobject *kobj, struct zio_attribute *zattr,
+static int ztt_conf_set(struct device *dev, struct zio_attribute *zattr,
 		uint32_t  usr_val)
 {
-	struct zio_ti *ti = to_zio_ti(kobj);
+	struct zio_ti *ti = to_zio_ti(dev);
 	struct ztt_instance *ztt;
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
-	zattr->value = usr_val;
 	switch (zattr->priv.addr) {
 	case ZTT_ATTR_PERIOD:
 		ztt = to_ztt_instance(ti);

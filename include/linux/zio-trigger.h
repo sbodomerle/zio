@@ -20,7 +20,7 @@ struct zio_trigger_type {
 	/* default attributes for instance */
 	struct zio_attribute_set		zattr_set;
 };
-#define to_zio_trig(ptr) container_of(ptr, struct zio_trigger_type, head.kobj)
+#define to_zio_trig(ptr) container_of(ptr, struct zio_trigger_type, head.dev)
 
 int __must_check zio_register_trig(struct zio_trigger_type *ztrig,
 				   const char *name);
@@ -48,7 +48,7 @@ enum zti_flag_mask {
 	ZTI_BUSY = 0x10,	/* trigger fire and transfer occurs */
 };
 
-#define to_zio_ti(_kobj) container_of(_kobj, struct zio_ti, head.kobj)
+#define to_zio_ti(obj) container_of(obj, struct zio_ti, head.dev)
 void zio_fire_trigger(struct zio_ti *ti);
 
 /*

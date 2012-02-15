@@ -55,7 +55,7 @@ static DEFINE_ZATTR_STD(ZBUF, zbk_std_zattr) = {
 	ZATTR_REG(zbuf, ZATTR_ZBUF_MAXKB, S_IRUGO | S_IWUGO, 0x0, 128 /* kB */),
 };
 
-static int zbk_conf_set(struct kobject *kobj, struct zio_attribute *zattr,
+static int zbk_conf_set(struct device *dev, struct zio_attribute *zattr,
 		uint32_t  usr_val)
 {
 	if (0) {

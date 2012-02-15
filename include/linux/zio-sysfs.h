@@ -29,7 +29,7 @@
  * @store: is equivalent to  conf_set from zio_operations
  */
 struct zio_attribute {
-	struct attribute			attr;
+	struct device_attribute			attr;
 	uint32_t				flags;
 	int					index;
 	union { /* priv is sometimes a pointer and sometimes an hw addr */
@@ -47,9 +47,9 @@ enum zattr_flags {
 };
 
 struct zio_sysfs_operations {
-	int (*info_get)(struct kobject *kobj, struct zio_attribute *zattr,
+	int (*info_get)(struct device *dev, struct zio_attribute *zattr,
 			uint32_t *usr_val);
-	int (*conf_set)(struct kobject *kobj, struct zio_attribute *zattr,
+	int (*conf_set)(struct device *dev, struct zio_attribute *zattr,
 			uint32_t  usr_val);
 };
 
@@ -66,7 +66,6 @@ struct zio_attribute_set {
 	unsigned int		n_std_attr;
 	struct zio_attribute	*ext_zattr;
 	unsigned int		n_ext_attr;
-	struct attribute_group	group;
 };
 
 enum zattr_standard_zdev {
@@ -103,27 +102,31 @@ extern const char zio_zbuf_attr_names[ZATTR_STD_NUM_ZBUF][ZIO_NAME_LEN];
  */
 #define ZATTR_REG(zobj, _type, _mode, _add, _val)[_type] = {		\
 		.attr = {						\
-			.name = zio_##zobj##_attr_names[_type],		\
-			.mode = _mode					\
+			.attr = {					\
+				.name = zio_##zobj##_attr_names[_type],	\
+				.mode = _mode				\
+			},						\
 		},							\
 		.priv.addr = _add,					\
 		.value = _val,						\
 }
 #define ZATTR_PRV(zobj, _type, _mode, _priv, _val)[_type] = {		\
 		.attr = {						\
-			.name = zio_##zobj##_attr_names[_type],		\
-			.mode = _mode					\
+			.attr = {					\
+				.name = zio_##zobj##_attr_names[_type],	\
+				.mode = _mode				\
+			},						\
 		},							\
 		.priv.ptr = _priv,					\
 		.value = _val,						\
 }
 #define ZATTR_EXT_REG(_name, _mode, _add, _val) {			\
-		.attr = {.name = _name, .mode = _mode},			\
+		.attr = { .attr = {.name = _name, .mode = _mode},},	\
 		.priv.addr = _add,					\
 		.value = _val,						\
 }
 #define ZATTR_EXT_PRV(_name, _mode, _priv, _val) {			\
-		.attr = {.name = _name, .mode = _mode},			\
+		.attr = { .attr = {.name = _name, .mode = _mode},},	\
 		.priv.ptr = _priv,					\
 		.value = _val,						\
 }

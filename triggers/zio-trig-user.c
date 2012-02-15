@@ -24,7 +24,7 @@ static DEFINE_ZATTR_STD(TRIG, ztu_std_attr) = {
 		  0 /* no addr needed */, ZTU_DEFAULT_BLOCK_SIZE),
 };
 
-int ztu_conf_set(struct kobject *kobj, struct zio_attribute *zattr,
+int ztu_conf_set(struct device *dev, struct zio_attribute *zattr,
 		uint32_t  usr_val)
 {
 	pr_debug("%s:%d\n", __func__, __LINE__);
