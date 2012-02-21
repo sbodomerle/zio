@@ -412,73 +412,6 @@ static spinlock_t *__get_spinlock(struct zio_obj_head *head)
 	return lock;
 }
 
-/* Retrieve an attribute set from an object head */
-static struct zio_attribute_set *__get_zattr_set(struct zio_obj_head *head)
-{
-	struct zio_attribute_set *zattr_set;
-
-	switch (head->zobj_type) {
-	case ZDEV:
-		zattr_set = &to_zio_dev(&head->dev)->zattr_set;
-		break;
-	case ZCSET:
-		zattr_set = &to_zio_cset(&head->dev)->zattr_set;
-		break;
-	case ZCHAN:
-		zattr_set = &to_zio_chan(&head->dev)->zattr_set;
-		break;
-	case ZTRIG:
-		zattr_set = &to_zio_trig(&head->dev)->zattr_set;
-		break;
-	case ZBUF:
-		zattr_set = &to_zio_buf(&head->dev)->zattr_set;
-		break;
-	case ZTI:
-		zattr_set = &to_zio_ti(&head->dev)->zattr_set;
-		break;
-	case ZBI:
-		zattr_set = &to_zio_bi(&head->dev)->zattr_set;
-		break;
-	default:
-		WARN(1, "ZIO: unknown zio object %i\n", head->zobj_type);
-		return NULL;
-	}
-	return zattr_set;
-}
-/* Retrieve flag from an object head */
-static unsigned long *__get_flag(struct zio_obj_head *head)
-{
-	unsigned long *flags;
-
-	switch (head->zobj_type) {
-	case ZDEV:
-		flags = &to_zio_dev(&head->dev)->flags;
-		break;
-	case ZCSET:
-		flags = &to_zio_cset(&head->dev)->flags;
-		break;
-	case ZCHAN:
-		flags = &to_zio_chan(&head->dev)->flags;
-		break;
-	case ZTRIG:
-		flags = &to_zio_chan(&head->dev)->flags;
-		break;
-	case ZBUF:
-		flags = &to_zio_chan(&head->dev)->flags;
-		break;
-	case ZTI:
-		flags = &to_zio_ti(&head->dev)->flags;
-		break;
-	case ZBI:
-		flags = &to_zio_bi(&head->dev)->flags;
-		break;
-	default:
-		WARN(1, "ZIO: unknown zio object %i\n", head->zobj_type);
-		return NULL;
-	}
-	return flags;
-}
-
 static int zio_change_current_trigger(struct zio_cset *cset, char *name)
 {
 	struct zio_trigger_type *trig, *trig_old = cset->trig;
@@ -790,7 +723,7 @@ static void __zobj_enable(struct device *dev, unsigned int enable)
 	pr_debug("%s\n", __func__);
 	head = to_zio_head(dev);
 
-	flags = __get_flag(to_zio_head(dev));
+	flags = __get_from_zobj(to_zio_head(dev), flags);
 	status = !((*flags) & ZIO_STATUS);
 	/* if the status is not changing */
 	if (!(enable ^ status))
@@ -900,9 +833,11 @@ static ssize_t zobj_store_cur_zbuf(struct device *dev,
 static ssize_t zobj_show_enable(struct device *dev,
 				 struct device_attribute *attr, char *buf)
 {
+	unsigned long *flags;
 	int status;
 
-	status = !((*__get_flag(to_zio_head(dev))) & ZIO_DISABLED);
+	flags = __get_from_zobj(to_zio_head(dev), flags);
+	status = !(*flags & ZIO_DISABLED);
 	return sprintf(buf, "%d\n", status);
 }
 /* Change the current enable status */
@@ -1120,7 +1055,7 @@ static int zattr_set_create(struct zio_obj_head *head,
 	struct attribute *attr;
 
 	pr_debug("%s\n", __func__);
-	zattr_set = __get_zattr_set(head);
+	zattr_set = __get_from_zobj(head, zattr_set);
 	if (!zattr_set)
 		return -EINVAL; /* message already printed */
 
@@ -1184,7 +1119,6 @@ ext:
 		if (err)
 			return err;
 		/* valid attribute */
-
 		groups[1]->attrs[a_count++] = attr;
 		zattr_set->ext_zattr[i].attr.show = zattr_show;
 		zattr_set->ext_zattr[i].attr.store = zattr_store;
@@ -1215,7 +1149,7 @@ static void zattr_set_remove(struct zio_obj_head *head)
 	struct zio_attribute_set *zattr_set;
 	int i;
 
-	zattr_set = __get_zattr_set(head);
+	zattr_set = __get_from_zobj(head, zattr_set);
 	if (!zattr_set)
 		return;
 	if (! head->dev.groups)

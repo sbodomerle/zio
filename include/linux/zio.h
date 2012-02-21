@@ -61,6 +61,41 @@ struct zio_obj_head {
 #define to_zio_cset(_dev) container_of(_dev, struct zio_cset, head.dev)
 #define to_zio_chan(_dev) container_of(_dev, struct zio_channel, head.dev)
 
+/*
+ * __get_from_zobj: is used to get a zio object element that can be (with the
+ *                  same name) in different zio object.
+ * _zhead: zio_obj_header pointer
+ * member: which member return from the correspondent zio_object
+ */
+#define __get_from_zobj(_head, member) ({				\
+	typeof(to_zio_dev(&_head->dev)->member) (*el) = NULL;		\
+	switch (_head->zobj_type) {					\
+	case ZDEV:							\
+		el = &to_zio_dev(&_head->dev)->member;			\
+		break;							\
+	case ZCSET:							\
+		el = &to_zio_cset(&_head->dev)->member;			\
+		break;							\
+	case ZCHAN:							\
+		el = &to_zio_chan(&_head->dev)->member;			\
+		break;							\
+	case ZBUF:							\
+		el = &to_zio_buf(&_head->dev)->member;			\
+		break;							\
+	case ZTRIG:							\
+		el = &to_zio_trig(&_head->dev)->member;			\
+		break;							\
+	case ZTI:							\
+		el = &to_zio_ti(&_head->dev)->member;			\
+		break;							\
+	case ZBI:							\
+		el = &to_zio_bi(&_head->dev)->member;			\
+		break;							\
+	default:							\
+		WARN(1, "ZIO: unknown zio object %i\n", _head->zobj_type);\
+	} el;								\
+})
+
 static inline enum zio_object_type __zio_get_object_type(struct device *dev)
 {
 	return to_zio_head(dev)->zobj_type;
