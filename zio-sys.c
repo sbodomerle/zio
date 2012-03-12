@@ -801,12 +801,16 @@ static ssize_t zobj_store_cur_trig(struct device *dev,
 				   const char *buf, size_t count)
 {
 	char buf_tmp[ZIO_OBJ_NAME_LEN];
-	int err;
+	struct zio_cset *cset;
+	int err = 0;
 
 	if (strlen(buf) > ZIO_OBJ_NAME_LEN+1)
 		return -EINVAL; /* name too long */
 	sscanf(buf, "%s\n", buf_tmp);
-	err = zio_change_current_trigger(to_zio_cset(dev), buf_tmp);
+	cset = to_zio_cset(dev);
+	/* change trigger only if is different then current */
+	if (strcmp(buf_tmp, cset->trig->head.name))
+		err = zio_change_current_trigger(cset, buf_tmp);
 	return err ? err : count;
 }
 /* Print the current buffer name */
@@ -821,12 +825,16 @@ static ssize_t zobj_store_cur_zbuf(struct device *dev,
 				   const char *buf, size_t count)
 {
 	char buf_tmp[ZIO_OBJ_NAME_LEN];
-	int err;
+	struct zio_cset *cset;
+	int err = 0;
 
 	if (strlen(buf) > ZIO_OBJ_NAME_LEN+1)
 		return -EINVAL; /* name too long */
 	sscanf(buf, "%s\n", buf_tmp);
-	err = zio_change_current_buffer(to_zio_cset(dev), buf_tmp);
+	cset = to_zio_cset(dev);
+	/* change buffer only if is different then current */
+	if (strcmp(buf_tmp, cset->trig->head.name))
+		err = zio_change_current_buffer(cset, buf_tmp);
 	return err ? err : count;
 }
 /* Print the current enable status */
