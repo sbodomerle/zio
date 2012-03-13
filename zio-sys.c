@@ -770,9 +770,13 @@ static void __zobj_enable(struct kobject *kobj, unsigned int enable,
 
 		ti = to_zio_ti(kobj);
 		/* if trigger is running, abort it*/
-		if (*flags & ZTI_BUSY)
+		spin_lock(&ti->cset->lock);
+		if (*flags & ZTI_BUSY) {
 			if(ti->t_op->abort)
 				ti->t_op->abort(ti->cset);
+			*flags &= ~ZTI_BUSY; /* when disabled is not busy */
+		}
+		spin_unlock(&ti->cset->lock);
 		/* trigger instance callback */
 		if (ti->t_op->change_status) {
 			pr_debug("%s:%d\n", __func__, __LINE__);

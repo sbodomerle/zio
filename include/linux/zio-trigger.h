@@ -70,7 +70,9 @@ void zio_fire_trigger(struct zio_ti *ti);
  * trigger. For output, data_done frees the blocks and prepares new
  * blocks if possible; for input, data_done pushes material to the buffers.
  * If the transfer must be interrupted before the invocation of data_done,
- * the abort function must be called.
+ * the abort function must be called. The abort function has two choice: it
+ * can invoke data_done and return partial blocks, or free all the active
+ * blocks.
  *
  * Then, a trigger instance is configured either by sysfs (and this means
  * the conf_set callback runs and the instance is notified) or by writing
