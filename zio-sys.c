@@ -934,6 +934,30 @@ static ssize_t zio_show_version(struct bus_type *bus, char *buf)
 {
 	return sprintf(buf, "%d.%d\n", ZIO_MAJOR_VERSION, ZIO_MINOR_VERSION);
 }
+static ssize_t zio_show_buffers(struct bus_type *bus, char *buf)
+{
+	struct zio_object_list_item *cur;
+	ssize_t len = 0;
+
+	spin_lock(&zstat->lock);
+	list_for_each_entry(cur, &zstat->all_buffer_types.list, list)
+		len = sprintf(buf, "%s%s\n", buf, cur->name);
+	spin_unlock(&zstat->lock);
+
+	return len;
+}
+static ssize_t zio_show_triggers(struct bus_type *bus, char *buf)
+{
+	struct zio_object_list_item *cur;
+	ssize_t len = 0;
+
+	spin_lock(&zstat->lock);
+	list_for_each_entry(cur, &zstat->all_trigger_types.list, list)
+		len = sprintf(buf, "%s%s\n", buf, cur->name);
+	spin_unlock(&zstat->lock);
+
+	return len;
+}
 
 /* Attributes to change buffer and trigger instance*/
 static DEVICE_ATTR(current_trigger, 0666, zobj_show_cur_trig,
@@ -944,6 +968,8 @@ static DEVICE_ATTR(current_buffer, 0666, zobj_show_cur_zbuf,
 /* Bus definition */
 static struct bus_attribute def_bus_attrs[] = {
 	__ATTR(version, 0444, zio_show_version, NULL),
+	__ATTR(available_buffers, 0444, zio_show_buffers, NULL),
+	__ATTR(available_triggers, 0444, zio_show_triggers, NULL),
 	__ATTR_NULL,
 };
 static struct device_attribute def_device_attrs[] = {
@@ -1734,18 +1760,12 @@ static int zobj_register(struct zio_object_list *zlist,
 	err = zobj_unique_name(zlist, head->name);
 	if (err)
 		goto out;
-	head->dev.init_name = head->name;
-	head->dev.type = &zobj_device_type;
-	head->dev.bus = &zio_bus_type;
-	err = device_register(&head->dev);
-	if (err)
-		goto out;
 
 	/* Add to object list */
 	item = kmalloc(sizeof(struct zio_object_list_item), GFP_KERNEL);
 	if (!item) {
 		err = -ENOMEM;
-		goto out_km;
+		goto out;
 	}
 	item->obj_head = head;
 	item->owner = owner;
@@ -1756,8 +1776,6 @@ static int zobj_register(struct zio_object_list *zlist,
 	spin_unlock(&zstat->lock);
 	return 0;
 
-out_km:
-	device_unregister(&head->dev);
 out:
 	return err;
 }
@@ -1779,7 +1797,6 @@ static void zobj_unregister(struct zio_object_list *zlist,
 			break;
 		}
 	}
-	device_unregister(&head->dev);
 }
 
 /* Register a zio device */
@@ -1805,6 +1822,12 @@ int zio_register_dev(struct zio_device *zdev, const char *name)
 	if (err)
 		goto out_reg;
 
+	dev_set_name(&zdev->head.dev, zdev->head.name);
+	zdev->head.dev.type = &zobj_device_type;
+	zdev->head.dev.bus = &zio_bus_type;
+	err = device_register(&zdev->head.dev);
+	if (err)
+		goto out_dev;
 	/* Register all child channel sets */
 	for (i = 0; i < zdev->n_cset; i++) {
 		zdev->cset[i].index = i;
@@ -1823,6 +1846,7 @@ int zio_register_dev(struct zio_device *zdev, const char *name)
 out_cset:
 	for (j = i-1; j >= 0; j--)
 		cset_unregister(zdev->cset + j);
+out_dev:
 	zobj_unregister(&zstat->all_devices, &zdev->head);
 out_reg:
 	zattr_set_remove(&zdev->head);
@@ -1842,6 +1866,7 @@ void zio_unregister_dev(struct zio_device *zdev)
 	/* Unregister all child channel sets */
 	for (i = 0; i < zdev->n_cset; i++)
 		cset_unregister(&zdev->cset[i]);
+	device_unregister(&zdev->head.dev);
 	zobj_unregister(&zstat->all_devices, &zdev->head);
 	zattr_set_remove(&zdev->head);
 }
@@ -1923,37 +1948,6 @@ void zio_unregister_trig(struct zio_trigger_type *trig)
 }
 EXPORT_SYMBOL(zio_unregister_trig);
 
-/* Initialize a list of objects */
-static int zlist_register(struct zio_object_list *zlist,
-			  struct kobject *parent,
-			  enum zio_object_type type,
-			  const char *name)
-{
-	int err = 0;
-
-	/* Create a defaul kobject for the list and add it to sysfs */
-	zlist->kobj = kobject_create_and_add(name, parent);
-	if (!zlist->kobj)
-		goto out_kobj;
-	pr_debug("%s:%d\n", __func__, __LINE__);
-
-	/* Initialize the specific list */
-	INIT_LIST_HEAD(&zlist->list);
-	zlist->zobj_type = type;
-	return 0;
-
-out_kobj:
-	kobject_put(zlist->kobj); /* we must _put even if it returned error */
-	return err;
-}
-/* Remove a list of objects */
-static void zlist_unregister(struct zio_object_list *zlist)
-{
-	kobject_del(zlist->kobj);
-	kobject_put(zlist->kobj);
-}
-
-
 static int __init zio_init(void)
 {
 	int err;
@@ -1977,17 +1971,14 @@ static int __init zio_init(void)
 	err = __zio_register_cdev();
 	if (err)
 		goto out_cdev;
-	/* Create the zio container FIXME REMOVE ME WITH DEVICE */
-	zstat->kobj = kobject_create_and_add("zio", NULL);
-	if (!zstat->kobj)
-		goto out_kobj;
-	/* Register the three object lists (device, buffer and trigger) */
-	zlist_register(&zstat->all_devices, zstat->kobj, ZDEV,
-			"devices");
-	zlist_register(&zstat->all_trigger_types, zstat->kobj, ZTRIG,
-			"triggers");
-	zlist_register(&zstat->all_buffer_types, zstat->kobj, ZBUF,
-			"buffers");
+
+	INIT_LIST_HEAD(&zstat->all_devices.list);
+	zstat->all_devices.zobj_type = ZDEV;
+	INIT_LIST_HEAD(&zstat->all_trigger_types.list);
+	zstat->all_trigger_types.zobj_type = ZTRIG;
+	INIT_LIST_HEAD(&zstat->all_buffer_types.list);
+	zstat->all_buffer_types.zobj_type = ZBUF;
+
 	err = zio_default_buffer_init();
 	if (err)
 		pr_warn("%s: cannot register default buffer\n", __func__);
@@ -1997,8 +1988,6 @@ static int __init zio_init(void)
 	pr_info("zio-core had been loaded\n");
 	return 0;
 
-out_kobj:
-	__zio_unregister_cdev();
 out_cdev:
 	bus_unregister(&zio_bus_type);
 out:
@@ -2010,14 +1999,6 @@ static void __exit zio_exit(void)
 {
 	zio_default_trigger_exit();
 	zio_default_buffer_exit();
-	/* Remove the three object lists*/
-	zlist_unregister(&zstat->all_devices);
-	zlist_unregister(&zstat->all_buffer_types);
-	zlist_unregister(&zstat->all_trigger_types);
-
-	/* Remove from sysfs */
-	kobject_del(zstat->kobj);
-	kobject_put(zstat->kobj);
 
 	/* Remove char device */
 	__zio_unregister_cdev();

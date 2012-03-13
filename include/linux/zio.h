@@ -259,7 +259,6 @@ static inline unsigned int __get_n_chan_enabled(struct zio_cset *cset) {
 
 /* This list is used in the core to keep track of registered objects */
 struct zio_object_list {
-	struct kobject		*kobj;	/* for sysfs folder, no attrs */
 	enum zio_object_type	zobj_type;
 	struct list_head	list;
 };
