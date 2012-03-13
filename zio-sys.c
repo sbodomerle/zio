@@ -519,6 +519,7 @@ static int zio_change_current_trigger(struct zio_cset *cset, char *name)
 	/* Set new trigger*/
 	mb();
 	cset->trig = trig;
+	cset->ti = ti;
 	/* Rename trigger-tmp to trigger */
 	err = kobject_rename(&ti->head.kobj, "trigger");
 	if (err)
@@ -1086,10 +1087,8 @@ static int __bi_register(struct zio_buffer_type *zbuf,
 	list_add(&bi->list, &zbuf->list);
 	spin_unlock(&zbuf->lock);
 	bi->cset = chan->cset;
-	chan->bi = bi;
-	/* Done. This chan->bi marks everything is running (FIXME: audit) */
-	mb();
 	bi->chan = chan;
+	/* Done. This bi->chan marks everything is running */
 
 	return 0;
 
@@ -1181,10 +1180,8 @@ static int __ti_register(struct zio_trigger_type *trig, struct zio_cset *cset,
 	spin_lock(&trig->lock);
 	list_add(&ti->list, &trig->list);
 	spin_unlock(&trig->lock);
-	cset->ti = ti;
-	/* Done. This cset->ti marks everything is running (FIXME: audit) */
-	mb();
 	ti->cset = cset;
+	/* Done. This ti->cset marks everything is running */
 
 	return 0;
 
@@ -1251,7 +1248,8 @@ static int chan_register(struct zio_channel *chan)
 	err = __bi_register(chan->cset->zbuf, chan, bi, "buffer");
 	if (err)
 		goto out_bi_destroy;
-
+	/* Assign the buffer instance to this channel */
+	chan->bi = bi;
 	/* Create channel char devices*/
 	err = zio_create_chan_devices(chan);
 	if (err)
@@ -1465,6 +1463,7 @@ static int cset_register(struct zio_cset *cset)
 		if (err)
 			goto out_tr;
 		cset->trig = trig;
+		cset->ti = ti;
 	}
 	spin_lock(&zstat->lock);
 	list_add(&cset->list_cset, &zstat->list_cset);
