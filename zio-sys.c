@@ -714,9 +714,11 @@ out:
 	return len;
 }
 
-/* enable/disable a zio object*/
-static void __zobj_enable(struct kobject *kobj, unsigned int enable,
-			  unsigned int need_lock)
+/*
+ * enable/disable a zio object
+ * must be called while holding the zio_device spinlock
+ */
+static void __zobj_enable(struct kobject *kobj, unsigned int enable)
 {
 	unsigned long *flags;
 	int i, status;
@@ -724,22 +726,15 @@ static void __zobj_enable(struct kobject *kobj, unsigned int enable,
 	struct zio_device *zdev;
 	struct zio_cset *cset;
 	struct zio_ti *ti;
-	spinlock_t *lock;
 
 	pr_debug("%s\n", __func__);
 	head = to_zio_head(kobj);
 
-	/* lock object if needed */
-	lock = __get_spinlock(head);
-	if (need_lock)
-		spin_lock(lock);
-
 	flags = __get_flag(to_zio_head(kobj));
 	status = !((*flags) & ZIO_STATUS);
 	/* if the status is not changing */
-	if (!(enable ^ status)) {
-		goto out;
-	}
+	if (!(enable ^ status))
+		return;
 	/* change status */
 	*flags = (*flags | ZIO_STATUS) & status;
 	switch (head->zobj_type) {
@@ -749,7 +744,7 @@ static void __zobj_enable(struct kobject *kobj, unsigned int enable,
 		zdev = to_zio_dev(kobj);
 		/* enable/disable all cset */
 		for (i = 0; i < zdev->n_cset; ++i) {
-			__zobj_enable(&zdev->cset[i].head.kobj, enable, 0);
+			__zobj_enable(&zdev->cset[i].head.kobj, enable);
 		}
 		/* device callback */
 		break;
@@ -758,10 +753,10 @@ static void __zobj_enable(struct kobject *kobj, unsigned int enable,
 
 		cset = to_zio_cset(kobj);
 		/* enable/disable trigger instance */
-		__zobj_enable(&cset->ti->head.kobj, enable, 1);
+		__zobj_enable(&cset->ti->head.kobj, enable);
 		/* enable/disable all channel*/
 		for (i = 0; i < cset->n_chan; ++i) {
-			__zobj_enable(&cset->chan[i].head.kobj, enable, 0);
+			__zobj_enable(&cset->chan[i].head.kobj, enable);
 		}
 		/* cset callback */
 		break;
@@ -797,9 +792,6 @@ static void __zobj_enable(struct kobject *kobj, unsigned int enable,
 	default:
 		WARN(1, "ZIO: unknown zio object %i\n", head->zobj_type);
 	}
-out:
-	if (need_lock)
-		spin_unlock(lock);
 }
 
 static ssize_t zattr_store(struct kobject *kobj, struct attribute *attr,
@@ -832,16 +824,18 @@ static ssize_t zattr_store(struct kobject *kobj, struct attribute *attr,
 	if (err)
 		return -EINVAL;
 
+	lock = __get_spinlock(to_zio_head(kobj));
 	/* change enable status */
 	if (unlikely(strcmp(attr->name, ZOBJ_SYSFS_ENABLE) == 0 &&
 	    (val == 0 || val == 1))) {
-		__zobj_enable(kobj, val, 1);
+		spin_lock(lock);
+		__zobj_enable(kobj, val);
+		spin_unlock(lock);
 		return size;
 	}
 
 	/* device attributes */
 	if (zattr->s_op->conf_set) {
-		lock = __get_spinlock(to_zio_head(kobj));
 		spin_lock(lock);
 		err = zattr->s_op->conf_set(kobj, zattr, (uint32_t)val);
 		if (err) {
