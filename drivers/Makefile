@@ -5,7 +5,7 @@ EXTRA_CFLAGS += -I$(obj)/../include
 obj-m = zio-zero.o
 obj-m += zio-gpio.o
 ifdef CONFIG_SPI
-obj-m += zio-ad7888.o
+obj-m += zio-ad788x.o
 endif
 
 all:
