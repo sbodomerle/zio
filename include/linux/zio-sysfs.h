@@ -70,7 +70,7 @@ struct zio_attribute_set {
 };
 
 enum zattr_standard_zdev {
-	ZATTR_NBIT,	/* number of bits per sample */
+	ZATTR_NBITS,	/* number of bits per sample */
 	ZATTR_GAIN,	/* gain for signal, integer in 0.001 steps */
 	ZATTR_OFFSET,	/* microvolts */
 	ZATTR_MAXRATE,	/* hertz */

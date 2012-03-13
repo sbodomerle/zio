@@ -26,7 +26,7 @@ static struct zio_status *zstat = &zio_global_status; /* Always use ptr */
 const char zio_zdev_attr_names[ZATTR_STD_NUM_ZDEV][ZIO_NAME_LEN] = {
 	[ZATTR_GAIN]		= "gain_factor",
 	[ZATTR_OFFSET]		= "offset",
-	[ZATTR_NBIT]		= "resolution-bits",
+	[ZATTR_NBITS]		= "resolution-bits",
 	[ZATTR_MAXRATE]		= "max-sample-rate",
 	[ZATTR_VREFTYPE]	= "vref-src",
 };
@@ -1299,6 +1299,32 @@ static void __ti_unregister(struct zio_trigger_type *trig, struct zio_ti *ti)
 }
 
 /*
+ * Return the resolution bit of the zio device. The function look in each
+ * hierarchy level to find this value
+ */
+static uint16_t __get_nbits(struct zio_channel *chan)
+{
+	struct zio_device *zdev;
+	struct zio_cset *cset;
+
+	pr_debug("%s:%d\n", __func__, __LINE__);
+	if (chan->zattr_set.std_zattr)
+		if (chan->zattr_set.std_zattr[ZATTR_NBITS].value)
+			return chan->zattr_set.std_zattr[ZATTR_NBITS].value;
+	cset = chan->cset;
+	if (cset->zattr_set.std_zattr)
+		if (cset->zattr_set.std_zattr[ZATTR_NBITS].value)
+			return cset->zattr_set.std_zattr[ZATTR_NBITS].value;
+	zdev = cset->zdev;
+	if (zdev->zattr_set.std_zattr)
+		if (zdev->zattr_set.std_zattr[ZATTR_NBITS].value)
+			return zdev->zattr_set.std_zattr[ZATTR_NBITS].value;
+
+	pr_err("%s: device \"%s\" lacks mandatory \"resolution bit\" attribute",
+		__func__, chan->cset->zdev->head.name);
+	return 0;
+}
+/*
  * chan_register registers one channel.  It is important to register
  * or unregister all the channels of a cset at the same time to prevent
  * overlaps in the minors.
@@ -1320,7 +1346,11 @@ static int chan_register(struct zio_channel *chan)
 	ctrl->cset_i = chan->cset->index;
 	ctrl->chan_i = chan->index;
 	strncpy(ctrl->devname, chan->cset->zdev->head.name, ZIO_NAME_LEN);
-	ctrl->sbits = 8; /* FIXME retrieve from attributes */
+	ctrl->nbits = __get_nbits(chan);
+	if (!ctrl->nbits) {
+		err = -EINVAL; /* message already printed */
+		goto out;
+	}
 	ctrl->ssize = chan->cset->ssize;
 	/* Trigger instance is already assigned so */
 	ctrl->nsamples =

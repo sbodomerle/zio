@@ -59,7 +59,7 @@ struct zio_control {
 
 	/* byte 16 */
 	uint16_t ssize;		/* sample-size for each of them, in bytes */
-	uint16_t sbits;		/* sample-bits: number of valid bits */
+	uint16_t nbits;		/* sample-bits: number of valid bits */
 
 	/* byte 20 */
 	/* This block of information uniquely identifies the channel */

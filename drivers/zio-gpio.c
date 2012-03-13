@@ -35,6 +35,10 @@ module_param_array_named(in, zgp_in, int, &zgp_nin, 0444);
 ZIO_PARAM_TRIGGER(zgp_trigger);
 ZIO_PARAM_BUFFER(zgp_buffer);
 
+DEFINE_ZATTR_STD(ZDEV, zgp_zattr_dev) = {
+	ZATTR_REG(zdev, ZATTR_NBITS, S_IRUGO, 0, 1), /* digital */
+};
+
 /* This outputs a cset, currently made up of one channel only */
 static int zgp_output(struct zio_cset *cset)
 {
@@ -101,6 +105,9 @@ static struct zio_device zgp_dev = {
 	.owner =		THIS_MODULE,
 	.cset =			zgp_cset,
 	.n_cset =		ARRAY_SIZE(zgp_cset),
+	.zattr_set = {
+		.std_zattr = zgp_zattr_dev,
+	},
 
 };
 

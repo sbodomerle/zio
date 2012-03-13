@@ -17,6 +17,10 @@
 ZIO_PARAM_TRIGGER(zzero_trigger);
 ZIO_PARAM_BUFFER(zzero_buffer);
 
+DEFINE_ZATTR_STD(ZDEV, zzero_zattr_dev) = {
+	ZATTR_REG(zdev, ZATTR_NBITS, S_IRUGO, 0, 8), /* 8 bit -> ssize = 1 */
+};
+
 static int zzero_input(struct zio_cset *cset)
 {
 	struct zio_channel *chan;
@@ -73,6 +77,9 @@ static struct zio_device zzero_dev = {
 	.owner =		THIS_MODULE,
 	.cset =			zzero_cset,
 	.n_cset =		ARRAY_SIZE(zzero_cset),
+	.zattr_set = {
+		.std_zattr= zzero_zattr_dev,
+	},
 };
 
 static int __init zzero_init(void)
