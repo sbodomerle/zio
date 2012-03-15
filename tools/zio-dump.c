@@ -72,7 +72,7 @@ void read_channel(int cfd, int dfd, FILE *log)
 	       ctrl.seq_num,
 	       ctrl.nsamples,
 	       ctrl.ssize,
-	       ctrl.sbits,
+	       ctrl.nbits,
 	       ctrl.flags,
 	       ctrl.flags & ZIO_CONTROL_LITTLE_ENDIAN
 	       ? "little-endian" :
