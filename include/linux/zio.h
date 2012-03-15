@@ -158,7 +158,6 @@ struct zio_channel {
 	unsigned int		index;		/* index within parent */
 	unsigned long		flags;
 	struct zio_attribute_set zattr_set;
-	struct zio_ctrl_attr	 zattr_val;
 
 	struct device		*ctrl_dev;	/* control char device */
 	struct device		*data_dev;	/* data char device */
@@ -166,6 +165,7 @@ struct zio_channel {
 	void			*priv_d;	/* private for the device */
 	void			*priv_t;	/* private for the trigger */
 
+	struct zio_control	*current_ctrl;	/* the active one */
 	struct zio_block	*user_block;	/* being transferred w/ user */
 	struct zio_block	*active_block;	/* being managed by hardware */
 };

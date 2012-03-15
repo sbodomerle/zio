@@ -40,19 +40,9 @@ static struct zio_attribute zti_ext_attr[] = {
 static int zti_conf_set(struct kobject *kobj, struct zio_attribute *zattr,
 		uint32_t  usr_val)
 {
-	struct zio_ti *ti = to_zio_ti(kobj);
-
 	pr_debug("%s:%d\n", __func__, __LINE__);
 	zattr->value = usr_val;
-	switch (zattr->priv.addr) {
-	case ZTI_ATTR_NSAMPLES:
-		ti->current_ctrl->nsamples = usr_val;
-		break;
-	/* other attributes are read-only */
-	default:
-		pr_err("%s: unknown \"addr\" for configuration\n", __func__);
-		return -EINVAL;
-	}
+
 	return 0;
 }
 
@@ -105,10 +95,6 @@ static struct zio_ti *zti_create(struct zio_trigger_type *trig,
 	ti = kzalloc(sizeof(*ti), GFP_KERNEL);
 	if (!ti)
 		return ERR_PTR(-ENOMEM);
-
-	/* The current control is already filled: just set nsamples */
-	ctrl->nsamples = zti_std_attr[ZATTR_TRIG_NSAMPLES].value;
-	ti->current_ctrl = ctrl;
 
 	ret = request_irq(zti_irq, zti_handler, IRQF_SHARED
 			  | IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING,

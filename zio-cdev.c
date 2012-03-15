@@ -338,7 +338,7 @@ static struct zio_block *__zio_write_allocblock(struct zio_bi *bi,
 		ctrl = zio_alloc_control(GFP_KERNEL);
 		if (!ctrl)
 			return NULL;
-		memcpy(ctrl, bi->cset->ti->current_ctrl, ZIO_CONTROL_SIZE);
+		memcpy(ctrl, bi->chan->current_ctrl, ZIO_CONTROL_SIZE);
 	}
 	datalen = ctrl->ssize * ctrl->nsamples;
 	block = bi->b_op->alloc_block(bi, ctrl, datalen, GFP_KERNEL);
@@ -482,7 +482,7 @@ static ssize_t zio_generic_write(struct file *f, const char __user *ubuf,
 
 	if (copy_from_user(ctrl, ubuf, count))
 		return -EFAULT;
-	memcpy(bi->cset->ti->current_ctrl, ctrl, count);
+	memcpy(chan->current_ctrl, ctrl, count);
 	*offp += count;
 	return count;
 }

@@ -35,7 +35,7 @@ void read_channel(int cfd, int dfd, FILE *log)
 			prgname);
 		exit(1);
 	default:
-		fprintf(stderr, "%s: ctrl read: %i bytes (expected %i)\n",
+		fprintf(stderr, "%s: ctrl read: %i bytes (expected %li)\n",
 			prgname, i, sizeof(ctrl));
 		/* continue anyways */
 	case sizeof(ctrl):
@@ -82,6 +82,39 @@ void read_channel(int cfd, int dfd, FILE *log)
 	       (long long)ctrl.tstamp.secs,
 	       (long long)ctrl.tstamp.ticks,
 	       (long long)ctrl.tstamp.bins);
+	/* Print attributes */
+	printf("Device attributes:\n");
+	printf("    Standard: 0x%04x\n    ",
+	       ctrl.attr_channel.std_mask);
+	for (i = 0; i < 16; ++i) {
+		if (i == 8)
+			printf("\n    ");
+		printf ("0x%x ", ctrl.attr_channel.std_val[i]);
+	}
+	printf("\n    Extened: 0x%08x\n    ",
+	       ctrl.attr_channel.ext_mask);
+	for (i = 0; i < 32; ++i) {
+		if (i == 8 || i == 16 || i == 24)
+			printf("\n    ");
+		printf ("0x%x ", ctrl.attr_channel.ext_val[i]);
+	}
+	printf("\nTrigger attributes:\n");
+	printf("    Standard: 0x%04x\n    ",
+	       ctrl.attr_trigger.std_mask);
+	for (i = 0; i < 16; ++i) {
+		if (i == 8)
+			printf("\n    ");
+		printf ("0x%x ", ctrl.attr_trigger.std_val[i]);
+	}
+	printf("\n    Extened: 0x%08x \n    ",
+	       ctrl.attr_trigger.ext_mask);
+	for (i = 0; i < 32; ++i) {
+		if (i == 8 || i == 16 || i == 24)
+			printf("\n    ");
+		printf ("0x%x ", ctrl.attr_trigger.ext_val[i]);
+	}
+	printf("\n");
+
 	/* FIXME: some control information is missing */
 
 	i = read(dfd, buf, sizeof(buf));

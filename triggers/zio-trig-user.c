@@ -27,11 +27,8 @@ static DEFINE_ZATTR_STD(TRIG, ztu_std_attr) = {
 int ztu_conf_set(struct kobject *kobj, struct zio_attribute *zattr,
 		uint32_t  usr_val)
 {
-	struct zio_ti *ti = to_zio_ti(kobj);
-
 	pr_debug("%s:%d\n", __func__, __LINE__);
 	zattr->value = usr_val;
-	ti->current_ctrl->nsamples = usr_val; /* We have this one only */
 	return 0;
 }
 
@@ -65,7 +62,6 @@ static int ztu_config(struct zio_ti *ti, struct zio_control *ctrl)
 {
 	pr_debug("%s:%d\n", __func__, __LINE__);
 
-	ti->current_ctrl->nsamples = ctrl->nsamples;
 	return 0;
 }
 
@@ -80,9 +76,6 @@ static struct zio_ti *ztu_create(struct zio_trigger_type *trig,
 	ti = kzalloc(sizeof(*ti), GFP_KERNEL);
 	if (!ti)
 		return ERR_PTR(-ENOMEM);
-	/* The current control is already filled: just set nsamples */
-	ctrl->nsamples = ztu_std_attr[ZATTR_TRIG_NSAMPLES].value;
-	ti->current_ctrl = ctrl;
 
 	return ti;
 }

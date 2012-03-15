@@ -50,12 +50,12 @@ static int ztt_conf_set(struct kobject *kobj, struct zio_attribute *zattr,
 	pr_debug("%s:%d\n", __func__, __LINE__);
 	zattr->value = usr_val;
 	switch (zattr->priv.addr) {
-	case ZTT_ATTR_NSAMPLES:
-		ti->current_ctrl->nsamples = usr_val;
-		break;
 	case ZTT_ATTR_PERIOD:
 		ztt = to_ztt_instance(ti);
 		ztt->period = msecs_to_jiffies(usr_val);
+		break;
+	case ZTT_ATTR_NSAMPLES:
+		/* Nothing to do */
 		break;
 	default:
 		pr_err("%s: unknown \"addr\" 0x%lx for configuration\n",
@@ -130,10 +130,6 @@ static struct zio_ti *ztt_create(struct zio_trigger_type *trig,
 	if (!ztt_instance)
 		return ERR_PTR(-ENOMEM);
 	ti = &ztt_instance->ti;
-
-	/* The current control is already filled: just set nsamples */
-	ctrl->nsamples = ztt_std_attr[ZATTR_TRIG_NSAMPLES].value;
-	ti->current_ctrl = ctrl;
 
 	/* Fill own fields */
 	setup_timer(&ztt_instance->timer, ztt_fn,

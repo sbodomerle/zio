@@ -33,14 +33,12 @@ struct zio_ti {
 
 	unsigned long		flags;		/* input or output, etc */
 	struct spinlock		lock;
-	struct zio_control	*current_ctrl;	/* the active one */
 	/* This is for software stamping */
 	struct timespec		tstamp;
 	uint64_t tstamp_extra;
 
 	/* Standard and extended attributes for this object */
 	struct zio_attribute_set		zattr_set;
-	struct zio_ctrl_attr			zattr_val;
 
 	const struct zio_trigger_operations	*t_op;
 };
