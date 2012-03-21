@@ -1117,7 +1117,7 @@ static int zattr_set_create(struct zio_obj_head *head,
 	if (!zattr_set->std_zattr || !zattr_set->n_std_attr)
 		goto ext;
 	groups[g] = __allocate_group(zattr_set->n_std_attr);
-	if (IS_ERR(groups[0]))
+	if (IS_ERR(groups[g]))
 		return PTR_ERR(groups[g]);
 	for (i = 0, a_count = 0; i < zattr_set->n_std_attr; ++i) {
 		attr = &zattr_set->std_zattr[i].attr.attr;
@@ -1153,7 +1153,7 @@ ext:
 		if (err)
 			return err;
 		/* valid attribute */
-		groups[1]->attrs[a_count++] = attr;
+		groups[g]->attrs[a_count++] = attr;
 		zattr_set->ext_zattr[i].attr.show = zattr_show;
 		zattr_set->ext_zattr[i].attr.store = zattr_store;
 		zattr_set->ext_zattr[i].s_op = s_op;
