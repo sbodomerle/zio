@@ -4,8 +4,7 @@ a trigger.
 
 Each cset in a device can use a different trigger, which is specified
 as an attribute of the cset.  When the trigger fires, it acts on all
-the non-disabled channels of the cset.  Only the "app-request" trigger
-can act on a single channel at a time.
+the non-disabled channels of the cset.
 
 Please read <linux/zio-trigger.h> together with this file.
 
@@ -13,17 +12,17 @@ Please read <linux/zio-trigger.h> together with this file.
 	=============
 
 Triggers may be device-specific or generic. A few generic triggers
-are part of zio-core. The "app-request" trigger fires input when
+are part of zio-core. The "user" trigger fires input when
 the application calls read and fires output when the application calls
-write (it acts on a single channel). The "ktimer" trigger uses a kernel
-timer as trigger source. The "irq" trigger uses any interrupt (e.g.,
-a GPIO interrupt, or pin 10 of the PC parallel port) as trigger event.
+write. The "timer" trigger uses a kernel timer as trigger source. The "irq"
+trigger uses any interrupt (e.g., a GPIO interrupt, or pin 10 of the PC
+parallel port) as trigger event.
 
 A device-specific trigger declares to be such within its attributes.  A
 device-specific trigger can only be used by csets that declare its name
 as preferred trigger type.  When such csets are registered, if the
 trigger is already known to ZIO, it will be activated by default instead
-of "app-request".
+of "user".
 
 	Trigger Operations
 	==================
@@ -83,7 +82,8 @@ that don't need special handling.
 
 This function is called to stop a running acquisition before the data_done
 invocation. ZIO calls this function when a trigger is disabled during a
-data transfer.
+data transfer. The abort function has two choice: it can invoke data_done
+and return partial blocks, or free all the active blocks.
 
 	void (*change_status)(struct zio_ti *ti, unsigned int status);
 
