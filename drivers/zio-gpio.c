@@ -101,7 +101,7 @@ static struct zio_cset zgp_cset[] = {
 		.flags =	ZIO_DIR_INPUT | ZCSET_TYPE_ANALOG,
 	},
 };
-static struct zio_device zgp_dev = {
+static struct zio_device zgp_tmpl = {
 	.owner =		THIS_MODULE,
 	.cset =			zgp_cset,
 	.n_cset =		ARRAY_SIZE(zgp_cset),
@@ -109,6 +109,19 @@ static struct zio_device zgp_dev = {
 		.std_zattr = zgp_zattr_dev,
 	},
 
+};
+static struct zio_device *zgp_dev;
+static const struct zio_device_id zzero_table[] = {
+	{"gpio", &zgp_tmpl},
+	{},
+};
+
+static struct zio_driver zpg_zdrv = {
+	.driver = {
+		.name = "gpio",
+		.owner = THIS_MODULE,
+	},
+	.id_table = zzero_table,
 };
 
 static int __init zgp_init(void)
@@ -143,14 +156,24 @@ static int __init zgp_init(void)
 	}
 
 	if (zgp_trigger)
-		zgp_dev.preferred_trigger = zgp_trigger;
+		zgp_tmpl.preferred_trigger = zgp_trigger;
 	if (zgp_buffer)
-		zgp_dev.preferred_buffer = zgp_buffer;
-	err = zio_register_dev(&zgp_dev, "gpio");
+		zgp_tmpl.preferred_buffer = zgp_buffer;
+
+	err = zio_register_driver(&zpg_zdrv);
+	if (err)
+		goto out_input;
+	zgp_dev = zio_allocate_device();
+	if (IS_ERR(zgp_dev)) {
+		err = PTR_ERR(zgp_dev);
+		goto out_alloc;
+	}
+	zgp_dev->owner = THIS_MODULE;
+	err = zio_register_device(zgp_dev, "gpio", 0);
 	if (err) {
 		pr_err(KBUILD_MODNAME ": can't register zio driver "
 		       "(error %i)\n", err);
-		goto out_input;
+		goto out_reg;
 	}
 
 	for (i = 0; i < zgp_nout; i++)
@@ -159,6 +182,10 @@ static int __init zgp_init(void)
 		gpio_direction_input(zgp_in[i]);
 	return 0;
 
+out_reg:
+	zio_free_device(zgp_dev);
+out_alloc:
+	zio_unregister_driver(&zpg_zdrv);
 out_input:
 	/* i is one more than the last registered gpio */
 	for (i--; i >= 0; i--)
@@ -174,7 +201,10 @@ out:
 static void __exit zgp_exit(void)
 {
 	int i;
-	zio_unregister_dev(&zgp_dev);
+
+	zio_unregister_device(zgp_dev);
+	zio_free_device(zgp_dev);
+	zio_unregister_driver(&zpg_zdrv);
 	for (i = 0; i < zgp_nout; i++)
 		gpio_free(zgp_out[i]);
 	for (i = 0; i < zgp_nin; i++)

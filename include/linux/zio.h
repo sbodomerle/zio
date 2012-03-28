@@ -112,6 +112,26 @@ enum zobj_flags {
 };
 
 /*
+ * zio_device_id -- struct use to match driver with device
+ */
+struct zio_device_id {
+	char			name[ZIO_OBJ_NAME_LEN];
+	struct zio_device	*template;
+};
+/*
+ * zio_driver -- the struct driver for zio
+ */
+struct zio_driver {
+	const struct zio_device_id	*id_table;
+	int (*probe)(struct zio_device *dev);
+	int (*remove)(struct zio_device *dev);
+	struct device_driver		driver;
+};
+#define to_zio_drv(_drv) container_of(_drv, struct zio_driver, driver)
+extern struct bus_type zio_bus_type;
+int zio_register_driver(struct zio_driver *zdrv);
+void zio_unregister_driver(struct zio_driver *zdrv);
+/*
  * zio_device -- the top-level hardware description
  */
 struct zio_device {
@@ -129,10 +149,13 @@ struct zio_device {
 	/* We can state what its preferred buffer and trigger are (NULL ok) */
 	char *preferred_buffer;
 	char *preferred_trigger;
+	void *private_data;
 };
-
-int __must_check zio_register_dev(struct zio_device *zdev, const char *name);
-void zio_unregister_dev(struct zio_device *zio_dev);
+struct zio_device *zio_allocate_device(void);
+void zio_free_device(struct zio_device *dev);
+int __must_check zio_register_device(struct zio_device *zdev, const char *name,
+				    uint32_t dev_id);
+void zio_unregister_device(struct zio_device *zdev);
 
 /*
  * zio_cset -- channel set: a group of channels with the same features
@@ -175,9 +198,8 @@ enum zcset_flags {
 	ZCSET_TYPE_DIGITAL	= 0x00,
 	ZCSET_TYPE_ANALOG	= 0x10,
 	ZCSET_TYPE_TIME		= 0x20,
-	ZCSET_CHAN_ALLOC	= 0x80, /* 1 if channels are allocated by zio*/
-	ZCSET_CHAN_ALLOC_ON	= 0x80,
-	ZCSET_CHAN_ALLOC_OFF	= 0x00,
+	ZCSET_CHAN_TEMPLATE	= 0x80, /* 1 if channels from template */
+
 };
 
 /*

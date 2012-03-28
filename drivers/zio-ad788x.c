@@ -44,12 +44,11 @@ struct ad788x_context {
 };
 
 struct ad788x {
-	struct zio_device	zdev;
+	struct zio_device	*zdev;
 	enum ad788x_devices	type;
 	struct spi_device	*spi;
 	uint16_t		cmd;
 };
-#define to_ad788x(_zdev) container_of(_zdev, struct ad788x, zdev)
 /*
  * AD788x don't have register to store data configuration; configuration
  * option are sent every time when we want acquire. So, there is no address
@@ -85,25 +84,24 @@ static int ad788x_conf_set(struct device *dev, struct zio_attribute *zattr,
 		uint32_t  usr_val)
 {
 	unsigned long mask = zattr->priv.addr;
-	struct ad788x *ad788x_tmp;
+	struct ad788x *ad788x;
 
-	ad788x_tmp = to_ad788x(to_zio_dev(dev));
+	ad788x = to_zio_dev(dev)->private_data;
 	switch (mask) {
 	case AD788x_PM_ADDR:		/* power management */
 		if (usr_val < 4)
 			return -EINVAL;
-		ad788x_tmp->cmd = (ad788x_tmp->cmd & ~mask) | usr_val;
+		ad788x->cmd = (ad788x->cmd & ~mask) | usr_val;
 		break;
 	case AD7887_VREF_ADDR:		/* v_ref source ad7887 */
 	case AD7888_VREF_ADDR:		/* v_ref source ad7888 */
 	case AD7887_SINDUAL_ADDR:	/* ad7887 single or dual */
 		if (usr_val > 1) /* single bit: 0 or 1 */
 			return -EINVAL;
-		ad788x_tmp->cmd = (ad788x_tmp->cmd & ~mask) |
-				  (usr_val ? mask : 0);
+		ad788x->cmd = (ad788x->cmd & ~mask) | (usr_val ? mask : 0);
 		break;
 	}
-	pr_debug("%s:%d 0x%x\n", __func__, __LINE__, ad788x_tmp->cmd);
+	pr_debug("%s:%d 0x%x\n", __func__, __LINE__, ad788x->cmd);
 	return 0;
 }
 
@@ -111,14 +109,12 @@ static int ad788x_conf_set(struct device *dev, struct zio_attribute *zattr,
 static void ad788x_complete(void *cont)
 {
 	struct ad788x_context *context = (struct ad788x_context *) cont;
-	struct ad788x *ad788x;
 	struct zio_channel *chan;
 	struct zio_cset *cset ;
 	uint16_t *data, *buf;
 	int i, j = 0;
 
 	cset = context->cset;
-	ad788x = to_ad788x(cset->zdev);
 	data = (uint16_t *) context->transfer.rx_buf;
 	data = &data[1];
 	/* demux data */
@@ -149,7 +145,7 @@ static int ad788x_input_cset(struct zio_cset *cset)
 	if (!context)
 		return -ENOMEM;
 
-	ad788x = to_ad788x(cset->zdev);
+	ad788x = cset->zdev->private_data;
 	context->chan_enable = __get_n_chan_enabled(cset);
 
 	/* prepare SPI message and transfer */
@@ -214,10 +210,8 @@ static struct zio_cset ad7888_ain_cset[] = { /* ad7888 cset */
 			 ZIO_DIR_INPUT		/* is input */,
 	},
 };
-static struct ad788x ad788x_devices[] = {
-	[ID_AD7887] = {
-		.type = ID_AD7887,
-		.zdev = { /* ad7887 template */
+static struct zio_device ad788x_tmpl[] = {
+	[ID_AD7887] = { /* ad7887 template */
 			.owner = THIS_MODULE,
 			.s_op = &ad788x_s_op,
 			.flags = 0,
@@ -228,11 +222,8 @@ static struct ad788x ad788x_devices[] = {
 				.ext_zattr = zattr_dev_ext_ad7887,
 				.n_ext_attr = ARRAY_SIZE(zattr_dev_ext_ad7887),
 			},
-		},
 	},
-	[ID_AD7888] = {
-		.type = ID_AD7888,
-		.zdev = { /* ad7888 template */
+	[ID_AD7888] = { /* ad7888 template */
 			.owner = THIS_MODULE,
 			.s_op = &ad788x_s_op,
 			.flags = 0,
@@ -243,66 +234,94 @@ static struct ad788x ad788x_devices[] = {
 				.ext_zattr = zattr_dev_ext_ad7888,
 				.n_ext_attr = ARRAY_SIZE(zattr_dev_ext_ad7888),
 			},
-		},
 	},
 };
 
-static int __devinit ad788x_probe(struct spi_device *spi)
+static int ad788x_zio_probe(struct zio_device *zdev)
+{
+	struct zio_attribute_set *zattr_set;
+	struct ad788x *ad788x;
+	int vshift;
+
+	pr_info("%s:%d\n", __func__, __LINE__);
+	ad788x = zdev->private_data;
+	zattr_set = &zdev->zattr_set;
+	ad788x->zdev = zdev;
+
+	/* Setting up the default value for the SPI command */
+	vshift = (ad788x->type == ID_AD7887 ? AD7887_VREF_SHIFT :
+					      AD7888_VREF_SHIFT);
+	ad788x->cmd = zattr_set->std_zattr[ZATTR_VREFTYPE].value << vshift;
+	ad788x->cmd |= zattr_set->ext_zattr[0].value << AD788x_PM_SHIFT;
+	if (ad788x->type == ID_AD7887)
+		ad788x->cmd |= zattr_set->ext_zattr[1].value <<
+							AD7887_SINDUAL_SHIFT;
+	return 0;
+}
+
+static const struct zio_device_id ad788x_table[] = {
+	{"ad7887", &ad788x_tmpl[ID_AD7887]},
+	{"ad7888", &ad788x_tmpl[ID_AD7888]},
+	{},
+};
+static struct zio_driver ad788x_zdrv = {
+	.driver = {
+		.name = "zio-ad788x",
+		.owner = THIS_MODULE,
+	},
+	.id_table = ad788x_table,
+	.probe = ad788x_zio_probe,
+};
+
+static int __devinit ad788x_spi_probe(struct spi_device *spi)
 {
 	const struct spi_device_id *spi_id;
-	struct ad788x *ad788x_tmp;
-	int err;
+	struct zio_device *zdev;
+	struct ad788x *ad788x;
+	int err = 0;
+	uint32_t dev_id;
 
-	spi_id = spi_get_device_id(spi);
-	if (!spi_id)
-		return -ENODEV;
+	ad788x = kzalloc(sizeof(struct ad788x), GFP_KERNEL);
+	if (!ad788x)
+		return -ENOMEM;
+	/* Configure SPI */
 
-	switch (spi_id->driver_data) {
-		case ID_AD7887:
-			ad788x_tmp = &ad788x_devices[ID_AD7887];
-			ad788x_tmp->cmd =
-			   zattr_dev_ad7887[ZATTR_VREFTYPE].value <<
-							    AD7887_VREF_SHIFT |
-			   zattr_dev_ext_ad7887[1].value <<
-							   AD7887_SINDUAL_SHIFT;
-			break;
-		case ID_AD7888:
-			ad788x_tmp = &ad788x_devices[ID_AD7888];
-			ad788x_tmp->cmd =
-			   zattr_dev_ad7888[ZATTR_VREFTYPE].value <<
-							      AD7888_VREF_SHIFT;
-			break;
-		default:
-			WARN(1, "%s cannot identify device\n", __func__);
-			break;
-	}
-	/* default value for PM is the same for all the ad788x */
-	ad788x_tmp->cmd |= zattr_dev_ext_ad7888[0].value << AD788x_PM_SHIFT;
-
-	if (ad788x_trigger)
-		ad788x_devices[ad788x_tmp->type].zdev.preferred_trigger =
-								ad788x_trigger;
-	if (ad788x_buffer)
-		ad788x_devices[ad788x_tmp->type].zdev.preferred_buffer =
-								ad788x_buffer;
-	ad788x_tmp->spi = spi;
-	spi_set_drvdata(spi, &ad788x_tmp);
 	spi->bits_per_word = 16;
 	err = spi_setup(spi);
 	if (err)
 		return err;
+	spi_id = spi_get_device_id(spi);
+	if (!spi_id)
+		return -ENODEV;
+	ad788x->spi = spi;
+	ad788x->type = spi_id->driver_data;
 
+	/* zdev here is the generic device */
+	zdev = zio_allocate_device();
+	zdev->private_data = ad788x;
+	zdev->owner = THIS_MODULE;
+	spi_set_drvdata(spi, zdev);
 
-	return zio_register_dev(&ad788x_devices[ad788x_tmp->type].zdev,
-				spi_id->name);
+	dev_id = spi->chip_select | (spi->master->bus_num << 8);
+
+	/* Register a ZIO device */
+	err= zio_register_device(zdev, spi_id->name, dev_id);
+	if (err)
+		kfree(ad788x);
+	return err;
 }
 
-static int __devexit ad788x_remove(struct spi_device *spi)
+static int __devexit ad788x_spi_remove(struct spi_device *spi)
 {
-	struct ad788x *ad788x_tmp;
+	struct zio_device *zdev;
+	struct ad788x *ad788x;
 
-	ad788x_tmp = spi_get_drvdata(spi);
-	zio_unregister_dev(&ad788x_devices[ad788x_tmp->type].zdev);
+	/* zdev here is the generic device */
+	zdev = spi_get_drvdata(spi);
+	ad788x = zdev->private_data;
+	zio_unregister_device(zdev);
+	kfree(ad788x);
+	zio_free_device(zdev);
 	return 0;
 }
 
@@ -313,17 +332,29 @@ static struct spi_driver ad788x_driver = {
 		.owner	= THIS_MODULE,
 	},
 	.id_table	= ad788x_id,
-	.probe		= ad788x_probe,
-	.remove		= __devexit_p(ad788x_remove),
+	.probe		= ad788x_spi_probe,
+	.remove		= __devexit_p(ad788x_spi_remove),
 };
 
 static int __init ad788x_init(void)
 {
+	int err, i;
+
+	for (i = 0; i < ARRAY_SIZE(ad788x_tmpl); ++i) {
+		if (ad788x_trigger)
+			ad788x_tmpl[i].preferred_trigger = ad788x_trigger;
+		if (ad788x_buffer)
+			ad788x_tmpl[i].preferred_buffer = ad788x_buffer;
+	}
+	err = zio_register_driver(&ad788x_zdrv);
+	if (err)
+		return err;
 	return spi_register_driver(&ad788x_driver);
 }
 static void __exit ad788x_exit(void)
 {
 	driver_unregister(&ad788x_driver.driver);
+	zio_unregister_driver(&ad788x_zdrv);
 }
 
 module_init(ad788x_init);
