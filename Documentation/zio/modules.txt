@@ -2,44 +2,43 @@
 This is the list of ZIO modules, at the time of writing. It is there
 to help new users understanding how the parts stick together.
 
-  drivers/zio/zio-core.ko
+  drivers/zio/zio.ko
 
 This module (which is linked from several source files) includes the
 core sysfs and attribute management. It exports the register and
 unregister functions for top-level objects. Moreover, it includes the
 default buffer, called "kmalloc" and default trigger, called
-"app-request".
+"user".
 
-  drivers/zio/trigger/trig-ktimer.ko
-  drivers/zio/trigger/trig-hrt.ko
-  drivers/zio/trigger/trig-irq.ko
+  drivers/zio/trigger/zio-trig-timer.ko
+  drivers/zio/trigger/zio-trig-irq.ko
 
 Three other generic triggers. Two of them are time-based, and the
 third hooks to an external interrupt (or more than one) as source of
 trigger that can be used be any zio cset).
 
-  drivers/zio/dev/zio-null.ko
-  drivers/zio/dev/zio-parport.ko
-  drivers/zio/dev/zio-ad7888.ko
-  drivers/zio/dev/zio-uart.ko
+  drivers/zio/drivers/zio-zero.ko
+  drivers/zio/drivers/zio-gpio.ko
+  drivers/zio/drivers/zio-ad788x.ko
 
-These modules are examples. "null" does nothing: it discards output
-data and returns zeroes as input data. It can be used to experiment
-with generic triggers and as a sandbox for local modifications and
-testing.
+These modules are examples. The zero driver is an emulator of an
+input/output device. It can be used to experiment with generic
+triggers and as a sandbox for local modifications and testing.
+It has 4 input channels and 1 output channel. Each of the 4 input
+channel generates a particular waveform: a flat signal (zero), a white
+noise signal, saw-tooth and a sequence of 32-bit little-endian numbers.
+The last signal can be used for diagnostics and regression testing of
+buffers. The output channel discards all samples.
 
-The parport driver registers two output csets and two input csets.
-In each group one cset is byte-oriented and the other is bit-oriented.
+The gpio driver register two single-channel csets: one for input the
+other for output. The user specifies (on driver load, as module parameter)
+which GPIOs use for input and which ones for output.
 
-The ad7888 is an SPI ADC we mounted on an ARM board. It's a real
-8-channel ADC we are using for internal development, and this is a
-real driver for a real thing. Over time it will handle its own buffer
+The ad788x driver handle two devices: the ad7887 and the ad7888.
+Both devices are SPI ADC we mounted on an ARM board; ad788 is a
+8-channel ADC and ad7887 is a 2-channel ADC with variable voltage
+reference. We are using these devices for internal development, and this
+is a real driver for a real thing. Over time it will handle its own buffer
 type (our SPI master uses DMA) and its own data-driven trigger (even
 if the data will be scanned by the CPU, so it can only work at low
 data rates).
-
-The UART driver is a line discipline that can receive data from a
-serial port. The first implementation expects to receive an endless
-stream of 16-bit data, big endian (we used this to run on-board ADC on
-cortex-m3), but we plan to extend it as a serious test case. You can
-drive it from a pty slave, for example.
