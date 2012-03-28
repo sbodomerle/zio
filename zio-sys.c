@@ -938,6 +938,84 @@ static ssize_t zattr_store(struct device *dev, struct device_attribute *attr,
 	return count;
 }
 
+/* default zio attributes */
+static struct device_attribute zio_default_attributes[] = {
+	__ATTR(name, 0444, zobj_show_name, NULL),
+	__ATTR(enable, 0666, zobj_show_enable, zobj_store_enable),
+	__ATTR(current_trigger, 0666, zobj_show_cur_trig, zobj_store_cur_trig),
+	__ATTR(current_buffer, 0666, zobj_show_cur_zbuf, zobj_store_cur_zbuf),
+	__ATTR_NULL,
+};
+/* default attributes for most of the zio object */
+static struct attribute *def_device_attrs_ptr[] = {
+	&zio_default_attributes[0].attr,	/* name */
+	&zio_default_attributes[1].attr,	/* enable */
+	NULL,
+};
+/* default attributes for channel set */
+static struct attribute *def_cset_attrs_ptr[] = {
+	&zio_default_attributes[2].attr,	/* current_trigger */
+	&zio_default_attributes[3].attr,	/* current_buffer */
+	NULL,
+};
+/* default attributes for buffer instance*/
+static struct attribute *def_bi_attrs_ptr[] = {
+	&zio_default_attributes[0].attr,	/* name */
+	NULL,
+};
+/* default zio groups */
+static const struct attribute_group zio_groups[] = {
+	{	/* group for all zio object*/
+		.attrs = def_device_attrs_ptr,
+	},
+	{	/* cset only group */
+		.attrs = def_cset_attrs_ptr,
+	},
+	{	/* bi only group */
+		.attrs = def_bi_attrs_ptr,
+	}
+};
+/* default groups for most of the zio object */
+static const struct attribute_group *def_device_groups_ptr[] = {
+	&zio_groups[0],	/* group for all zio object*/
+	NULL,
+};
+/* default groups for channel set */
+static const struct attribute_group *def_cset_groups_ptr[] = {
+	&zio_groups[0],	/* group for all zio object*/
+	&zio_groups[1],	/* cset only group */
+	NULL,
+};
+static const struct attribute_group *def_bi_groups_ptr[] = {
+	&zio_groups[2],	/* bi only group */
+	NULL,
+};
+
+/* Device types */
+void zio_device_release(struct device *dev)
+{
+	return;
+}
+
+struct device_type zobj_device_type = {
+	.name = "zio_obj_type",
+	.release = zio_device_release,
+	.groups = def_device_groups_ptr,
+};
+struct device_type cset_device_type = {
+	.name = "zio_cset_type",
+	.release = zio_device_release,
+	.groups = def_cset_groups_ptr,
+};
+struct device_type bi_device_type = {
+	.name = "zio_bi_type",
+	.release = zio_device_release,
+	.groups = def_bi_groups_ptr,
+};
+
+/*
+ * Bus
+ */
 static ssize_t zio_show_version(struct bus_type *bus, char *buf)
 {
 	return sprintf(buf, "%d.%d\n", ZIO_MAJOR_VERSION, ZIO_MINOR_VERSION);
@@ -1101,8 +1179,6 @@ static int zattr_set_create(struct zio_obj_head *head,
 		++g_count;	/* There are extended attributes */
 	else
 		zattr_set->n_ext_attr = 0;
-	if (head->zobj_type == ZCSET)
-		++g_count;	/* cset need current_(trigger|buffer)*/
 
 	if (!g_count)
 		goto out;
@@ -1142,7 +1218,7 @@ static int zattr_set_create(struct zio_obj_head *head,
 ext:
 	/* Allocate extended attribute group */
 	if (!zattr_set->ext_zattr || !zattr_set->n_ext_attr)
-		goto cset;
+		goto out_assign;
 	groups[g] = __allocate_group(zattr_set->n_ext_attr);
 	if (IS_ERR(groups[g]))
 		return PTR_ERR(groups[g]);
@@ -1161,16 +1237,7 @@ ext:
 		zattr_set->ext_zattr[i].flags |= ZATTR_TYPE_EXT;
 	}
 	++g;
-cset:
-	/* Allocate cset special attributes */
-	if (head->zobj_type != ZCSET)
-		goto out_assign;
-	groups[g] = __allocate_group(2);
-	if (IS_ERR(groups[2]))
-		return PTR_ERR(groups[g]);
-	groups[g]->attrs[0] = &dev_attr_current_buffer.attr;
-	groups[g]->attrs[1] = &dev_attr_current_trigger.attr;
-	++g;
+
 out_assign:
 	groups[g] = NULL;
 	head->dev.groups = groups;
@@ -1215,7 +1282,7 @@ static struct zio_bi *__bi_create_and_init(struct zio_buffer_type *zbuf,
 	bi->v_op = zbuf->v_op;
 	bi->flags |= (chan->flags & ZIO_DIR);
 	/* Initialize head */
-	bi->head.dev.type = &zobj_device_type;
+	bi->head.dev.type = &bi_device_type;
 	bi->head.dev.parent = &chan->head.dev;
 	bi->head.zobj_type = ZBI;
 	snprintf(bi->head.name, ZIO_NAME_LEN, "%s-%s-%d-%d",
@@ -1584,8 +1651,9 @@ static int cset_register(struct zio_cset *cset)
 	/* Initialize head */
 	if (strlen(cset->head.name) == 0)
 		snprintf(cset->head.name, ZIO_NAME_LEN, "cset%i", cset->index);
-	cset->head.dev.init_name = cset->head.name;
-	cset->head.dev.type = &zobj_device_type;
+	dev_set_name(&cset->head.dev, cset->head.name);
+	spin_lock_init(&cset->lock);
+	cset->head.dev.type = &cset_device_type;
 	cset->head.dev.parent = &cset->zdev->head.dev;
 	cset->head.zobj_type = ZCSET;
 	/* Create sysfs cset attributes */
