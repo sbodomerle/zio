@@ -7,6 +7,3 @@ obj-m += zio-gpio.o
 ifdef CONFIG_SPI
 obj-m += zio-ad788x.o
 endif
-
-all:
-	$(MAKE) -C $(LINUX) M=$(shell /bin/pwd) modules
