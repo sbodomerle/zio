@@ -617,7 +617,7 @@ static void __zattr_trig_init_ctrl(struct zio_ti *ti, struct zio_control *ctrl)
 	int i;
 	struct zio_ctrl_attr *ctrl_attr_trig = &ctrl->attr_trigger;
 
-	strncpy(ctrl->triggername, ti->cset->trig->head.name, ZIO_NAME_LEN);
+	strncpy(ctrl->triggername, ti->cset->trig->head.name, ZIO_OBJ_NAME_LEN);
 	/* Copy trigger value */
 	for (i = 0; i < ti->zattr_set.n_std_attr; ++i)
 		__zattr_valcpy(ctrl_attr_trig, &ti->zattr_set.std_zattr[i]);
