@@ -31,7 +31,6 @@
  */
 struct zbk_instance {
 	struct zio_bi bi;
-	struct spinlock lock;
 	struct list_head list; /* item list */
 	/* head and tail are offsets, as tail goes to ctrl->data_offset */
 	unsigned long head, tail;
@@ -76,7 +75,7 @@ static inline long zbk_alloc_data(struct zbk_instance *zbki, size_t size)
 	long res;
 	unsigned long next;
 
-	spin_lock(&zbki->lock);
+	spin_lock(&zbki->bi.lock);
 	res = zbki->head; /* most likely */
 	next = zbki->head + size;
 
@@ -97,22 +96,22 @@ static inline long zbk_alloc_data(struct zbk_instance *zbki, size_t size)
 	/* easy case */
 	zbki->head = next;
 out:
-	spin_unlock(&zbki->lock);
+	spin_unlock(&zbki->bi.lock);
 	return res;
 out_oom:
-	spin_unlock(&zbki->lock);
+	spin_unlock(&zbki->bi.lock);
 	return -1;
 }
 
 static inline void zbk_free_data(struct zbk_instance *zbki, long offset,
 				 size_t size)
 {
-	spin_lock(&zbki->lock);
+	spin_lock(&zbki->bi.lock);
 	if (unlikely(offset == 0))
 		zbki->tail = size;
 	else
 		zbki->tail += size;
-	spin_unlock(&zbki->lock);
+	spin_unlock(&zbki->bi.lock);
 }
 
 /* Alloc is called by the trigger (for input) or by f->write (for output) */
@@ -193,7 +192,7 @@ static int zbk_store_block(struct zio_bi *bi, struct zio_block *block)
 	output = (bi->flags & ZIO_DIR) == ZIO_DIR_OUTPUT;
 
 	/* add to the buffer instance or push to the trigger */
-	spin_lock(&zbki->lock);
+	spin_lock(&bi->lock);
 	if (list_empty(&zbki->list)) {
 		if (unlikely(output))
 			pushed = __try_push(chan->cset->ti, chan, block);
@@ -202,7 +201,7 @@ static int zbk_store_block(struct zio_bi *bi, struct zio_block *block)
 	}
 	if (likely(!pushed))
 		list_add_tail(&item->list, &zbki->list);
-	spin_unlock(&zbki->lock);
+	spin_unlock(&bi->lock);
 
 	/* if input, awake user space */
 	if (awake && ((bi->flags & ZIO_DIR) == ZIO_DIR_INPUT))
@@ -222,14 +221,14 @@ static struct zio_block *zbk_retr_block(struct zio_bi *bi)
 
 	zbki = to_zbki(bi);
 
-	spin_lock(&zbki->lock);
+	spin_lock(&bi->lock);
 	if (list_empty(&zbki->list))
 		goto out_unlock;
 	first = zbki->list.next;
 	item = list_entry(first, struct zbk_item, list);
 	list_del(&item->list);
 	awake = 1;
-	spin_unlock(&zbki->lock);
+	spin_unlock(&bi->lock);
 
 	if (awake && ((bi->flags & ZIO_DIR) == ZIO_DIR_OUTPUT))
 		wake_up_interruptible(&bi->q);
@@ -237,7 +236,7 @@ static struct zio_block *zbk_retr_block(struct zio_bi *bi)
 	return &item->block;
 
 out_unlock:
-	spin_unlock(&zbki->lock);
+	spin_unlock(&bi->lock);
 	/* There is no data in buffer, and we may pull to have data soon */
 	ti = bi->cset->ti;
 	if ((bi->flags & ZIO_DIR) == ZIO_DIR_INPUT && ti->t_op->pull_block){
@@ -269,7 +268,6 @@ static struct zio_bi *zbk_create(struct zio_buffer_type *zbuf,
 		kfree(zbki);
 		return ERR_PTR(-ENOMEM);
 	}
-	spin_lock_init(&zbki->lock);
 	INIT_LIST_HEAD(&zbki->list);
 
 	/* all the fields of zio_bi are initialied by the caller */

@@ -27,7 +27,6 @@ struct zbk_instance {
 	struct zio_bi bi;
 	int nitem;
 	struct list_head list; /* items list and lock */
-	struct spinlock lock;
 };
 #define to_zbki(bi) container_of(bi, struct zbk_instance, bi)
 
@@ -133,7 +132,7 @@ static int zbk_store_block(struct zio_bi *bi, struct zio_block *block)
 	output = (bi->flags & ZIO_DIR) == ZIO_DIR_OUTPUT;
 
 	/* add to the buffer instance or push to the trigger */
-	spin_lock(&zbki->lock);
+	spin_lock(&bi->lock);
 	if (zbki->nitem == bi->zattr_set.std_zattr[ZATTR_ZBUF_MAXLEN].value)
 		goto out_unlock;
 	if (!zbki->nitem) {
@@ -146,7 +145,7 @@ static int zbk_store_block(struct zio_bi *bi, struct zio_block *block)
 		zbki->nitem++;
 		list_add_tail(&item->list, &zbki->list);
 	}
-	spin_unlock(&zbki->lock);
+	spin_unlock(&bi->lock);
 
 	/* if input, awake user space */
 	if (awake && ((bi->flags & ZIO_DIR) == ZIO_DIR_INPUT))
@@ -154,7 +153,7 @@ static int zbk_store_block(struct zio_bi *bi, struct zio_block *block)
 	return 0;
 
 out_unlock:
-	spin_unlock(&zbki->lock);
+	spin_unlock(&bi->lock);
 	return -ENOSPC;
 }
 
@@ -169,7 +168,7 @@ static struct zio_block *zbk_retr_block(struct zio_bi *bi)
 
 	zbki = to_zbki(bi);
 
-	spin_lock(&zbki->lock);
+	spin_lock(&bi->lock);
 	if (list_empty(&zbki->list))
 		goto out_unlock;
 	first = zbki->list.next;
@@ -178,7 +177,7 @@ static struct zio_block *zbk_retr_block(struct zio_bi *bi)
 	if (zbki->nitem == bi->zattr_set.std_zattr[ZATTR_ZBUF_MAXLEN].value)
 		awake = 1;
 	zbki->nitem--;
-	spin_unlock(&zbki->lock);
+	spin_unlock(&bi->lock);
 
 	if (awake && ((bi->flags & ZIO_DIR) == ZIO_DIR_OUTPUT))
 		wake_up_interruptible(&bi->q);
@@ -186,7 +185,7 @@ static struct zio_block *zbk_retr_block(struct zio_bi *bi)
 	return &item->block;
 
 out_unlock:
-	spin_unlock(&zbki->lock);
+	spin_unlock(&bi->lock);
 	/* There is no data in buffer, and we may pull to have data soon */
 	ti = bi->cset->ti;
 	if ((bi->flags & ZIO_DIR) == ZIO_DIR_INPUT && ti->t_op->pull_block){
@@ -210,7 +209,6 @@ static struct zio_bi *zbk_create(struct zio_buffer_type *zbuf,
 	zbki = kzalloc(sizeof(*zbki), GFP_KERNEL);
 	if (!zbki)
 		return ERR_PTR(-ENOMEM);
-	spin_lock_init(&zbki->lock);
 	INIT_LIST_HEAD(&zbki->list);
 
 	/* all the fields of zio_bi are initialied by the caller */
