@@ -35,7 +35,7 @@ void read_channel(int cfd, int dfd, FILE *log)
 			prgname);
 		exit(1);
 	default:
-		fprintf(stderr, "%s: ctrl read: %i bytes (expected %li)\n",
+		fprintf(stderr, "%s: ctrl read: %i bytes (expected %i)\n",
 			prgname, i, sizeof(ctrl));
 		/* continue anyways */
 	case sizeof(ctrl):
