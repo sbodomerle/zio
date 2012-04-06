@@ -3,6 +3,8 @@
 
 HOST_EXTRACFLAGS += -I$(M)/include/
 
+HOSTCC ?= gcc
+
 hostprogs-y := zio-dump
 hostprogs-y += zio-cat-file
 
