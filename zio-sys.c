@@ -1336,14 +1336,17 @@ static struct zio_bi *__bi_create_and_init(struct zio_buffer_type *zbuf,
 	int err;
 
 	pr_debug("%s\n", __func__);
-	/* Create buffer */
+	/* Create buffer, ensuring it's not reentrant */
+	spin_lock(&zbuf->lock);
 	bi = zbuf->b_op->create(zbuf, chan);
+	spin_unlock(&zbuf->lock);
 	if (IS_ERR(bi)) {
 		pr_err("ZIO %s: can't create buffer, error %ld\n",
 		       __func__, PTR_ERR(bi));
 		goto out;
 	}
 	/* Initialize buffer */
+	spin_lock_init(&bi->lock);
 	bi->b_op = zbuf->b_op;
 	bi->f_op = zbuf->f_op;
 	bi->v_op = zbuf->v_op;
@@ -1423,14 +1426,17 @@ static struct zio_ti *__ti_create_and_init(struct zio_trigger_type *trig,
 	struct zio_ti *ti;
 
 	pr_debug("%s\n", __func__);
-	/* Create trigger */
+	/* Create trigger, ensuring it's not reentrant */
+	spin_lock(&trig->lock);
 	ti = trig->t_op->create(trig, cset, NULL, 0/*FIXME*/);
+	spin_unlock(&trig->lock);
 	if (IS_ERR(ti)) {
 		pr_err("ZIO %s: can't create trigger, error %ld\n",
 		       __func__, PTR_ERR(ti));
 		goto out;
 	}
 	/* Initialize trigger */
+	spin_lock_init(&ti->lock);
 	ti->t_op = trig->t_op;
 	ti->flags |= cset->flags & ZIO_DIR;
 	/* Initialize head */

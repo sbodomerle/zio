@@ -167,7 +167,7 @@ struct zio_cset {
 	struct zio_trigger_type *trig;		/* trigger type for ti*/
 	struct zio_ti		*ti;		/* trigger instance */
 	int			(*raw_io)(struct zio_cset *cset);
-	spinlock_t		lock;		 /* for all I/O ops */
+	spinlock_t		lock;		 /* for flags */
 
 	unsigned		ssize;		/* sample size (bytes) */
 	unsigned		index;		/* index within parent */
