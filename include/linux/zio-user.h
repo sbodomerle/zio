@@ -7,6 +7,7 @@
  */
 #ifndef __ZIO_USER_H__
 #define __ZIO_USER_H__
+#include <linux/zio.h>
 
 /*
  * Maximum number of standard and extended attributes. These two values
