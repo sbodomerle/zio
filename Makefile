@@ -18,6 +18,10 @@ all: modules tools
 modules:
 	$(MAKE) -C $(LINUX) M=$(shell /bin/pwd)
 
+modules_install:
+	$(MAKE) -C $(LINUX) M=$(shell /bin/pwd) $@
+
+
 .PHONY: tools
 
 tools:
