@@ -10,6 +10,7 @@
 #include <linux/init.h>
 #include <linux/slab.h>
 #include <linux/random.h>
+#include <asm/unaligned.h>
 
 #include <linux/zio.h>
 #include <linux/zio-buffer.h>
@@ -17,11 +18,38 @@
 ZIO_PARAM_TRIGGER(zzero_trigger);
 ZIO_PARAM_BUFFER(zzero_buffer);
 
-DEFINE_ZATTR_STD(ZDEV, zzero_zattr_dev) = {
+DEFINE_ZATTR_STD(ZDEV, zzero_zattr_cset8) = {
 	ZATTR_REG(zdev, ZATTR_NBITS, S_IRUGO, 0, 8), /* 8 bit -> ssize = 1 */
 };
+DEFINE_ZATTR_STD(ZDEV, zzero_zattr_cset32) = {
+	ZATTR_REG(zdev, ZATTR_NBITS, S_IRUGO, 0, 32), /* 32 bit -> ssize = 4 */
+};
+/* This attribute is the sequence point for input channel number 0 of cset 2 */
+enum zzero_ext{
+	ZZERO_SEQ,
+};
+static struct zio_attribute zzero_cset1_ext[] = {
+	ZATTR_EXT_REG("sequence", S_IRUGO | S_IWUGO, ZZERO_SEQ, 0),
+};
+/*
+ * This generates a sequence of 32-bit little-endian numbers.
+ * It is meant to be used for diagnostics and regression testing of buffers
+ */
+static void zzero_get_sequence(struct zio_channel *chan,
+			       void *data, int datalen)
+{
+	uint32_t *ptr = data;
+	uint32_t *value = &chan->cset->zattr_set.ext_zattr[ZZERO_SEQ].value;
 
-static int zzero_input(struct zio_cset *cset)
+	while (datalen >= 4) {
+		put_unaligned_le32((*value)++, ptr);
+		datalen -= 4;
+		ptr++;
+	}
+}
+
+/* 8 bits input function */
+static int zzero_input_8(struct zio_cset *cset)
 {
 	struct zio_channel *chan;
 	struct zio_block *block;
@@ -43,33 +71,79 @@ static int zzero_input(struct zio_cset *cset)
 			break;
 		case 2: /* sequence */
 			data = block->data;
-			for (i = 0; i < block->datalen; i++)
+			for (i = 0; i < chan->current_ctrl->nsamples; i++)
 				data[i] = datum++;
+			break;
 		}
 	}
 	return 0; /* Already done */
 }
+/* 32 bits input function */
+static int zzero_input_32(struct zio_cset *cset)
+{
+	struct zio_channel *chan = cset->chan; /* single channel */
+	struct zio_block *block;
 
+	/* Return immediately: just fill the blocks */
+	block = chan->active_block;
+	if (!block)
+		return 0;
+	zzero_get_sequence(chan, block->data, block->datalen);
+
+	return 0; /* Already done */
+}
 static int zzero_output(struct zio_cset *cset)
 {
 	/* We just eat data, like /dev/zero and /dev/null */
 	return 0; /* Already done */
 }
 
+static int zzero_conf_set(struct device *dev, struct zio_attribute *zattr,
+		      uint32_t  usr_val)
+{
+	/*
+	 * This function is called only to change sequence number.
+	 * Any number is valid.
+	 */
+	return 0;
+}
+
+static const struct zio_sysfs_operations zzero_sysfs_ops = {
+	.conf_set = zzero_conf_set,
+};
+
 static struct zio_cset zzero_cset[] = {
 	{
-		SET_OBJECT_NAME("zero-input"),
-		.raw_io =	zzero_input,
+		SET_OBJECT_NAME("zero-input-8"),
+		.raw_io =	zzero_input_8,
 		.n_chan =	3,
 		.ssize =	1,
 		.flags =	ZIO_DIR_INPUT | ZCSET_TYPE_ANALOG,
+		.zattr_set = {
+			.std_zattr = zzero_zattr_cset8,
+		},
 	},
 	{
-		SET_OBJECT_NAME("zero-output"),
+		SET_OBJECT_NAME("zero-output-8"),
 		.raw_io =	zzero_output,
 		.n_chan =	1,
 		.ssize =	1,
 		.flags =	ZIO_DIR_OUTPUT | ZCSET_TYPE_ANALOG,
+		.zattr_set = {
+			.std_zattr = zzero_zattr_cset8,
+		},
+	},
+	{
+		SET_OBJECT_NAME("zero-input-32"),
+		.raw_io =	zzero_input_32,
+		.n_chan =	1,
+		.ssize =	4,
+		.flags =	ZIO_DIR_INPUT | ZCSET_TYPE_ANALOG,
+		.zattr_set = {
+			.std_zattr = zzero_zattr_cset32,
+			.ext_zattr = zzero_cset1_ext,
+			.n_ext_attr = ARRAY_SIZE(zzero_cset1_ext),
+		},
 	},
 };
 
@@ -77,9 +151,7 @@ static struct zio_device zzero_tmpl = {
 	.owner =		THIS_MODULE,
 	.cset =			zzero_cset,
 	.n_cset =		ARRAY_SIZE(zzero_cset),
-	.zattr_set = {
-		.std_zattr= zzero_zattr_dev,
-	},
+	.s_op =			&zzero_sysfs_ops,
 };
 
 static struct zio_device *zzero_dev;
