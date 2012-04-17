@@ -106,6 +106,9 @@ static struct zio_buffer_type *zio_buffer_get(char *name)
 {
 	struct zio_object_list_item *list_item;
 
+	if (!name)
+		return ERR_PTR(-EINVAL);
+
 	list_item = __zio_object_get(&zstat->all_buffer_types, name);
 	if (!list_item)
 		return ERR_PTR(-ENODEV);
@@ -119,6 +122,9 @@ static inline void zio_buffer_put(struct zio_buffer_type *zbuf)
 static struct zio_trigger_type *zio_trigger_get(char *name)
 {
 	struct zio_object_list_item *list_item;
+
+	if (!name)
+		return ERR_PTR(-EINVAL);
 
 	list_item = __zio_object_get(&zstat->all_trigger_types, name);
 	if (!list_item)
@@ -1654,6 +1660,58 @@ static void chan_unregister(struct zio_channel *chan)
 		__zattr_set_free(&chan->zattr_set);
 }
 
+static int cset_set_trigger(struct zio_cset *cset)
+{
+	struct zio_trigger_type *trig;
+	char *name = NULL;
+
+	pr_debug("%s:%d\n", __func__, __LINE__);
+	if (cset->trig)
+		return -EINVAL;
+
+	if (cset->default_trig) /* cset default */
+		name = cset->default_trig;
+	if (cset->zdev->preferred_trigger) /* preferred device trigger */
+		name = cset->zdev->preferred_trigger;
+
+	trig = zio_trigger_get(name);
+	if (IS_ERR(trig)) {
+		pr_debug("%s: no trigger \"%s\" (error %li), using "
+			 "default\n", __func__, name, PTR_ERR(trig));
+		trig = zio_trigger_get(ZIO_DEFAULT_TRIGGER);
+	}
+	if (IS_ERR(trig))
+		return PTR_ERR(trig);
+
+	cset->trig = trig;
+	return 0;
+}
+static int cset_set_buffer(struct zio_cset *cset)
+{
+	struct zio_buffer_type *zbuf;
+	char *name = NULL;
+
+	pr_debug("%s:%d\n", __func__, __LINE__);
+	if (cset->zbuf)
+		return -EINVAL;
+
+	if (cset->default_zbuf) /* cset default */
+		name = cset->default_zbuf;
+	if (cset->zdev->preferred_buffer) /* preferred device buffer */
+		name = cset->zdev->preferred_buffer;
+
+	zbuf = zio_buffer_get(name);
+	if (IS_ERR(zbuf)) {
+		pr_debug("%s: no buffer \"%s\" (error %li), using "
+			 "default\n", __func__, name, PTR_ERR(zbuf));
+		zbuf = zio_buffer_get(ZIO_DEFAULT_BUFFER);
+	}
+	if (IS_ERR(zbuf))
+		return PTR_ERR(zbuf);
+
+	cset->zbuf = zbuf;
+	return 0;
+}
 /*
  * cset_registration
  *
@@ -1669,11 +1727,8 @@ static void chan_unregister(struct zio_channel *chan)
 static int cset_register(struct zio_cset *cset, struct zio_cset *cset_t)
 {
 	int i, j, err = 0, size;
-	struct zio_buffer_type *zbuf = NULL;
-	struct zio_trigger_type *trig = NULL;
 	struct zio_channel *chan_tmp;
 	struct zio_ti *ti = NULL;
-	char *name;
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
 	cset->head.zobj_type = ZCSET;
@@ -1712,50 +1767,28 @@ static int cset_register(struct zio_cset *cset, struct zio_cset *cset_t)
 	 * The cset must have a buffer type. If none is associated
 	 * to the cset, ZIO selects the preferred or default one.
 	 */
-	if (!cset->zbuf) {
-		name = cset->zdev->preferred_buffer;
-		zbuf = zio_buffer_get(name);
-		if (name && IS_ERR(zbuf))
-			pr_warning("%s: no buffer \"%s\" (error %li), using "
-				   "default\n", __func__, name, PTR_ERR(zbuf));
-		if (IS_ERR(zbuf))
-			zbuf = zio_buffer_get(ZIO_DEFAULT_BUFFER);
-		if (IS_ERR(zbuf)) {
-			err = PTR_ERR(zbuf);
-			goto out_buf;
-		}
-		cset->zbuf = zbuf;
-	}
+	err = cset_set_buffer(cset);
+	if (err)
+		goto out_buf;
 	/*
 	 * The cset must have a trigger type. If none  is associated
 	 * to the cset, ZIO selects the default or preferred one.
 	 * This is done late because each channel must be ready when
 	 * the trigger fires.
 	 */
-	if (!cset->trig) {
-		name = cset->zdev->preferred_trigger;
-		trig = zio_trigger_get(name);
-		if (name && IS_ERR(trig))
-			pr_warning("%s: no trigger \"%s\" (error %li), using "
-				   "default\n", __func__, name, PTR_ERR(trig));
-		if (IS_ERR(trig))
-			trig = zio_trigger_get(ZIO_DEFAULT_TRIGGER);
-		if (IS_ERR(trig)) {
-			err = PTR_ERR(trig);
-			goto out_trig;
-		}
-
-		ti = __ti_create_and_init(trig, cset);
-		if (IS_ERR(ti)) {
-			err = PTR_ERR(ti);
-			goto out_trig;
-		}
-		err = __ti_register(trig, cset, ti, "trigger");
-		if (err)
-			goto out_tr;
-		cset->trig = trig;
-		cset->ti = ti;
+	err = cset_set_trigger(cset);
+	if (err)
+		goto out_trig;
+	ti = __ti_create_and_init(cset->trig, cset);
+	if (IS_ERR(ti)) {
+		err = PTR_ERR(ti);
+		goto out_trig;
 	}
+	err = __ti_register(cset->trig, cset, ti, "trigger");
+	if (err)
+		goto out_tr;
+	cset->ti = ti;
+	pr_debug("%s:%d\n", __func__, __LINE__);
 	/* Allocate a new vector of channel for the new zio cset instance */
 	size = sizeof(struct zio_channel) * cset->n_chan;
 	cset->chan = kzalloc(size, GFP_KERNEL);
@@ -1795,9 +1828,9 @@ out_reg:
 		chan_unregister(&cset->chan[j]);
 	kfree(cset->chan);
 out_n_chan:
-	__ti_unregister(trig, ti);
+	__ti_unregister(cset->trig, ti);
 out_tr:
-	__ti_destroy(trig, ti);
+	__ti_destroy(cset->trig, ti);
 out_trig:
 	zio_trigger_put(cset->trig);
 	cset->trig = NULL;

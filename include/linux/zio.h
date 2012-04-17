@@ -186,8 +186,8 @@ struct zio_cset {
 
 	struct list_head	list_cset;	/* for cset global list */
 	dev_t			basedev;	/* base for the minors */
-	char			zbuf_name[ZIO_OBJ_NAME_LEN];
-	char			trig_name[ZIO_OBJ_NAME_LEN];
+	char			*default_zbuf;
+	char			*default_trig;
 
 	struct zio_attribute	*cset_attrs;
 };
