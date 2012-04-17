@@ -165,7 +165,6 @@ static void ztt_change_status(struct zio_ti *ti, unsigned int status)
 static const struct zio_trigger_operations ztt_trigger_ops = {
 	.push_block = ztt_push_block,
 	.pull_block = NULL,
-	.data_done = zio_generic_data_done,
 	.config = ztt_config,
 	.create = ztt_create,
 	.destroy = ztt_destroy,

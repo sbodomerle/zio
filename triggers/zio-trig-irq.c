@@ -116,7 +116,6 @@ static void zti_destroy(struct zio_ti *ti)
 static const struct zio_trigger_operations zti_trigger_ops = {
 	.push_block = zti_push_block,
 	.pull_block = NULL,
-	.data_done = zio_generic_data_done,
 	.config = zti_config,
 	.create = zti_create,
 	.destroy = zti_destroy,

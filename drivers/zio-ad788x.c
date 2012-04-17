@@ -124,7 +124,7 @@ static void ad788x_complete(void *cont)
 				buf[i] = data[i * context->chan_enable + j];
 		++j;
 	}
-	cset->ti->t_op->data_done(cset);
+	zio_trigger_data_done(cset);
 	/* free context */
 	kfree(context->transfer.tx_buf);
 	kfree(context->transfer.rx_buf);

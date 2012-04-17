@@ -277,6 +277,9 @@ static inline unsigned int __get_n_chan_enabled(struct zio_cset *cset) {
 	char *_name; \
 	module_param_named(buffer, _name, charp, 0444)
 
+void zio_trigger_data_done(struct zio_cset *cset);
+void zio_trigger_abort(struct zio_cset *cset);
+
 #ifdef __ZIO_INTERNAL__
 
 /* This list is used in the core to keep track of registered objects */

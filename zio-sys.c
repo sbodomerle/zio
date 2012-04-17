@@ -137,8 +137,7 @@ static inline void zio_trigger_put(struct zio_trigger_type *trig)
 	module_put(trig->owner);
 }
 
-/* data_done is called by the driver, after {in,out}put_cset */
-void zio_generic_data_done(struct zio_cset *cset)
+void __zio_internal_data_done(struct zio_cset *cset)
 {
 	struct zio_buffer_type *zbuf;
 	struct zio_device *zdev;
@@ -162,7 +161,7 @@ void zio_generic_data_done(struct zio_cset *cset)
 			/* We may have a new block ready, or not */
 			chan->active_block = zbuf->b_op->retr_block(chan->bi);
 		}
-		goto out;
+		return;
 	}
 	/* DIR_INPUT */
 	cset_for_each(cset, chan) {
@@ -173,12 +172,73 @@ void zio_generic_data_done(struct zio_cset *cset)
 		if (zbuf->b_op->store_block(bi, block)) /* may fail, no prob */
 			zbuf->b_op->free_block(bi, block);
 	}
-out:
+}
+
+/*
+ * zio_trigger_data_done
+ * This is a ZIO helper to invoke the data_done trigger operation when a data
+ * transfer is over and we need to complete the operation.
+ * It is useless check for pending ZTI_COMPLETING because only one fire at
+ * time is allowed so they cannot exist concurrent completation.
+ */
+void zio_trigger_data_done(struct zio_cset *cset)
+{
 	spin_lock(&cset->lock);
-	ti->flags &= (~ZTI_BUSY); /* Reset busy, now is idle */
+	cset->ti->flags |= ZTI_COMPLETING; /* transfer is completing*/
+	spin_unlock(&cset->lock);
+
+	/* Call the data_done function */
+	if (cset->ti->t_op->data_done)
+		cset->ti->t_op->data_done(cset);
+	else
+		__zio_internal_data_done(cset);
+
+	/* transfer is over, resetting completing and busy flags */
+	spin_lock(&cset->lock);
+	cset->ti->flags &= (~(ZTI_COMPLETING | ZTI_BUSY));
 	spin_unlock(&cset->lock);
 }
-EXPORT_SYMBOL(zio_generic_data_done);
+EXPORT_SYMBOL(zio_trigger_data_done);
+
+static void __zio_internal_abort_free(struct zio_cset *cset)
+{
+	struct zio_channel *chan;
+	struct zio_block *block;
+
+	cset_for_each(cset, chan) {
+		block = chan->active_block;
+		if (block)
+			cset->zbuf->b_op->free_block(chan->bi, block);
+		chan->active_block = NULL;
+	}
+}
+
+/*
+ * zio_trigger_abort
+ * This is a ZIO helper to invoke the abort function. This must be used when
+ * something is going wrong during the acquisition.
+ */
+void zio_trigger_abort(struct zio_cset *cset)
+{
+	struct zio_ti *ti = cset->ti;
+
+	/*
+	 * If trigger is running (ZTI_BUSY) but it is not
+	 * completing the transfer (ZTI_COMPLETING), then abort it.
+	 * If the trigger is completing its run, don't abort it because
+	 * it finished and the blocks are full of data.
+	 */
+	spin_lock(&cset->lock);
+	if ((ti->flags & ZTI_BUSY) && !(ti->flags & ZTI_COMPLETING)) {
+		if(ti->t_op->abort)
+			ti->t_op->abort(cset);
+		else
+			__zio_internal_abort_free(cset);
+		ti->flags &= (~ZTI_BUSY); /* when disabled is not busy */
+	}
+	spin_unlock(&cset->lock);
+}
+EXPORT_SYMBOL(zio_trigger_abort);
 
 static void __zio_fire_input_trigger(struct zio_ti *ti)
 {
@@ -231,7 +291,7 @@ static void __zio_fire_input_trigger(struct zio_ti *ti)
 	}
 	if (!cset->raw_io(cset)) {
 		/* It succeeded immediately */
-		ti->t_op->data_done(cset);
+		zio_trigger_data_done(cset);
 	}
 }
 
@@ -244,7 +304,7 @@ static void __zio_fire_output_trigger(struct zio_ti *ti)
 	/* We are expected to already have a block in active channels */
 	if (!cset->raw_io(cset)) {
 		/* It succeeded immediately */
-		ti->t_op->data_done(cset);
+		zio_trigger_data_done(cset);
 	}
 }
 
@@ -726,14 +786,7 @@ static void __zobj_enable(struct device *dev, unsigned int enable)
 		pr_debug("%s: zti\n", __func__);
 
 		ti = to_zio_ti(dev);
-		/* if trigger is running, abort it*/
-		spin_lock(&ti->cset->lock);
-		if (*flags & ZTI_BUSY) {
-			if(ti->t_op->abort)
-				ti->t_op->abort(ti->cset);
-			*flags &= ~ZTI_BUSY; /* when disabled is not busy */
-		}
-		spin_unlock(&ti->cset->lock);
+		zio_trigger_abort(ti->cset);
 		/* trigger instance callback */
 		if (ti->t_op->change_status)
 			ti->t_op->change_status(ti, status);
