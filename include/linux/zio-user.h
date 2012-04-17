@@ -9,6 +9,13 @@
 #define __ZIO_USER_H__
 
 /*
+ * Maximum number of standard and extended attributes. These two values
+ * _cannot_ be changed
+ */
+#define ZIO_MAX_STD_ATTR 16
+#define ZIO_MAX_EXT_ATTR 32
+
+/*
  * Data transfers on the control channel only happen by half a kB.
  * This is fixed for forward compatibility; zio_control may have more
  * fields in the future, and current apps should handle it.
@@ -34,8 +41,8 @@ struct zio_ctrl_attr {
 	uint16_t std_mask;
 	uint16_t unused;
 	uint32_t ext_mask;
-	uint32_t std_val[16];
-	uint32_t ext_val[32];
+	uint32_t std_val[ZIO_MAX_STD_ATTR];
+	uint32_t ext_val[ZIO_MAX_EXT_ATTR];
 };
 
 /*
