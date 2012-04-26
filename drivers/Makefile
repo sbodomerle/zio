@@ -25,4 +25,5 @@ endif
 
 ifdef CONFIG_SPI
 obj-m += zio-ad788x.o
+obj-m += zio-smb380.o
 endif
