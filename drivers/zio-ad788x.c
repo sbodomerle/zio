@@ -187,7 +187,7 @@ static int ad788x_input_cset(struct zio_cset *cset)
 	return err;
 }
 
-struct zio_sysfs_operations ad788x_s_op = {
+static const struct zio_sysfs_operations ad788x_s_op = {
 	.conf_set = ad788x_conf_set,
 };
 
