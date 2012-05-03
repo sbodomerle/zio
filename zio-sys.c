@@ -2005,7 +2005,7 @@ static int __zdev_register(struct zio_device *parent,
 	tmpl = id->template;
 
 	spin_lock_init(&zdev->lock);
-	zdev->private_data = parent->private_data;
+	zdev->priv_d = parent->priv_d;
 	zdev->head.zobj_type = ZDEV;
 	zdev->head.dev.parent = &parent->head.dev;
 	zdev->head.dev.type = &zobj_device_type;

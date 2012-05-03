@@ -86,7 +86,7 @@ static int ad788x_conf_set(struct device *dev, struct zio_attribute *zattr,
 	unsigned long mask = zattr->priv.addr;
 	struct ad788x *ad788x;
 
-	ad788x = to_zio_dev(dev)->private_data;
+	ad788x = to_zio_dev(dev)->priv_d;
 	switch (mask) {
 	case AD788x_PM_ADDR:		/* power management */
 		if (usr_val < 4)
@@ -145,7 +145,7 @@ static int ad788x_input_cset(struct zio_cset *cset)
 	if (!context)
 		return -ENOMEM;
 
-	ad788x = cset->zdev->private_data;
+	ad788x = cset->zdev->priv_d;
 	context->chan_enable = __get_n_chan_enabled(cset);
 
 	/* prepare SPI message and transfer */
@@ -244,7 +244,7 @@ static int ad788x_zio_probe(struct zio_device *zdev)
 	int vshift;
 
 	pr_info("%s:%d\n", __func__, __LINE__);
-	ad788x = zdev->private_data;
+	ad788x = zdev->priv_d;
 	zattr_set = &zdev->zattr_set;
 	ad788x->zdev = zdev;
 
@@ -298,7 +298,7 @@ static int __devinit ad788x_spi_probe(struct spi_device *spi)
 
 	/* zdev here is the generic device */
 	zdev = zio_allocate_device();
-	zdev->private_data = ad788x;
+	zdev->priv_d = ad788x;
 	zdev->owner = THIS_MODULE;
 	spi_set_drvdata(spi, zdev);
 
@@ -318,7 +318,7 @@ static int __devexit ad788x_spi_remove(struct spi_device *spi)
 
 	/* zdev here is the generic device */
 	zdev = spi_get_drvdata(spi);
-	ad788x = zdev->private_data;
+	ad788x = zdev->priv_d;
 	zio_unregister_device(zdev);
 	kfree(ad788x);
 	zio_free_device(zdev);

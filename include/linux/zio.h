@@ -149,7 +149,7 @@ struct zio_device {
 	/* We can state what its preferred buffer and trigger are (NULL ok) */
 	char *preferred_buffer;
 	char *preferred_trigger;
-	void *private_data;
+	void *priv_d;
 };
 struct zio_device *zio_allocate_device(void);
 void zio_free_device(struct zio_device *dev);
