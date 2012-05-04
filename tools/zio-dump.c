@@ -62,11 +62,11 @@ void read_channel(int cfd, int dfd, FILE *log)
 				prgname);
 	}
 
-	printf("Ctrl: version %i.%i, trigger %.16s, dev %.16s, "
+	printf("Ctrl: version %i.%i, trigger %.16s, dev %.16s-%04x, "
 	       "cset %i, chan %i\n",
 	       ctrl.major_version, ctrl.minor_version,
-	       ctrl.triggername, ctrl.addr.devname, ctrl.addr.cset,
-	       ctrl.addr.chan);
+	       ctrl.triggername, ctrl.addr.devname, ctrl.addr.dev_id,
+	       ctrl.addr.cset, ctrl.addr.chan);
 	printf("Ctrl: seq %i, n %i, size %i, bits %i, "
 	       "flags %08x (%s)\n",
 	       ctrl.seq_num,
