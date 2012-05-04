@@ -616,6 +616,9 @@ static void __zattr_propagate_value(struct zio_obj_head *head,
 	struct zio_control *ctrl;
 
 	pr_debug("%s\n", __func__);
+	if (!(zattr->flags & ZATTR_CONTROL))
+		return; /* the attribute is not in the control */
+
 	switch (head->zobj_type) {
 	case ZDEV:
 		zdev = to_zio_dev(&head->dev);
@@ -667,7 +670,9 @@ static void __zattr_trig_init_ctrl(struct zio_ti *ti, struct zio_control *ctrl)
 	for (i = 0; i < ti->zattr_set.n_std_attr; ++i)
 		__zattr_valcpy(ctrl_attr_trig, &ti->zattr_set.std_zattr[i]);
 	for (i = 0; i < ti->zattr_set.n_ext_attr; ++i)
-		__zattr_valcpy(ctrl_attr_trig, &ti->zattr_set.ext_zattr[i]);
+		if (ti->zattr_set.ext_zattr[i].flags & ZATTR_CONTROL)
+			__zattr_valcpy(ctrl_attr_trig,
+				       &ti->zattr_set.ext_zattr[i]);
 }
 static int __zattr_chan_init_ctrl(struct zio_channel *chan, unsigned int start)
 {
@@ -688,41 +693,50 @@ static int __zattr_chan_init_ctrl(struct zio_channel *chan, unsigned int start)
 		return -EINVAL;
 	}
 
+	pr_debug("%s copy trigger values\n", __func__);
+	__zattr_trig_init_ctrl(cset->ti, chan->current_ctrl);
+
 	pr_debug("%s copy device values\n", __func__);
 	/* Copy channel attributes */
 	for (i = 0; i < chan->zattr_set.n_std_attr; ++i)
 		__zattr_valcpy(ctrl_attr_chan, &chan->zattr_set.std_zattr[i]);
-	for (i = 0; i < chan->zattr_set.n_ext_attr; ++i) {
-		/* Fix channel extended attribute index */
-		chan->zattr_set.ext_zattr[i].index = start + i;
-		__zattr_valcpy(ctrl_attr_chan, &chan->zattr_set.ext_zattr[i]);
-	}
-
-	/* Copy cset attributes */
 	for (i = 0; i < cset->zattr_set.n_std_attr; ++i)
 		__zattr_valcpy(ctrl_attr_chan, &cset->zattr_set.std_zattr[i]);
-	for (i = 0; i < cset->zattr_set.n_ext_attr; ++i)
-		__zattr_valcpy(ctrl_attr_chan, &cset->zattr_set.ext_zattr[i]);
-
-	/* Copy device attributes */
 	for (i = 0; i < zdev->zattr_set.n_std_attr; ++i)
 		__zattr_valcpy(ctrl_attr_chan, &zdev->zattr_set.std_zattr[i]);
+	
+	for (i = 0; i < chan->zattr_set.n_ext_attr; ++i) {
+		if (zdev->zattr_set.ext_zattr[i].flags & ZATTR_CONTROL) {
+			/* Fix channel extended attribute index */
+			chan->zattr_set.ext_zattr[i].index = start + i;
+			__zattr_valcpy(ctrl_attr_chan,
+				       &chan->zattr_set.ext_zattr[i]);
+		} else {
+			chan->zattr_set.ext_zattr[i].index = ZATTR_INDEX_NONE;
+		}
+	}
+	for (i = 0; i < cset->zattr_set.n_ext_attr; ++i)
+		if (cset->zattr_set.ext_zattr[i].flags & ZATTR_CONTROL)
+			__zattr_valcpy(ctrl_attr_chan,
+				       &cset->zattr_set.ext_zattr[i]);
 	for (i = 0; i < zdev->zattr_set.n_ext_attr; ++i)
-		__zattr_valcpy(ctrl_attr_chan, &zdev->zattr_set.ext_zattr[i]);
-
-	pr_debug("%s copy trigger values\n", __func__);
-	__zattr_trig_init_ctrl(cset->ti, chan->current_ctrl);
+		if (zdev->zattr_set.ext_zattr[i].flags & ZATTR_CONTROL)
+			__zattr_valcpy(ctrl_attr_chan,
+				       &zdev->zattr_set.ext_zattr[i]);
 
 	return 0;
 }
 static int __zattr_cset_init_ctrl(struct zio_cset *cset, unsigned int start)
 {
-	int i, err, start_c;
+	int i, err, start_c = start;
 
 	/* Fix cset extended attribute index */
 	for (i = 0; i < cset->zattr_set.n_ext_attr; ++i)
-		cset->zattr_set.ext_zattr[i].index = start + i;
-	start_c = start + i;
+		if (cset->zattr_set.ext_zattr[i].flags & ZATTR_CONTROL)
+			cset->zattr_set.ext_zattr[i].index = start_c++;
+		else
+			cset->zattr_set.ext_zattr[i].index = ZATTR_INDEX_NONE;
+
 	for (i = 0; i < cset->n_chan; ++i) {
 		err = __zattr_chan_init_ctrl(&cset->chan[i], start_c);
 		if (err)
@@ -730,21 +744,24 @@ static int __zattr_cset_init_ctrl(struct zio_cset *cset, unsigned int start)
 	}
 	return 0;
 }
+
 /*
  * fix the zio attribute index for the extended attribute within device
  * and set the attribute value into the current control of each channel
  */
 static int __zattr_dev_init_ctrl(struct zio_device *zdev)
 {
-	int i, err, start;
+	int i, err, start = 0;
 
 	pr_debug("%s\n", __func__);
 	/* Device level */
 	/* Fix device extended attribute index */
 	for (i = 0; i < zdev->zattr_set.n_ext_attr; ++i)
-		zdev->zattr_set.ext_zattr[i].index = i;
+		if (zdev->zattr_set.ext_zattr[i].flags & ZATTR_CONTROL)
+			zdev->zattr_set.ext_zattr[i].index = start++;
+		else
+			zdev->zattr_set.ext_zattr[i].index = ZATTR_INDEX_NONE;
 
-	start = i;
 	for (i = 0; i < zdev->n_cset; ++i) {
 		err = __zattr_cset_init_ctrl(&zdev->cset[i], start);
 		if (err)

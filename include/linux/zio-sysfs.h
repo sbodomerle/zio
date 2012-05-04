@@ -44,6 +44,7 @@ enum zattr_flags {
 	ZATTR_TYPE	= 0x10,
 	ZATTR_TYPE_STD	= 0x00,
 	ZATTR_TYPE_EXT	= 0x10,
+	ZATTR_CONTROL	= 0x20,
 };
 
 struct zio_sysfs_operations {
@@ -109,6 +110,7 @@ extern const char zio_zbuf_attr_names[ZATTR_STD_NUM_ZBUF][ZIO_NAME_LEN];
 		},							\
 		.priv.addr = _add,					\
 		.value = _val,						\
+		.flags = ZATTR_CONTROL,					\
 }
 #define ZATTR_PRV(zobj, _type, _mode, _priv, _val)[_type] = {		\
 		.attr = {						\
@@ -119,16 +121,25 @@ extern const char zio_zbuf_attr_names[ZATTR_STD_NUM_ZBUF][ZIO_NAME_LEN];
 		},							\
 		.priv.ptr = _priv,					\
 		.value = _val,						\
+		.flags = ZATTR_CONTROL,					\
 }
 #define ZATTR_EXT_REG(_name, _mode, _add, _val) {			\
 		.attr = { .attr = {.name = _name, .mode = _mode},},	\
 		.priv.addr = _add,					\
 		.value = _val,						\
+		.flags = ZATTR_CONTROL,					\
+}
+#define PARAM_EXT_REG(_name, _mode, _add, _val) {			\
+		.attr = { .attr = {.name = _name, .mode = _mode},},	\
+		.priv.addr = _add,					\
+		.value = _val,						\
+		.flags = 0,						\
 }
 #define ZATTR_EXT_PRV(_name, _mode, _priv, _val) {			\
 		.attr = { .attr = {.name = _name, .mode = _mode},},	\
 		.priv.ptr = _priv,					\
 		.value = _val,						\
+		.flags = ZATTR_CONTROL,					\
 }
 
 #endif /* ZIO_SYSFS_H_ */
