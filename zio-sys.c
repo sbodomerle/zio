@@ -1616,13 +1616,14 @@ static int chan_register(struct zio_channel *chan, struct zio_channel *chan_t)
 
 	/* Copy from template, initialize and verify zio attributes */
 	if (chan_t) { /* ZCSET_CHAN_TEMPLATE is set */
-		memcpy(chan, chan_t,sizeof(struct zio_channel));
+		chan->flags |= chan_t->flags;
 		if (chan_t->zattr_set.std_zattr)
 			chan_t->zattr_set.n_std_attr = ZATTR_STD_NUM_ZDEV;
 		err = __zattr_set_copy(&chan->zattr_set, &chan_t->zattr_set);
 		if (err)
 			goto out_zattr_copy;
 	}
+
 	err = zattr_set_create(&chan->head, chan->cset->zdev->s_op);
 	if (err)
 		goto out_zattr_create;
@@ -1856,6 +1857,7 @@ static int cset_register(struct zio_cset *cset, struct zio_cset *cset_t)
 	for (i = 0; i < cset->n_chan; i++) {
 		cset->chan[i].index = i;
 		cset->chan[i].cset = cset;
+		cset->chan[i].ti = cset->ti;
 		cset->chan[i].flags |= cset->flags & ZIO_DIR;
 		chan_tmp = NULL;
 		if (cset->chan_template)
