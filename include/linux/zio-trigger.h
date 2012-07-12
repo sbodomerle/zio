@@ -106,5 +106,6 @@ struct zio_trigger_operations {
 };
 
 void zio_generic_data_done(struct zio_cset *cest);
+void zio_trigger_abort(struct zio_cset *cset);
 
 #endif /* __ZIO_TRIGGER_H__ */
