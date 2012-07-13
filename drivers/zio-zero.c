@@ -57,6 +57,26 @@ static void zzero_get_sequence(struct zio_channel *chan,
 	}
 }
 
+static void zzero_get_interleaved(struct zio_channel *chan,
+				  struct zio_block *block, uint8_t *datum)
+{
+	uint8_t *data;
+	int i;
+
+	data = block->data;
+	for (i = 0; i < chan->current_ctrl->nsamples; i++) {
+		switch (i%3) {
+		case 0:
+			data[i] = 0;
+			break;
+		case 1:
+			get_random_bytes(&data[i], 1);
+			break;
+		case 2:
+			data[i] = (*datum)++;
+		}
+	}
+}
 /* 8 bits input function */
 static int zzero_input_8(struct zio_cset *cset)
 {
@@ -82,6 +102,9 @@ static int zzero_input_8(struct zio_cset *cset)
 			data = block->data;
 			for (i = 0; i < chan->current_ctrl->nsamples; i++)
 				data[i] = datum++;
+			break;
+		case 3: /* Interleaved */
+			zzero_get_interleaved(chan, block, &datum);
 			break;
 		}
 	}
@@ -127,7 +150,8 @@ static struct zio_cset zzero_cset[] = {
 		.raw_io =	zzero_input_8,
 		.n_chan =	3,
 		.ssize =	1,
-		.flags =	ZIO_DIR_INPUT | ZIO_CSET_TYPE_ANALOG,
+		.flags =	ZIO_DIR_INPUT | ZIO_CSET_TYPE_ANALOG |
+				ZIO_CSET_CHAN_INTERLEAVE,
 		.zattr_set = {
 			.std_zattr = zzero_zattr_cset8,
 		},
