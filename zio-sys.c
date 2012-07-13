@@ -1648,7 +1648,7 @@ static int chan_register(struct zio_channel *chan, struct zio_channel *chan_t)
 	}
 	ctrl->cset_i = chan->cset->index;
 	ctrl->chan_i = chan->index;
-	strncpy(ctrl->devname, chan->cset->zdev->head.name, ZIO_NAME_LEN);
+	strncpy(ctrl->devname, chan->cset->zdev->head.name, ZIO_OBJ_NAME_LEN);
 	ctrl->ssize = chan->cset->ssize;
 	/* Trigger instance is already assigned so */
 	ctrl->nsamples =
