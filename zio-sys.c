@@ -758,7 +758,7 @@ static void __zobj_enable(struct device *dev, unsigned int enable)
 	if (!(enable ^ status))
 		return;
 	/* change status */
-	*flags = (*flags | ZIO_STATUS) & status;
+	*flags = (*flags & (~ZIO_STATUS)) | status;
 	switch (head->zobj_type) {
 	case ZDEV:
 		pr_debug("%s: zdev\n", __func__);
