@@ -47,6 +47,24 @@ struct zio_ctrl_attr {
 };
 
 /*
+ * The sockaddr_zio structure is used for PF_ZIO operation. However,
+ * we don't want to include socket-specific headers here, so just
+ * know that sa_family is a 16-bit number. For this reason we don't
+ * call it sockaddr_zio, which will be defined elsewhere with correct types.
+ * This block of information uniquely identifies the channel.
+ */
+struct addr_zio {
+	uint16_t sa_family;
+	uint8_t host_type;	/* 0 == local, 1 == MAC, ... */
+	uint8_t filler;
+	uint8_t hostid[8];	/* MAC or other info */
+	char devname[ZIO_OBJ_NAME_LEN];
+	uint32_t dev_id;	/* Driver-specific id */
+	uint16_t cset;		/* index of channel-set within device */
+	uint16_t chan;		/* index of channel within cset */
+};
+
+/*
  * The following data item is the control structure that is being exchanged
  * on the control device associated to each data device. The size of each
  * fields is fixed to ease portability of binary dumps (esp i386/x86-64).
@@ -70,30 +88,25 @@ struct zio_control {
 	uint16_t nbits;		/* sample-bits: number of valid bits */
 
 	/* byte 20 */
-	/* This block of information uniquely identifies the channel */
-	uint8_t hostid[8];	/* Macaddress or whatever unique */
-	char devname[ZIO_OBJ_NAME_LEN];
-	uint32_t dev_id;	/* Driver-specific id */
-	uint16_t cset_i;	/* index of channel-set within device */
-	uint16_t chan_i;	/* index of channel within cset */
+	struct addr_zio addr;
 
-	/* byte 48 */
+	/* byte 52 */
 	struct zio_timestamp tstamp;
 
-	/* byte 72 */
+	/* byte 76 */
 	uint32_t mem_offset;	/* position in mmap buffer of this block */
 	uint32_t reserved;	/* possibly another offset, or space for 64b */
 
-	/* byte 80 */
+	/* byte 84 */
 	/* Each data block is associated with a trigger and its features */
 	char triggername[ZIO_OBJ_NAME_LEN];
 
-	/* byte 92 */
+	/* byte 96 */
 	struct zio_ctrl_attr attr_channel;
 	struct zio_ctrl_attr attr_trigger;
 
-	/* byte 492 */
-	uint8_t __fill_end[ZIO_CONTROL_SIZE - 492];
+	/* byte 496 */
+	uint8_t __fill_end[ZIO_CONTROL_SIZE - 496];
 };
 
 /* The following flags are used in the control structure */

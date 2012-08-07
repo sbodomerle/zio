@@ -685,7 +685,7 @@ static int __zattr_chan_init_ctrl(struct zio_channel *chan, unsigned int start)
 	cset = chan->cset;
 	zdev = cset->zdev;
 	ctrl = chan->current_ctrl;
-	ctrl->dev_id = chan->cset->zdev->head.dev.id;
+	ctrl->addr.dev_id = chan->cset->zdev->head.dev.id;
 	ctrl_attr_chan = &chan->current_ctrl->attr_channel;
 	if (!(start + chan->zattr_set.n_ext_attr < 32)) {
 		pr_err("%s: too many extended attribute in %s",
@@ -1680,9 +1680,11 @@ static int chan_register(struct zio_channel *chan, struct zio_channel *chan_t)
 		err = -EINVAL; /* message already printed */
 		goto out_ctrl_bits;
 	}
-	ctrl->cset_i = chan->cset->index;
-	ctrl->chan_i = chan->index;
-	strncpy(ctrl->devname, chan->cset->zdev->head.name, ZIO_OBJ_NAME_LEN);
+	/* ctrl->addr.family = PF_ZIO */
+	ctrl->addr.cset = chan->cset->index;
+	ctrl->addr.chan = chan->index;
+	strncpy(ctrl->addr.devname, chan->cset->zdev->head.name,
+		sizeof(ctrl->addr.devname));
 	ctrl->ssize = chan->cset->ssize;
 	/* Trigger instance is already assigned so */
 	ctrl->nsamples =
