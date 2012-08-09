@@ -153,7 +153,7 @@ static inline void zio_trigger_put(struct zio_trigger_type *trig)
 	module_put(trig->owner);
 }
 
-void __zio_internal_data_done(struct zio_cset *cset)
+static void __zio_internal_data_done(struct zio_cset *cset)
 {
 	struct zio_buffer_type *zbuf;
 	struct zio_device *zdev;
