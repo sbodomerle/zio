@@ -704,7 +704,7 @@ static int __zattr_chan_init_ctrl(struct zio_channel *chan, unsigned int start)
 		__zattr_valcpy(ctrl_attr_chan, &cset->zattr_set.std_zattr[i]);
 	for (i = 0; i < zdev->zattr_set.n_std_attr; ++i)
 		__zattr_valcpy(ctrl_attr_chan, &zdev->zattr_set.std_zattr[i]);
-	
+
 	for (i = 0; i < chan->zattr_set.n_ext_attr; ++i) {
 		if (zdev->zattr_set.ext_zattr[i].flags & ZATTR_CONTROL) {
 			/* Fix channel extended attribute index */
@@ -2051,8 +2051,9 @@ static int __zdev_register(struct zio_device *parent,
 	zdev->head.dev.bus = &zio_bus_type;
 	/* Name was verified during zio_register_device */
 	strncpy(zdev->head.name, parent->head.name, ZIO_OBJ_NAME_LEN);
-	pname = dev_name(&parent->head.dev) + 6;
-	dev_set_name(&zdev->head.dev, "zio-%s", pname);
+	/* +3 to cut the "hw-" prefix of the parent device */
+	pname = dev_name(&parent->head.dev) + 3;
+	dev_set_name(&zdev->head.dev, pname);
 
 	zdev->owner = parent->owner; /* FIXME which owner? */
 	zdev->flags = tmpl->flags;
@@ -2178,7 +2179,7 @@ int zio_register_device(struct zio_device *zdev, const char *name,
 
 	strncpy(zdev->head.name, name, ZIO_OBJ_NAME_LEN);
 	dev_id_tmp = dev_id ? dev_id : n_conflict;
-	dev_set_name(&zdev->head.dev, "hwdev-%s-%04x",
+	dev_set_name(&zdev->head.dev, "hw-%s-%04x",
 		     zdev->head.name, dev_id_tmp);
 	zdev->head.dev.id = dev_id_tmp;
 
