@@ -7,10 +7,20 @@
 #define ZIO_MAJOR_VERSION 0
 #define ZIO_MINOR_VERSION 6
 
-#define ZIO_OBJ_NAME_LEN 12 /* name for registered object and ctrl struct */
+/*
+ * ZIO_OBJ_NAME_LEN is the name's length used for registered objects
+ * (such as trigger_type, buffer_type and zio_device) and thus shown in
+ * the control structure.
+ */
+#define ZIO_OBJ_NAME_LEN 12
 
 #ifdef __KERNEL__ /* Nothing more is for user space */
 
+/*
+ * ZIO_NAME_LEN is the full name length used in the head structures.
+ * It is sometimes built at run time, for example buffer instances
+ * have composite names. Also, all attributes names are this long.
+ */
 #define ZIO_NAME_LEN 32 /* full name */
 
 #include <linux/sysfs.h>
