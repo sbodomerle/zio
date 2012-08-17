@@ -596,7 +596,6 @@ out:
 static inline void __zattr_valcpy(struct zio_ctrl_attr *ctrl,
 				  struct zio_attribute *zattr)
 {
-	pr_debug("%s\n", __func__);
 	if ((zattr->flags & ZATTR_TYPE) == ZATTR_TYPE_EXT) {
 		ctrl->ext_mask |= (1 << zattr->index);
 		ctrl->ext_val[zattr->index] = zattr->value;
@@ -623,10 +622,10 @@ static void __zattr_propagate_value(struct zio_obj_head *head,
 	struct zio_cset *cset;
 	struct zio_control *ctrl;
 
-	pr_debug("%s\n", __func__);
 	if (!(zattr->flags & ZATTR_CONTROL))
 		return; /* the attribute is not in the control */
 
+	pr_debug("%s\n", __func__);
 	switch (head->zobj_type) {
 	case ZDEV:
 		zdev = to_zio_dev(&head->dev);
@@ -1768,7 +1767,6 @@ static int cset_set_trigger(struct zio_cset *cset)
 	struct zio_trigger_type *trig;
 	char *name = NULL;
 
-	pr_debug("%s:%d\n", __func__, __LINE__);
 	if (cset->trig)
 		return -EINVAL;
 
@@ -1779,8 +1777,8 @@ static int cset_set_trigger(struct zio_cset *cset)
 
 	trig = zio_trigger_get(name);
 	if (IS_ERR(trig)) {
-		pr_debug("%s: no trigger \"%s\" (error %li), using "
-			 "default\n", __func__, name, PTR_ERR(trig));
+		dev_dbg(&cset->head.dev, "no trigger \"%s\" (error %li), using "
+			 "default\n", name, PTR_ERR(trig));
 		trig = zio_trigger_get(ZIO_DEFAULT_TRIGGER);
 	}
 	if (IS_ERR(trig))
@@ -1794,7 +1792,6 @@ static int cset_set_buffer(struct zio_cset *cset)
 	struct zio_buffer_type *zbuf;
 	char *name = NULL;
 
-	pr_debug("%s:%d\n", __func__, __LINE__);
 	if (cset->zbuf)
 		return -EINVAL;
 
@@ -1805,8 +1802,8 @@ static int cset_set_buffer(struct zio_cset *cset)
 
 	zbuf = zio_buffer_get(name);
 	if (IS_ERR(zbuf)) {
-		pr_debug("%s: no buffer \"%s\" (error %li), using "
-			 "default\n", __func__, name, PTR_ERR(zbuf));
+		dev_dbg(&cset->head.dev, "no buffer \"%s\" (error %li), using "
+			 "default\n", name, PTR_ERR(zbuf));
 		zbuf = zio_buffer_get(ZIO_DEFAULT_BUFFER);
 	}
 	if (IS_ERR(zbuf))
