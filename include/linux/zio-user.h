@@ -80,22 +80,22 @@ struct zio_control {
 
 	/* byte 4*/
 	uint32_t seq_num;	/* block sequence number */
-	uint32_t flags;		/* endianness etc, see below */
 	uint32_t nsamples;	/* number of samples in this data block */
 
-	/* byte 16 */
+	/* byte 12 */
 	uint16_t ssize;		/* sample-size for each of them, in bytes */
 	uint16_t nbits;		/* sample-bits: number of valid bits */
 
-	/* byte 20 */
+	/* byte 16 */
 	struct addr_zio addr;
 
-	/* byte 52 */
+	/* byte 48 */
 	struct zio_timestamp tstamp;
 
-	/* byte 76 */
+	/* byte 72 */
 	uint32_t mem_offset;	/* position in mmap buffer of this block */
 	uint32_t reserved;	/* possibly another offset, or space for 64b */
+	uint32_t flags;		/* endianness etc, see below */
 
 	/* byte 84 */
 	/* Each data block is associated with a trigger and its features */

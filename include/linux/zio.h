@@ -5,7 +5,7 @@
 
 /* ZIO_VERSION: is a zio_class attribute to identify the framework version*/
 #define ZIO_MAJOR_VERSION 0
-#define ZIO_MINOR_VERSION 6
+#define ZIO_MINOR_VERSION 7
 
 /*
  * ZIO_OBJ_NAME_LEN is the name's length used for registered objects
