@@ -97,7 +97,7 @@ struct zio_device *zio_find_device(char *name, uint32_t dev_id)
 		pr_debug("%s:%d %s=%s\n", __func__, __LINE__, cur->name, name);
 		if (strcmp(cur->name, name) == 0 &&
 			cur->obj_head->dev.id == dev_id)
-			return to_zio_dev(cur->obj_head); /* object found */
+			return to_zio_dev(&cur->obj_head->dev); /* found */
 	}
 	return NULL;
 }
