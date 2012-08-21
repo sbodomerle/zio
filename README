@@ -2,35 +2,36 @@
 Zio is "the ultimate I/O framework".  It is being developed on the open
 hardware repository at http://www.ohwr.org/projects/zio .
 
-This version is known to compile and run with kernels 2.6.34 onwards.
+This version is known to compile and run with kernels 3.3 onwards
+(it used to work from 2.6.34 onwards, and we may fix the dev.id issue
+to restore such backward compatibility.
 
-This README refers to version "beta3", but work is ongoing towards
-a stable package. See the TODO file on ohwr for details.
+This README in not updated very often, so please take this information
+with a grain of salt.  The architecture of ZIO and the basic concepts
+are explained on www.ohwr.org/projects/zio/ (in particular the "files"
+and "documents" tabs).
 
-To test zio you need to load the core modules (later, the default
-trigger and default buffer will be part of zio-core):
+To test zio you need to load the core module:
 
-   	insmod zio-core.ko
-   	insmod buffers/zio-buf-kmalloc.ko
-   	insmod triggers/zio-trig-timer.ko
+   	insmod zio.ko
 
-Drivers can't live without a trigger and a buffer, so the modules above
-must be loaded first.
+By detault ZIO uses "kmalloc" as a buffer, it is a simple buffer that
+hosts a list of data blocks, for either input or output.
 
-The kmalloc buffer is a simple buffer that hosts a list of data blocks,
-for either input or output.
+The default trigger is called "user", and it fires data transfers when
+the user reads or writes. We also have the "timer" trigger: it is a
+kernel-timer based trigger, that fires a block transfer on a timely
+basis. You can use the "ms" parameter to set the inter-block time, in
+milliseconds (the default is two seconds). You can also pass the
+"nsamples" parameter to say how many samples are acquired at each
+trigger instance.
 
-The timer trigger is a kernel-timer based trigger, that fires a block
-transfer on a timely basis. You can use the "ms" parameter to set the
-inter-block time, in milliseconds (the default is two seconds). You
-can also pass the "nsamples" parameter to say how many samples are
-acquired at each trigger instance.
-
-With the core in place, you can load a driver:
+With the core in place, you can load a driver (we have several, this only
+shows the basics of zio-zero for input):
 
 	insmod drivers/zio-zero.ko
 
-zio-zero has a single channel-set (number 0) with three channels.
+zio-zero has three channel sets. cset 0 has three channels.
 They simulate three analog inputs, 8-bits per sample.
 
      channel 0: returns zero forever
@@ -39,14 +40,12 @@ They simulate three analog inputs, 8-bits per sample.
 
 The char devices are called using device-cset-channel:
 
-    /dev/zzero-0-0-ctrl
-    /dev/zzero-0-0-data
-    /dev/zzero-0-1-ctrl
-    /dev/zzero-0-1-data
-    /dev/zzero-0-2-ctrl
-    /dev/zzero-0-2-data
-
-(later versions will use a /dev/zio/ directory for all zio files)
+    /dev/zio/zzero-0-0-ctrl
+    /dev/zio/zzero-0-0-data
+    /dev/zio/zzero-0-1-ctrl
+    /dev/zio/zzero-0-1-data
+    /dev/zio/zzero-0-2-ctrl
+    /dev/zio/zzero-0-2-data
 
 To read data you can just cat, or "od -t x1" the data device.
 To get control information meta-information) together with data, you
@@ -54,12 +53,12 @@ can use the "zio-dump" user-space utility, in this directory.
 
 For example:
 
-    ./zio-dump /dev/zzero-0-2-ctrl /dev/zzero-0-2-data
+    ./zio-dump /dev/zio/zzero-0-2-*
 
 This is the result with a trigger that uses 2000 as msec and 32
 as nsample:
 
-    ./zio-dump /dev/zzero-0-2-ctrl /dev/zzero-0-2-data
+    ./zio-dump /dev/zio/zzero-0-2-*
 
     Ctrl: version 0.2, trigger timer, dev zzero, cset 0, chan 2
     Ctrl: seq 1, n 32, size 1, bits 8, flags 01000001 (little-endian)
