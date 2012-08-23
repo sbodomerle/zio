@@ -706,7 +706,7 @@ static int __zattr_chan_init_ctrl(struct zio_channel *chan, unsigned int start)
 		__zattr_valcpy(ctrl_attr_chan, &zdev->zattr_set.std_zattr[i]);
 
 	for (i = 0; i < chan->zattr_set.n_ext_attr; ++i) {
-		if (zdev->zattr_set.ext_zattr[i].flags & ZATTR_CONTROL) {
+		if (chan->zattr_set.ext_zattr[i].flags & ZATTR_CONTROL) {
 			/* Fix channel extended attribute index */
 			chan->zattr_set.ext_zattr[i].index = start + i;
 			__zattr_valcpy(ctrl_attr_chan,
