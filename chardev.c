@@ -39,12 +39,12 @@ static char *zio_devnode(struct device *dev, mode_t *mode)
 }
 
 /*
- * zio_class: don't use class_create to create class because it doesn't permit
+ * zio_cdev_class: don't use class_create to create class, as it doesn't permit
  * to insert a set of class attributes. This structure is the exact
  * reproduction of what class_create does but with some additional settings.
  */
-static struct class zio_class = {
-	.name		= "zio-char-devices",
+static struct class zio_cdev_class = {
+	.name		= "zio-cdev",
 	.owner		= THIS_MODULE,
 	.dev_uevent	= zio_dev_uevent,
 	.devnode	= zio_devnode,
@@ -182,7 +182,7 @@ int zio_create_chan_devices(struct zio_channel *chan)
 
 	devt_c = zstat->basedev + chan->cset->minor + chan->index * 2;
 	pr_debug("%s:%d dev_t=0x%x\n", __func__, __LINE__, devt_c);
-	chan->ctrl_dev = device_create(&zio_class, NULL, devt_c, &chan->flags,
+	chan->ctrl_dev = device_create(&zio_cdev_class, NULL, devt_c, &chan->flags,
 			"%s-%i-%i-ctrl",
 			dev_name(&chan->cset->zdev->head.dev),
 			chan->cset->index,
@@ -194,7 +194,7 @@ int zio_create_chan_devices(struct zio_channel *chan)
 
 	devt_d = devt_c + 1;
 	pr_debug("%s:%d dev_t=0x%x\n", __func__, __LINE__, devt_d);
-	chan->data_dev = device_create(&zio_class, NULL, devt_d, &chan->flags,
+	chan->data_dev = device_create(&zio_cdev_class, NULL, devt_d, &chan->flags,
 			"%s-%i-%i-data",
 			dev_name(&chan->cset->zdev->head.dev),
 			chan->cset->index,
@@ -207,7 +207,7 @@ int zio_create_chan_devices(struct zio_channel *chan)
 	return 0;
 
 out_data:
-	device_destroy(&zio_class, chan->ctrl_dev->devt);
+	device_destroy(&zio_cdev_class, chan->ctrl_dev->devt);
 out:
 	return err;
 }
@@ -215,15 +215,15 @@ out:
 void zio_destroy_chan_devices(struct zio_channel *chan)
 {
 	pr_debug("%s\n", __func__);
-	device_destroy(&zio_class, chan->data_dev->devt);
-	device_destroy(&zio_class, chan->ctrl_dev->devt);
+	device_destroy(&zio_cdev_class, chan->data_dev->devt);
+	device_destroy(&zio_cdev_class, chan->ctrl_dev->devt);
 }
 
 int zio_register_cdev()
 {
 	int err;
 
-	err = class_register(&zio_class);
+	err = class_register(&zio_cdev_class);
 	if (err) {
 		pr_err("%s: unable to register class\n", __func__);
 		goto out;
@@ -247,15 +247,16 @@ int zio_register_cdev()
 out_cdev:
 	unregister_chrdev_region(zstat->basedev, ZIO_NR_MINORS);
 out:
-	class_unregister(&zio_class);
+	class_unregister(&zio_cdev_class);
 	zio_ffa_destroy(zstat->minors);
+
 	return err;
 }
 void zio_unregister_cdev()
 {
 	cdev_del(&zstat->chrdev);
 	unregister_chrdev_region(zstat->basedev, ZIO_NR_MINORS);
-	class_unregister(&zio_class);
+	class_unregister(&zio_cdev_class);
 	zio_ffa_destroy(zstat->minors);
 }
 
