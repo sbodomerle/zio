@@ -182,8 +182,8 @@ int zio_create_chan_devices(struct zio_channel *chan)
 
 	devt_c = zstat->basedev + chan->cset->minor + chan->index * 2;
 	pr_debug("%s:%d dev_t=0x%x\n", __func__, __LINE__, devt_c);
-	chan->ctrl_dev = device_create(&zio_cdev_class, NULL, devt_c, &chan->flags,
-			"%s-%i-%i-ctrl",
+	chan->ctrl_dev = device_create(&zio_cdev_class, &chan->head.dev, devt_c,
+			&chan->flags, "%s-%i-%i-ctrl",
 			dev_name(&chan->cset->zdev->head.dev),
 			chan->cset->index,
 			chan->index);
@@ -194,8 +194,8 @@ int zio_create_chan_devices(struct zio_channel *chan)
 
 	devt_d = devt_c + 1;
 	pr_debug("%s:%d dev_t=0x%x\n", __func__, __LINE__, devt_d);
-	chan->data_dev = device_create(&zio_cdev_class, NULL, devt_d, &chan->flags,
-			"%s-%i-%i-data",
+	chan->data_dev = device_create(&zio_cdev_class, &chan->head.dev, devt_d,
+			&chan->flags, "%s-%i-%i-data",
 			dev_name(&chan->cset->zdev->head.dev),
 			chan->cset->index,
 			chan->index);
