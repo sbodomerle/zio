@@ -651,24 +651,34 @@ void __zio_generic_device_release(struct device *dev)
 	pr_debug("RELEASE %s\n", dev_name(dev));
 	return;
 }
-struct device_type zdev_generic_type = {
-	.name = "zio generic device type",
+struct device_type zdevhw_device_type = {
+	.name = zdevhw_device_type_name,
 	.release = __zio_generic_device_release,
 };
-struct device_type zobj_device_type = {
-	.name = "zio_obj_type",
+struct device_type zdev_device_type = {
+	.name = zdev_device_type_name,
 	.release = zio_device_release,
 	.groups = def_device_groups_ptr,
 };
 struct device_type cset_device_type = {
-	.name = "zio_cset_type",
+	.name = cset_device_type_name,
 	.release = zio_device_release,
 	.groups = def_cset_groups_ptr,
 };
+struct device_type ti_device_type = {
+	.name = ti_device_type_name,
+	.release = zio_device_release,
+	.groups = def_device_groups_ptr,
+};
 struct device_type bi_device_type = {
-	.name = "zio_bi_type",
+	.name = bi_device_type_name,
 	.release = zio_device_release,
 	.groups = def_bi_groups_ptr,
+};
+struct device_type chan_device_type = {
+	.name = chan_device_type_name,
+	.release = zio_device_release,
+	.groups = def_device_groups_ptr,
 };
 
 int __check_dev_zattr(struct zio_attribute_set *parent,

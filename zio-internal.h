@@ -10,9 +10,11 @@
 #endif
 
 /* Defined in sysfs.c */
-extern struct device_type zdev_generic_type;
-extern struct device_type zobj_device_type;
+extern struct device_type zdevhw_device_type;
+extern struct device_type zdev_device_type;
 extern struct device_type cset_device_type;
+extern struct device_type chan_device_type;
+extern struct device_type ti_device_type;
 extern struct device_type bi_device_type;
 extern struct bin_attribute zio_attr_cur_ctrl;
 

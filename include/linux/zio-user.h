@@ -150,4 +150,12 @@ static inline void __unused_check_size(void)
 
 #endif /* __KERNEL__ */
 
+/* Device type names */
+#define zdevhw_device_type_name "zio_hw_type"
+#define zdev_device_type_name "zio_zdev_type"
+#define cset_device_type_name "zio_cset_type"
+#define ti_device_type_name "zio_ti_type"
+#define bi_device_type_name "zio_bi_type"
+#define chan_device_type_name "zio_chan_type"
+
 #endif /* __ZIO_USER_H__ */

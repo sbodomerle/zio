@@ -129,12 +129,12 @@ static int zio_match_device(struct device *dev, struct device_driver *drv)
 		return 0;
 	pr_debug("%s:%d\n", __func__, __LINE__);
 	/* device and driver match */
-	if (dev->type == &zdev_generic_type) {
+	if (dev->type == &zdevhw_device_type) {
 		/* Register the real zio device */
 		pr_debug("%s:%d\n", __func__, __LINE__);
 		__zdev_register(to_zio_dev(dev), id);
 		return 0;
-	} else if (dev->type == &zobj_device_type) {
+	} else if (dev->type == &zdev_device_type) {
 		pr_debug("%s:%d\n", __func__, __LINE__);
 		return 1; /* real device always match*/
 	}

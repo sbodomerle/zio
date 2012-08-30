@@ -209,7 +209,7 @@ static struct zio_ti *__ti_create_and_init(struct zio_trigger_type *trig,
 	ti->t_op = trig->t_op;
 	ti->flags |= cset->flags & ZIO_DIR;
 	/* Initialize head */
-	ti->head.dev.type = &zobj_device_type;
+	ti->head.dev.type = &ti_device_type;
 	ti->head.dev.parent = &cset->head.dev;
 	ti->head.zobj_type = ZIO_TI;
 	snprintf(ti->head.name, ZIO_NAME_LEN, "%s-%s-%d",
@@ -591,7 +591,7 @@ static int chan_register(struct zio_channel *chan, struct zio_channel *chan_t)
 	if (strlen(chan->head.name) == 0)
 		snprintf(chan->head.name, ZIO_NAME_LEN, "chan%i", chan->index);
 	dev_set_name(&chan->head.dev, chan->head.name);
-	chan->head.dev.type = &zobj_device_type;
+	chan->head.dev.type = &chan_device_type;
 	chan->head.dev.parent = &chan->cset->head.dev;
 	err = device_register(&chan->head.dev);
 	if (err)
@@ -913,7 +913,7 @@ int __zdev_register(struct zio_device *parent,
 	zdev->head.zobj_type = ZIO_DEV;
 	zdev->head.dev.parent = &parent->head.dev;
 	zdev->dev_id = parent->dev_id;
-	zdev->head.dev.type = &zobj_device_type;
+	zdev->head.dev.type = &zdev_device_type;
 	zdev->head.dev.bus = &zio_bus_type;
 	/* Name was verified during zio_register_device */
 	strncpy(zdev->head.name, parent->head.name, ZIO_OBJ_NAME_LEN);
@@ -1008,7 +1008,7 @@ struct zio_device *zio_allocate_device(void)
 	if (!zdev)
 		return ERR_PTR(-ENOMEM);
 	/* Set this device as generic zio device */
-	zdev->head.dev.type = &zdev_generic_type;
+	zdev->head.dev.type = &zdevhw_device_type;
 	zdev->head.dev.bus = &zio_bus_type;
 
 	return zdev;
@@ -1096,7 +1096,7 @@ EXPORT_SYMBOL(zio_register_device);
 static int __zdev_match_child(struct device *dev, void *data)
 {
 	pr_debug("%s:%d\n", __func__, __LINE__);
-	if (dev->type == &zobj_device_type)
+	if (dev->type == &zdev_device_type)
 		return 1;
 	return 0;
 }
