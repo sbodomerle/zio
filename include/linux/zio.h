@@ -146,6 +146,7 @@ void zio_unregister_driver(struct zio_driver *zdrv);
  */
 struct zio_device {
 	struct zio_obj_head			head;
+	uint32_t				dev_id; /* Driver-specific id */
 	struct module				*owner;
 	spinlock_t				lock; /* for all attr ops */
 	unsigned long				flags;

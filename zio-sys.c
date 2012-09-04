@@ -90,14 +90,15 @@ static inline struct zio_object_list_item *__find_by_name(
 struct zio_device *zio_find_device(char *name, uint32_t dev_id)
 {
 	struct zio_object_list_item *cur;
+	struct zio_device *zdev;
 
 	if (!name)
 		return NULL;
 	list_for_each_entry(cur, &zstat->all_devices.list, list) {
 		pr_debug("%s:%d %s=%s\n", __func__, __LINE__, cur->name, name);
-		if (strcmp(cur->name, name) == 0 &&
-			cur->obj_head->dev.id == dev_id)
-			return to_zio_dev(&cur->obj_head->dev); /* found */
+		zdev = to_zio_dev(&cur->obj_head->dev);
+		if (strcmp(cur->name, name) == 0 && zdev->dev_id == dev_id)
+			return zdev; /* found */
 	}
 	return NULL;
 }
@@ -685,7 +686,7 @@ static int __zattr_chan_init_ctrl(struct zio_channel *chan, unsigned int start)
 	cset = chan->cset;
 	zdev = cset->zdev;
 	ctrl = chan->current_ctrl;
-	ctrl->addr.dev_id = chan->cset->zdev->head.dev.id;
+	ctrl->addr.dev_id = chan->cset->zdev->dev_id;
 	ctrl_attr_chan = &chan->current_ctrl->attr_channel;
 	if (!(start + chan->zattr_set.n_ext_attr < 32)) {
 		pr_err("%s: too many extended attribute in %s",
@@ -2046,7 +2047,7 @@ static int __zdev_register(struct zio_device *parent,
 	zdev->priv_d = parent->priv_d;
 	zdev->head.zobj_type = ZDEV;
 	zdev->head.dev.parent = &parent->head.dev;
-	zdev->head.dev.id = parent->head.dev.id;
+	zdev->dev_id = parent->dev_id;
 	zdev->head.dev.type = &zobj_device_type;
 	zdev->head.dev.bus = &zio_bus_type;
 	/* Name was verified during zio_register_device */
@@ -2168,7 +2169,6 @@ EXPORT_SYMBOL(zio_free_device);
 int zio_register_device(struct zio_device *zdev, const char *name,
 			uint32_t dev_id)
 {
-	uint32_t dev_id_tmp;
 	int n_conflict;
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
@@ -2178,10 +2178,9 @@ int zio_register_device(struct zio_device *zdev, const char *name,
 		return n_conflict;
 
 	strncpy(zdev->head.name, name, ZIO_OBJ_NAME_LEN);
-	dev_id_tmp = dev_id ? dev_id : n_conflict;
+	zdev->dev_id = dev_id ? dev_id : n_conflict;
 	dev_set_name(&zdev->head.dev, "hw-%s-%04x",
-		     zdev->head.name, dev_id_tmp);
-	zdev->head.dev.id = dev_id_tmp;
+		     zdev->head.name, zdev->dev_id);
 
 	return device_register(&zdev->head.dev);
 }
