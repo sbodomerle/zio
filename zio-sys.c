@@ -106,7 +106,7 @@ struct zio_device *zio_find_device(char *name, uint32_t dev_id)
 EXPORT_SYMBOL(zio_find_device);
 
 static inline struct zio_object_list_item *__zio_object_get(
-	struct zio_object_list *zobj_list, char *name)
+	struct zio_cset *cset, struct zio_object_list *zobj_list, char *name)
 {
 	struct zio_object_list_item *list_item;
 
@@ -115,44 +115,50 @@ static inline struct zio_object_list_item *__zio_object_get(
 	list_item = __find_by_name(zobj_list, name);
 	if (!list_item)
 		return NULL;
-	/* increment trigger usage to prevent rmmod */
-	if (!try_module_get(list_item->owner))
+	/* If different owner, try to increment its use count */
+	if (cset->zdev->owner != list_item->owner
+	    && !try_module_get(list_item->owner))
 		return NULL;
+
 	return list_item;
 }
-static struct zio_buffer_type *zio_buffer_get(char *name)
+static struct zio_buffer_type *zio_buffer_get(struct zio_cset *cset,
+					      char *name)
 {
 	struct zio_object_list_item *list_item;
 
 	if (!name)
 		return ERR_PTR(-EINVAL);
 
-	list_item = __zio_object_get(&zstat->all_buffer_types, name);
+	list_item = __zio_object_get(cset, &zstat->all_buffer_types, name);
 	if (!list_item)
 		return ERR_PTR(-ENODEV);
 	return container_of(list_item->obj_head, struct zio_buffer_type, head);
 }
-static inline void zio_buffer_put(struct zio_buffer_type *zbuf)
+static inline void zio_buffer_put(struct zio_buffer_type *zbuf,
+				  struct module *dev_owner)
 {
-	pr_debug("%s:%d %p\n", __func__, __LINE__, zbuf->owner);
-	module_put(zbuf->owner);
+	if (zbuf->owner != dev_owner)
+		module_put(zbuf->owner);
 }
-static struct zio_trigger_type *zio_trigger_get(char *name)
+static struct zio_trigger_type *zio_trigger_get(struct zio_cset *cset,
+						char *name)
 {
 	struct zio_object_list_item *list_item;
 
 	if (!name)
 		return ERR_PTR(-EINVAL);
 
-	list_item = __zio_object_get(&zstat->all_trigger_types, name);
+	list_item = __zio_object_get(cset, &zstat->all_trigger_types, name);
 	if (!list_item)
 		return ERR_PTR(-ENODEV);
 	return container_of(list_item->obj_head, struct zio_trigger_type, head);
 }
-static inline void zio_trigger_put(struct zio_trigger_type *trig)
+static inline void zio_trigger_put(struct zio_trigger_type *trig,
+				   struct module *dev_owner)
 {
-	pr_debug("%s:%d %p\n", __func__, __LINE__, trig->owner);
-	module_put(trig->owner);
+	if (trig->owner != dev_owner)
+		module_put(trig->owner);
 }
 
 static void __zio_internal_data_done(struct zio_cset *cset)
@@ -480,7 +486,7 @@ static int zio_change_current_trigger(struct zio_cset *cset, char *name)
 		return 0; /* is the current trigger */
 
 	/* get the new trigger */
-	trig = zio_trigger_get(name);
+	trig = zio_trigger_get(cset, name);
 	if (IS_ERR(trig))
 		return PTR_ERR(trig);
 	/* Create and register the new trigger instance */
@@ -495,7 +501,7 @@ static int zio_change_current_trigger(struct zio_cset *cset, char *name)
 	/* New ti successful created, remove the old ti */
 	__ti_unregister(trig_old, ti_old);
 	__ti_destroy(trig_old, ti_old);
-	zio_trigger_put(trig_old);
+	zio_trigger_put(trig_old, cset->zdev->owner);
 	/* Set new trigger*/
 	mb();
 	cset->trig = trig;
@@ -515,7 +521,7 @@ static int zio_change_current_trigger(struct zio_cset *cset, char *name)
 out_reg:
 	__ti_destroy(trig, ti);
 out:
-	zio_trigger_put(trig);
+	zio_trigger_put(trig, cset->zdev->owner);
 	return err;
 }
 
@@ -531,7 +537,7 @@ static int zio_change_current_buffer(struct zio_cset *cset, char *name)
 	if (unlikely(strcmp(name, cset->zbuf->head.name) == 0))
 		return 0; /* is the current buffer */
 
-	zbuf = zio_buffer_get(name);
+	zbuf = zio_buffer_get(cset, name);
 	if (IS_ERR(zbuf))
 		return PTR_ERR(zbuf);
 
@@ -573,7 +579,7 @@ static int zio_change_current_buffer(struct zio_cset *cset, char *name)
 
 	kfree(bi_vector);
 	cset->zbuf = zbuf;
-	zio_buffer_put(zbuf_old);
+	zio_buffer_put(zbuf_old, cset->zdev->owner);
 
 	return 0;
 
@@ -584,7 +590,7 @@ out_create:
 	}
 	kfree(bi_vector);
 out:
-	zio_buffer_put(zbuf);
+	zio_buffer_put(zbuf, cset->zdev->owner);
 	return err;
 }
 
@@ -1775,11 +1781,11 @@ static int cset_set_trigger(struct zio_cset *cset)
 	if (cset->zdev->preferred_trigger) /* preferred device trigger */
 		name = cset->zdev->preferred_trigger;
 
-	trig = zio_trigger_get(name);
+	trig = zio_trigger_get(cset, name);
 	if (IS_ERR(trig)) {
 		dev_dbg(&cset->head.dev, "no trigger \"%s\" (error %li), using "
 			 "default\n", name, PTR_ERR(trig));
-		trig = zio_trigger_get(ZIO_DEFAULT_TRIGGER);
+		trig = zio_trigger_get(cset, ZIO_DEFAULT_TRIGGER);
 	}
 	if (IS_ERR(trig))
 		return PTR_ERR(trig);
@@ -1800,11 +1806,11 @@ static int cset_set_buffer(struct zio_cset *cset)
 	if (cset->zdev->preferred_buffer) /* preferred device buffer */
 		name = cset->zdev->preferred_buffer;
 
-	zbuf = zio_buffer_get(name);
+	zbuf = zio_buffer_get(cset, name);
 	if (IS_ERR(zbuf)) {
 		dev_dbg(&cset->head.dev, "no buffer \"%s\" (error %li), using "
 			 "default\n", name, PTR_ERR(zbuf));
-		zbuf = zio_buffer_get(ZIO_DEFAULT_BUFFER);
+		zbuf = zio_buffer_get(cset, ZIO_DEFAULT_BUFFER);
 	}
 	if (IS_ERR(zbuf))
 		return PTR_ERR(zbuf);
@@ -1933,9 +1939,9 @@ out_n_chan:
 out_tr:
 	__ti_destroy(cset->trig, ti);
 out_trig:
-	zio_trigger_put(cset->trig);
+	zio_trigger_put(cset->trig, cset->zdev->owner);
 	cset->trig = NULL;
-	zio_buffer_put(cset->zbuf);
+	zio_buffer_put(cset->zbuf, cset->zdev->owner);
 	cset->zbuf = NULL;
 out_buf:
 	device_unregister(&cset->head.dev);
@@ -1969,11 +1975,11 @@ static void cset_unregister(struct zio_cset *cset)
 	/* destroy instance and decrement trigger usage */
 	__ti_unregister(cset->trig, cset->ti);
 	__ti_destroy(cset->trig,  cset->ti);
-	zio_trigger_put(cset->trig);
+	zio_trigger_put(cset->trig, cset->zdev->owner);
 	cset->trig = NULL;
 
 	/* decrement buffer usage */
-	zio_buffer_put(cset->zbuf);
+	zio_buffer_put(cset->zbuf, cset->zdev->owner);
 	cset->zbuf = NULL;
 
 	device_unregister(&cset->head.dev);
