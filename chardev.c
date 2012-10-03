@@ -236,7 +236,7 @@ int zio_register_cdev()
 		       __func__, ZIO_NR_MINORS);
 		goto out;
 	}
-	/* all ZIO's devices, buffers and triggers has zfops as f_op */
+
 	cdev_init(&zstat->chrdev, &zfops);
 	zstat->chrdev.owner = THIS_MODULE;
 	err = cdev_add(&zstat->chrdev, zstat->basedev, ZIO_NR_MINORS);
