@@ -29,7 +29,7 @@ enum zti_attrs {
 };
 
 static DEFINE_ZATTR_STD(TRIG, zti_std_attr) = {
-	ZATTR_REG(trig, ZATTR_TRIG_NSAMPLES, S_IRUGO | S_IWUGO,
+	ZATTR_REG(trig, ZATTR_TRIG_POST_SAMP, S_IRUGO | S_IWUGO,
 		  ZTI_ATTR_NSAMPLES, 16),
 };
 

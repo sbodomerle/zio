@@ -3,9 +3,9 @@
 
 The main idea behind the zio_attribute is that generally what is a
 sysfs attribute is also a register in a I/O peripheral; ZIO attributes
-can thus be used to export to the host system the device internal 
-registers. ZIO uses a pair of numbers: address and value. The address 
-represents the way to gain access to a device register; it is an union 
+can thus be used to export to the host system the device internal
+registers. ZIO uses a pair of numbers: address and value. The address
+represents the way to gain access to a device register; it is an union
 of two elements: addr which is the register address, and ptr which is
 a pointer to a private structure defined within the low-level driver;
 the driver implementor can choose whether to use an address alone or
@@ -25,7 +25,7 @@ allocate its own private structure.
 
 	ZIO sysfs Operations
 	====================
-ZIO uses two sysfs operations: conf_set() and info_get(); the former 
+ZIO uses two sysfs operations: conf_set() and info_get(); the former
 writes a configuration value to a register and the latter retrieves a
 value from a register.
 The ZIO core takes care of ASCII conversion between ZIO and sysfs
@@ -42,7 +42,7 @@ at device scope.
 
 ZIO calls the conf_set operation every time a user changes an attribute
 value. Drivers can avoid defining info_get if the attributes are only
-changed by the user. If values may change for other reasons (for 
+changed by the user. If values may change for other reasons (for
 example to reflect internal device status), you must implement info_get
 to re-syncronize the ZIO attribute value with the register value. When
 the info_get method is not implemented, ZIO returns the current value
@@ -51,13 +51,13 @@ of the attribute.
 	Attribute Classification
 	========================
 
-ZIO classifies its own sysfs attributes in two categories: standard 
-and extended. 
+ZIO classifies its own sysfs attributes in two categories: standard
+and extended.
 
 	Standard Attributes
 	-------------------
-Standard attributes are the most common attributes among I/O 
-peripherals; for example gain, offset, sample-rate. The main feature 
+Standard attributes are the most common attributes among I/O
+peripherals; for example gain, offset, sample-rate. The main feature
 of a standard attribute is that its name in sysfs and its meaning are
 clearly defined, irrespective of the peculiarities of the individual
 device. Standard attributes are not mandatory, so each object
@@ -74,7 +74,8 @@ Following the list of the current standard attributes:
 	ZATTR_MAXRATE		/* hertz */
 	ZATTR_VREFTYPE		/* source of Vref (0 = default) */
 	ZATTR_TRIG_REENABLE	/* re-arm trigger */
-	ZATTR_TRIG_NSAMPLES	/* samples for each transfer */
+	ZATTR_TRIG_PRE_SAMP,	/* samples before trigger fire */
+	ZATTR_TRIG_POST_SAMP,	/* samples after trigger fire */
 	ZATTR_ZBUF_MAXLEN	/* max number of element in buffer */
 
 	Extended Attributes
@@ -108,21 +109,21 @@ Each zio object (device, buffer and trigger) can define its own zio
 attribute. In order to define a new zio attribute (standard or
 extended), the zio framework provides some macros. The following
 macro:
-	
+
 	DEFINE_ZATTR_STD(_type, _name)
-	
+
 must be used to declare a new set of standard attributes; _type is
 used to specify the kind of zio object, _name is the name of the
 array of standard attributes. The following macros are used to
 define each single attributes:
-	
+
 	ZATTR_REG(zobj, _type, _mode, _add, _val)
 	ZATTR_PRV(zobj, _type, _mode, _priv, _val)
 	ZATTR_EXT_REG(_name, _mode, _add, _val)
 	ZATTR_EXT_PRV(_name, _mode, _priv, _val)
-	
+
 Where:
-	_val: is the default value of the zio attribute (the 
+	_val: is the default value of the zio attribute (the
 	      register on the peripheral)
 	_add: is the address to gain access to the physical
 	      register

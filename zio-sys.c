@@ -33,7 +33,8 @@ const char zio_zdev_attr_names[ZATTR_STD_NUM_ZDEV][ZIO_NAME_LEN] = {
 EXPORT_SYMBOL(zio_zdev_attr_names);
 const char zio_trig_attr_names[ZATTR_STD_NUM_TRIG][ZIO_NAME_LEN] = {
 	[ZATTR_TRIG_REENABLE]	= "re-enable",
-	[ZATTR_TRIG_NSAMPLES]	= "nsamples",
+	[ZATTR_TRIG_PRE_SAMP]	= "pre-samples",
+	[ZATTR_TRIG_POST_SAMP]	= "post-samples",
 };
 EXPORT_SYMBOL(zio_trig_attr_names);
 const char zio_zbuf_attr_names[ZATTR_STD_NUM_ZBUF][ZIO_NAME_LEN] = {
@@ -606,6 +607,12 @@ static inline void __zattr_valcpy(struct zio_ctrl_attr *ctrl,
 		ctrl->std_val[zattr->index] = zattr->value;
 	}
 }
+
+static void __ctrl_update_nsamples(struct zio_ti *ti, struct zio_control *ctrl)
+{
+	ctrl->nsamples = ti->zattr_set.std_zattr[ZATTR_TRIG_PRE_SAMP].value +
+			 ti->zattr_set.std_zattr[ZATTR_TRIG_POST_SAMP].value;
+}
 static void __zattr_propagate_value(struct zio_obj_head *head,
 			       struct zio_attribute *zattr)
 {
@@ -649,9 +656,13 @@ static void __zattr_propagate_value(struct zio_obj_head *head,
 			chan = &ti->cset->chan[i];
 			ctrl = chan->current_ctrl;
 			__zattr_valcpy(&ctrl->attr_trigger, zattr);
-			if (zattr->index == ZATTR_TRIG_NSAMPLES &&
-				(zattr->flags & ZATTR_TYPE) == ZATTR_TYPE_STD)
-				chan->current_ctrl->nsamples = zattr->value;
+			if ((zattr->flags & ZATTR_TYPE) == ZATTR_TYPE_EXT)
+				continue; /* continue to the next channel */
+
+			/* Only standard attributes */
+			if (zattr->index == ZATTR_TRIG_PRE_SAMP ||
+					zattr->index == ZATTR_TRIG_POST_SAMP)
+				__ctrl_update_nsamples(ti, ctrl);
 		}
 		break;
 	default:
@@ -1688,8 +1699,7 @@ static int chan_register(struct zio_channel *chan, struct zio_channel *chan_t)
 		sizeof(ctrl->addr.devname));
 	ctrl->ssize = chan->cset->ssize;
 	/* Trigger instance is already assigned so */
-	ctrl->nsamples =
-		chan->cset->ti->zattr_set.std_zattr[ZATTR_TRIG_NSAMPLES].value;
+	__ctrl_update_nsamples(chan->cset->ti, ctrl);
 	chan->current_ctrl = ctrl;
 
 	/* Initialize and register channel device */
@@ -2265,7 +2275,12 @@ int zio_register_trig(struct zio_trigger_type *trig, const char *name)
 		return -EINVAL;
 	if (!trig->zattr_set.std_zattr)
 		goto err_nsamp;
-	if (!trig->zattr_set.std_zattr[ZATTR_TRIG_NSAMPLES].attr.attr.mode)
+	/*
+	 * The trigger must define how many samples acquire, so POST_SAMP or
+	 * PRE_SAMP attribute must be available
+	 */
+	if (!(trig->zattr_set.std_zattr[ZATTR_TRIG_POST_SAMP].attr.attr.mode ||
+		trig->zattr_set.std_zattr[ZATTR_TRIG_PRE_SAMP].attr.attr.mode))
 		goto err_nsamp;
 	/* Verify if it is a valid name */
 	err = zobj_unique_name(&zstat->all_buffer_types, name);
@@ -2284,8 +2299,8 @@ int zio_register_trig(struct zio_trigger_type *trig, const char *name)
 	return 0;
 
 err_nsamp:
-	pr_err("%s: trigger \"%s\" lacks mandatory \"nsamples\" attribute",
-	       __func__, name);
+	pr_err("%s: trigger \"%s\" lacks mandatory \"pre-sample\" or"
+		"\"post-sample\" attribute", __func__, name);
 	return -EINVAL;
 }
 EXPORT_SYMBOL(zio_register_trig);

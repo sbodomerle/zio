@@ -79,7 +79,8 @@ enum zattr_standard_zdev {
 };
 enum zattr_standard_trig {
 	ZATTR_TRIG_REENABLE = 0,/* re-arm trigger */
-	ZATTR_TRIG_NSAMPLES,	/* samples for each transfer */
+	ZATTR_TRIG_POST_SAMP,	/* samples after trigger fire */
+	ZATTR_TRIG_PRE_SAMP,	/* samples before trigger fire */
 	ZATTR_STD_NUM_TRIG,	/* used to size arrays */
 };
 enum zattr_standard_zbuf {
