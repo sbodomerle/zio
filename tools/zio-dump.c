@@ -17,6 +17,44 @@
 
 unsigned char buf[1024*1024];
 char *prgname;
+int do_print_attr;
+
+void print_attributes(struct zio_control *ctrl)
+{
+	int i;
+
+	printf("Device attributes:\n");
+	printf("    Standard: 0x%04x\n    ",
+	       ctrl->attr_channel.std_mask);
+	for (i = 0; i < 16; ++i) {
+		if (i == 8)
+			printf("\n    ");
+		printf ("0x%x ", ctrl->attr_channel.std_val[i]);
+	}
+	printf("\n    Extened: 0x%08x\n    ",
+	       ctrl->attr_channel.ext_mask);
+	for (i = 0; i < 32; ++i) {
+		if (i == 8 || i == 16 || i == 24)
+			printf("\n    ");
+		printf ("0x%x ", ctrl->attr_channel.ext_val[i]);
+	}
+	printf("\nTrigger attributes:\n");
+	printf("    Standard: 0x%04x\n    ",
+	       ctrl->attr_trigger.std_mask);
+	for (i = 0; i < 16; ++i) {
+		if (i == 8)
+			printf("\n    ");
+		printf ("0x%x ", ctrl->attr_trigger.std_val[i]);
+	}
+	printf("\n    Extened: 0x%08x \n    ",
+	       ctrl->attr_trigger.ext_mask);
+	for (i = 0; i < 32; ++i) {
+		if (i == 8 || i == 16 || i == 24)
+			printf("\n    ");
+		printf ("0x%x ", ctrl->attr_trigger.ext_val[i]);
+	}
+	printf("\n");
+}
 
 void read_channel(int cfd, int dfd, FILE *log)
 {
@@ -82,40 +120,10 @@ void read_channel(int cfd, int dfd, FILE *log)
 	       (long long)ctrl.tstamp.secs,
 	       (long long)ctrl.tstamp.ticks,
 	       (long long)ctrl.tstamp.bins);
-	/* Print attributes */
-	printf("Device attributes:\n");
-	printf("    Standard: 0x%04x\n    ",
-	       ctrl.attr_channel.std_mask);
-	for (i = 0; i < 16; ++i) {
-		if (i == 8)
-			printf("\n    ");
-		printf ("0x%x ", ctrl.attr_channel.std_val[i]);
-	}
-	printf("\n    Extened: 0x%08x\n    ",
-	       ctrl.attr_channel.ext_mask);
-	for (i = 0; i < 32; ++i) {
-		if (i == 8 || i == 16 || i == 24)
-			printf("\n    ");
-		printf ("0x%x ", ctrl.attr_channel.ext_val[i]);
-	}
-	printf("\nTrigger attributes:\n");
-	printf("    Standard: 0x%04x\n    ",
-	       ctrl.attr_trigger.std_mask);
-	for (i = 0; i < 16; ++i) {
-		if (i == 8)
-			printf("\n    ");
-		printf ("0x%x ", ctrl.attr_trigger.std_val[i]);
-	}
-	printf("\n    Extened: 0x%08x \n    ",
-	       ctrl.attr_trigger.ext_mask);
-	for (i = 0; i < 32; ++i) {
-		if (i == 8 || i == 16 || i == 24)
-			printf("\n    ");
-		printf ("0x%x ", ctrl.attr_trigger.ext_val[i]);
-	}
-	printf("\n");
+	if (do_print_attr)
+		print_attributes(&ctrl);
 
-	/* FIXME: some control information is missing */
+	/* FIXME: some control information not being printed yet */
 
 	i = read(dfd, buf, sizeof(buf));
 	if (i < 0) {
@@ -161,13 +169,20 @@ int main(int argc, char **argv)
 	fd_set control_set, ready_set;
 	int i, j, maxfd, ndev;
 
+	prgname = argv[0];
+
+	if (argc > 1 && !strcmp(argv[1], "-a")) {
+		do_print_attr = 1;
+		argv++;
+		argc--;
+	}
+
 	if (argc < 3 || (argc & 1) != 1) {
 		fprintf(stderr, "%s: Wrong number of arguments\n"
 			"Use: \"%s <ctrl-file> <data-file> [...]\"\n",
-			argv[0], argv[0]);
+			prgname, prgname);
 		exit(1);
 	}
-	prgname = argv[0];
 	cfd = malloc(argc / 2 * sizeof(*cfd));
 	dfd = malloc(argc / 2 * sizeof(*dfd));
 	if (!cfd || !dfd) {
