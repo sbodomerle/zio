@@ -258,13 +258,13 @@ static inline struct zio_channel *__first_enabled_chan(struct zio_cset *cset,
 		chan++;
 	}
 }
-
-#define SET_OBJECT_NAME(_name) .head = {.name = _name}
-
 #define cset_for_each(cset, cptr)				\
 		for (cptr = cset->chan;				\
 		     (cptr = __first_enabled_chan(cset, cptr));	\
 		     cptr++)
+
+/* Use this in defining csets */
+#define SET_OBJECT_NAME(_name) .head = {.name = _name}
 
 /*
  * Return the number of enabled channel on a cset. Be careful: device
