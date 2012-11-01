@@ -19,41 +19,37 @@ unsigned char buf[1024*1024];
 char *prgname;
 int do_print_attr;
 
-void print_attributes(struct zio_control *ctrl)
+
+void print_attr_set(char *name, int nattr, uint32_t mask, uint32_t *val)
 {
+	int all = (do_print_attr == 2);
 	int i;
 
-	printf("Device attributes:\n");
-	printf("    Standard: 0x%04x\n    ",
-	       ctrl->attr_channel.std_mask);
-	for (i = 0; i < 16; ++i) {
-		if (i == 8)
-			printf("\n    ");
-		printf ("0x%x ", ctrl->attr_channel.std_val[i]);
+	if (!(all || mask))
+		return;
+
+	if (nattr == 16)
+		printf("Ctrl: %s-mask: 0x%04x\n", name, mask);
+	else
+		printf("Ctrl: %s-mask: 0x%04x\n", name, mask);
+	for (i = 0; i < nattr; ++i) {
+		if (!(all || (mask & (1 << i))))
+			continue;
+		printf ("Ctrl: %s-%-2i  0x%08x %9i\n",
+			name, i, val[i], val[i]);
 	}
-	printf("\n    Extened: 0x%08x\n    ",
-	       ctrl->attr_channel.ext_mask);
-	for (i = 0; i < 32; ++i) {
-		if (i == 8 || i == 16 || i == 24)
-			printf("\n    ");
-		printf ("0x%x ", ctrl->attr_channel.ext_val[i]);
-	}
-	printf("\nTrigger attributes:\n");
-	printf("    Standard: 0x%04x\n    ",
-	       ctrl->attr_trigger.std_mask);
-	for (i = 0; i < 16; ++i) {
-		if (i == 8)
-			printf("\n    ");
-		printf ("0x%x ", ctrl->attr_trigger.std_val[i]);
-	}
-	printf("\n    Extened: 0x%08x \n    ",
-	       ctrl->attr_trigger.ext_mask);
-	for (i = 0; i < 32; ++i) {
-		if (i == 8 || i == 16 || i == 24)
-			printf("\n    ");
-		printf ("0x%x ", ctrl->attr_trigger.ext_val[i]);
-	}
-	printf("\n");
+}
+
+void print_attributes(struct zio_control *ctrl)
+{
+	print_attr_set("device-std", 16, ctrl->attr_channel.std_mask,
+		       ctrl->attr_channel.std_val);
+	print_attr_set("device-ext", 32, ctrl->attr_channel.ext_mask,
+		       ctrl->attr_channel.ext_val);
+	print_attr_set("trigger-std", 16, ctrl->attr_trigger.std_mask,
+		       ctrl->attr_trigger.std_val);
+	print_attr_set("trigger-ext", 32, ctrl->attr_trigger.ext_mask,
+		       ctrl->attr_trigger.ext_val);
 }
 
 void read_channel(int cfd, int dfd, FILE *log)
@@ -173,6 +169,11 @@ int main(int argc, char **argv)
 
 	if (argc > 1 && !strcmp(argv[1], "-a")) {
 		do_print_attr = 1;
+		argv++;
+		argc--;
+	}
+	if (argc > 1 && !strcmp(argv[1], "-A")) {
+		do_print_attr = 2;
 		argv++;
 		argc--;
 	}
