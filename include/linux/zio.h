@@ -264,7 +264,7 @@ static inline struct zio_channel *__first_enabled_chan(struct zio_cset *cset,
 		     cptr++)
 
 /* Use this in defining csets */
-#define SET_OBJECT_NAME(_name) .head = {.name = _name}
+#define ZIO_SET_OBJ_NAME(_name) .head = {.name = _name}
 
 /*
  * Return the number of enabled channel on a cset. Be careful: device

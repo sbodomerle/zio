@@ -114,7 +114,7 @@ static const struct zio_sysfs_operations zzero_sysfs_ops = {
 
 static struct zio_cset zzero_cset[] = {
 	{
-		SET_OBJECT_NAME("zero-input-8"),
+		ZIO_SET_OBJ_NAME("zero-input-8"),
 		.raw_io =	zzero_input_8,
 		.n_chan =	3,
 		.ssize =	1,
@@ -124,7 +124,7 @@ static struct zio_cset zzero_cset[] = {
 		},
 	},
 	{
-		SET_OBJECT_NAME("zero-output-8"),
+		ZIO_SET_OBJ_NAME("zero-output-8"),
 		.raw_io =	zzero_output,
 		.n_chan =	1,
 		.ssize =	1,
@@ -134,7 +134,7 @@ static struct zio_cset zzero_cset[] = {
 		},
 	},
 	{
-		SET_OBJECT_NAME("zero-input-32"),
+		ZIO_SET_OBJ_NAME("zero-input-32"),
 		.raw_io =	zzero_input_32,
 		.n_chan =	1,
 		.ssize =	4,
