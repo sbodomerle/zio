@@ -92,13 +92,13 @@ static struct zio_cset zgp_cset[] = {
 		.raw_io =	zgp_output,
 		.n_chan =	1,
 		.ssize =	1,
-		.flags =	ZIO_DIR_OUTPUT | ZCSET_TYPE_ANALOG,
+		.flags =	ZIO_DIR_OUTPUT | ZIO_CSET_TYPE_ANALOG,
 	},
 	{
 		.raw_io =	zgp_input,
 		.n_chan =	1,
 		.ssize =	1,
-		.flags =	ZIO_DIR_INPUT | ZCSET_TYPE_ANALOG,
+		.flags =	ZIO_DIR_INPUT | ZIO_CSET_TYPE_ANALOG,
 	},
 };
 static struct zio_device zgp_tmpl = {

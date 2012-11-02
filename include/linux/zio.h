@@ -112,7 +112,7 @@ static inline enum zio_object_type zio_get_object_type(struct device *dev)
 }
 
 /* Bits 0..3 are reserved for use in all objects. By now only bit 1 is used */
-enum zobj_flags {
+enum zio_obj_flags {
 	ZIO_STATUS		= 0x1,	/* 0 (default) is enabled */
 	ZIO_ENABLED		= 0x0,
 	ZIO_DISABLED		= 0x1,
@@ -204,12 +204,12 @@ struct zio_cset {
 };
 
 /* first 4bit are reserved for zio object universal flags */
-enum zcset_flags {
-	ZCSET_TYPE		= 0x70,	/* digital, analog, time, TBD... */
-	ZCSET_TYPE_DIGITAL	= 0x00,
-	ZCSET_TYPE_ANALOG	= 0x10,
-	ZCSET_TYPE_TIME		= 0x20,
-	ZCSET_CHAN_TEMPLATE	= 0x80, /* 1 if channels from template */
+enum zio_cset_flags {
+	ZIO_CSET_TYPE		= 0x70,	/* digital, analog, time, TBD... */
+	ZIO_CSET_TYPE_DIGITAL	= 0x00,
+	ZIO_CSET_TYPE_ANALOG	= 0x10,
+	ZIO_CSET_TYPE_TIME     	= 0x20,
+	ZIO_CSET_CHAN_TEMPLATE	= 0x80, /* 1 if channels from template */
 
 };
 
@@ -238,10 +238,10 @@ struct zio_channel {
 };
 
 /* first 4bit are reserved for zio object universal flags */
-enum zchan_flag_mask {
-	ZCHAN_POLAR		= 0x10,	/* 0 is positive - 1 is negative*/
-	ZCHAN_POLAR_POSITIVE	= 0x00,
-	ZCHAN_POLAR_NEGATIVE	= 0x10,
+enum zio_chan_flags {
+	ZIO_CHAN_POLAR		= 0x10,	/* 0 is positive - 1 is negative*/
+	ZIO_CHAN_POLAR_POSITIVE	= 0x00,
+	ZIO_CHAN_POLAR_NEGATIVE	= 0x10,
 };
 
 /* get each channel from cset */

@@ -118,7 +118,7 @@ static struct zio_cset zzero_cset[] = {
 		.raw_io =	zzero_input_8,
 		.n_chan =	3,
 		.ssize =	1,
-		.flags =	ZIO_DIR_INPUT | ZCSET_TYPE_ANALOG,
+		.flags =	ZIO_DIR_INPUT | ZIO_CSET_TYPE_ANALOG,
 		.zattr_set = {
 			.std_zattr = zzero_zattr_cset8,
 		},
@@ -128,7 +128,7 @@ static struct zio_cset zzero_cset[] = {
 		.raw_io =	zzero_output,
 		.n_chan =	1,
 		.ssize =	1,
-		.flags =	ZIO_DIR_OUTPUT | ZCSET_TYPE_ANALOG,
+		.flags =	ZIO_DIR_OUTPUT | ZIO_CSET_TYPE_ANALOG,
 		.zattr_set = {
 			.std_zattr = zzero_zattr_cset8,
 		},
@@ -138,7 +138,7 @@ static struct zio_cset zzero_cset[] = {
 		.raw_io =	zzero_input_32,
 		.n_chan =	1,
 		.ssize =	4,
-		.flags =	ZIO_DIR_INPUT | ZCSET_TYPE_ANALOG,
+		.flags =	ZIO_DIR_INPUT | ZIO_CSET_TYPE_ANALOG,
 		.zattr_set = {
 			.std_zattr = zzero_zattr_cset32,
 			.ext_zattr = zzero_cset1_ext,

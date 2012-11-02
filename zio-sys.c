@@ -1668,7 +1668,7 @@ static int chan_register(struct zio_channel *chan, struct zio_channel *chan_t)
 	chan->head.zobj_type = ZCHAN;
 
 	/* Copy from template, initialize and verify zio attributes */
-	if (chan_t) { /* ZCSET_CHAN_TEMPLATE is set */
+	if (chan_t) { /* ZIO_CSET_CHAN_TEMPLATE is set */
 		chan->flags |= chan_t->flags;
 		if (chan_t->zattr_set.std_zattr)
 			chan_t->zattr_set.n_std_attr = ZATTR_STD_NUM_ZDEV;
@@ -1766,7 +1766,7 @@ static void chan_unregister(struct zio_channel *chan)
 	device_unregister(&chan->head.dev);
 	zio_free_control(chan->current_ctrl);
 	zattr_set_remove(&chan->head);
-	if (chan->cset->flags & ZCSET_CHAN_TEMPLATE)
+	if (chan->cset->flags & ZIO_CSET_CHAN_TEMPLATE)
 		__zattr_set_free(&chan->zattr_set);
 }
 
@@ -1903,7 +1903,7 @@ static int cset_register(struct zio_cset *cset, struct zio_cset *cset_t)
 	if (!cset->chan)
 		goto out_n_chan;
 	if (cset->chan_template || cset_t->chan)
-		cset->flags |= ZCSET_CHAN_TEMPLATE;
+		cset->flags |= ZIO_CSET_CHAN_TEMPLATE;
 
 	/* Register all child channels */
 	for (i = 0; i < cset->n_chan; i++) {

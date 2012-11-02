@@ -197,7 +197,7 @@ static struct zio_cset ad7887_ain_cset[] = { /* ad7887 cset */
 		.raw_io = ad788x_input_cset,
 		.ssize = 2,
 		.n_chan = 2,
-		.flags = ZCSET_TYPE_ANALOG |	/* is analog */
+		.flags = ZIO_CSET_TYPE_ANALOG |	/* is analog */
 			 ZIO_DIR_INPUT		/* is input */,
 	},
 };
@@ -206,7 +206,7 @@ static struct zio_cset ad7888_ain_cset[] = { /* ad7888 cset */
 		.raw_io = ad788x_input_cset,
 		.ssize = 2,
 		.n_chan = 8,
-		.flags = ZCSET_TYPE_ANALOG |	/* is analog */
+		.flags = ZIO_CSET_TYPE_ANALOG |	/* is analog */
 			 ZIO_DIR_INPUT		/* is input */,
 	},
 };
