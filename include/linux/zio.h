@@ -245,7 +245,7 @@ enum zio_chan_flags {
 };
 
 /* get each channel from cset */
-static inline struct zio_channel *__first_enabled_chan(struct zio_cset *cset,
+static inline struct zio_channel *zio_first_enabled_chan(struct zio_cset *cset,
 						struct zio_channel *chan)
 {
 	if (unlikely(chan - cset->chan >= cset->n_chan))
@@ -260,7 +260,7 @@ static inline struct zio_channel *__first_enabled_chan(struct zio_cset *cset,
 }
 #define chan_for_each(cptr, cset)				\
 		for (cptr = cset->chan;				\
-		     (cptr = __first_enabled_chan(cset, cptr));	\
+		     (cptr = zio_first_enabled_chan(cset, cptr));	\
 		     cptr++)
 
 /* Use this in defining csets */
