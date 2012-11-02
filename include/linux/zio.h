@@ -106,7 +106,7 @@ struct zio_obj_head {
 	} el;								\
 })
 
-static inline enum zio_object_type __zio_get_object_type(struct device *dev)
+static inline enum zio_object_type zio_get_object_type(struct device *dev)
 {
 	return to_zio_head(dev)->zobj_type;
 }
