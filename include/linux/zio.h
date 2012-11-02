@@ -271,7 +271,7 @@ static inline struct zio_channel *__first_enabled_chan(struct zio_cset *cset,
  * spinlock must be taken before invoke this function and it can be released
  * after the complete consumption of the information provided by this function
  */
-static inline unsigned int __get_n_chan_enabled(struct zio_cset *cset) {
+static inline unsigned int zio_get_n_chan_enabled(struct zio_cset *cset) {
 	struct zio_channel *chan;
 	unsigned int n_chan = 0;
 

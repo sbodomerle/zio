@@ -146,7 +146,7 @@ static int ad788x_input_cset(struct zio_cset *cset)
 		return -ENOMEM;
 
 	ad788x = cset->zdev->priv_d;
-	context->chan_enable = __get_n_chan_enabled(cset);
+	context->chan_enable = zio_get_n_chan_enabled(cset);
 
 	/* prepare SPI message and transfer */
 	nsamples = cset->chan->current_ctrl->nsamples;
