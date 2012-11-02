@@ -41,7 +41,7 @@ struct zbk_item {
 };
 #define to_item(block) container_of(block, struct zbk_item, block);
 
-static DEFINE_ZATTR_STD(ZBUF, zbk_std_zattr) = {
+static DEFINE_ZATTR_STD(ZIO_BUF, zbk_std_zattr) = {
 	ZATTR_REG(zbuf, ZATTR_ZBUF_MAXLEN, S_IRUGO | S_IWUGO, 0x0, 16),
 };
 

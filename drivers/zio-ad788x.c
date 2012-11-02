@@ -55,13 +55,13 @@ struct ad788x {
  * register to set but only a value. Address is used as mask in the tx_buf.
  */
 /* Standard attributes for AD7887*/
-static DEFINE_ZATTR_STD(ZDEV, zattr_dev_ad7887) = {
+static DEFINE_ZATTR_STD(ZIO_DEV, zattr_dev_ad7887) = {
 	ZATTR_REG(zdev, ZATTR_NBITS, S_IRUGO, 0, 12),
 	/* vref_src can be internal (0) or external (1)*/
 	ZATTR_REG(zdev, ZATTR_VREFTYPE, S_IRUGO | S_IWUGO, AD7887_VREF_ADDR, 1),
 };
 /* Standard attributes for AD7888*/
-static DEFINE_ZATTR_STD(ZDEV, zattr_dev_ad7888) = {
+static DEFINE_ZATTR_STD(ZIO_DEV, zattr_dev_ad7888) = {
 	ZATTR_REG(zdev, ZATTR_NBITS, S_IRUGO, 0, 12),
 	/* vref_src can be internal (0) or external (1)*/
 	ZATTR_REG(zdev, ZATTR_VREFTYPE, S_IRUGO | S_IWUGO, AD7888_VREF_ADDR, 0),

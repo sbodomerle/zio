@@ -23,7 +23,7 @@
 
 static struct zio_status *zstat = &zio_global_status; /* Always use ptr */
 
-const char zio_zdev_attr_names[ZATTR_STD_NUM_ZDEV][ZIO_NAME_LEN] = {
+const char zio_zdev_attr_names[_ZIO_DEV_ATTR_STD_NUM][ZIO_NAME_LEN] = {
 	[ZATTR_GAIN]		= "gain_factor",
 	[ZATTR_OFFSET]		= "offset",
 	[ZATTR_NBITS]		= "resolution-bits",
@@ -31,13 +31,13 @@ const char zio_zdev_attr_names[ZATTR_STD_NUM_ZDEV][ZIO_NAME_LEN] = {
 	[ZATTR_VREFTYPE]	= "vref-src",
 };
 EXPORT_SYMBOL(zio_zdev_attr_names);
-const char zio_trig_attr_names[ZATTR_STD_NUM_TRIG][ZIO_NAME_LEN] = {
+const char zio_trig_attr_names[_ZIO_TRG_ATTR_STD_NUM][ZIO_NAME_LEN] = {
 	[ZATTR_TRIG_REENABLE]	= "re-enable",
 	[ZATTR_TRIG_PRE_SAMP]	= "pre-samples",
 	[ZATTR_TRIG_POST_SAMP]	= "post-samples",
 };
 EXPORT_SYMBOL(zio_trig_attr_names);
-const char zio_zbuf_attr_names[ZATTR_STD_NUM_ZBUF][ZIO_NAME_LEN] = {
+const char zio_zbuf_attr_names[_ZIO_BUF_ATTR_STD_NUM][ZIO_NAME_LEN] = {
 	[ZATTR_ZBUF_MAXLEN]	= "max-buffer-len",
 	[ZATTR_ZBUF_MAXKB]	= "max-buffer-kb",
 };
@@ -443,19 +443,19 @@ static spinlock_t *__get_spinlock(struct zio_obj_head *head)
 	spinlock_t *lock;
 
 	switch (head->zobj_type) {
-	case ZDEV:
+	case ZIO_DEV:
 		lock = &to_zio_dev(&head->dev)->lock;
 		break;
-	case ZCSET:
+	case ZIO_CSET:
 		lock = &to_zio_cset(&head->dev)->zdev->lock;
 		break;
-	case ZCHAN:
+	case ZIO_CHAN:
 		lock = &to_zio_chan(&head->dev)->cset->zdev->lock;
 		break;
-	case ZTI: /* we might not want to take a lock but... */
+	case ZIO_TI: /* we might not want to take a lock but... */
 		lock = &to_zio_ti(&head->dev)->cset->zdev->lock;
 		break;
-	case ZBI:
+	case ZIO_BI:
 		lock = &to_zio_bi(&head->dev)->cset->zdev->lock;
 		break;
 	default:
@@ -635,7 +635,7 @@ static void __zattr_propagate_value(struct zio_obj_head *head,
 
 	pr_debug("%s\n", __func__);
 	switch (head->zobj_type) {
-	case ZDEV:
+	case ZIO_DEV:
 		zdev = to_zio_dev(&head->dev);
 		for (i = 0; i < zdev->n_cset; ++i) {
 			cset = &zdev->cset[i];
@@ -645,18 +645,18 @@ static void __zattr_propagate_value(struct zio_obj_head *head,
 			}
 		}
 		break;
-	case ZCSET:
+	case ZIO_CSET:
 		cset = to_zio_cset(&head->dev);
 		for (i = 0; i < cset->n_chan; ++i) {
 			ctrl = cset->chan[i].current_ctrl;
 			__zattr_valcpy(&ctrl->attr_channel, zattr);
 		}
 		break;
-	case ZCHAN:
+	case ZIO_CHAN:
 		ctrl = to_zio_chan(&head->dev)->current_ctrl;
 		__zattr_valcpy(&ctrl->attr_channel, zattr);
 		break;
-	case ZTI:
+	case ZIO_TI:
 		ti = to_zio_ti(&head->dev);
 		/* Update all channel current control */
 		for (i = 0; i < ti->cset->n_chan; ++i) {
@@ -813,7 +813,7 @@ static void __zobj_enable(struct device *dev, unsigned int enable)
 	/* change status */
 	*flags = (*flags & (~ZIO_STATUS)) | status;
 	switch (head->zobj_type) {
-	case ZDEV:
+	case ZIO_DEV:
 		pr_debug("%s: zdev\n", __func__);
 
 		zdev = to_zio_dev(dev);
@@ -822,7 +822,7 @@ static void __zobj_enable(struct device *dev, unsigned int enable)
 			__zobj_enable(&zdev->cset[i].head.dev, enable);
 		/* device callback */
 		break;
-	case ZCSET:
+	case ZIO_CSET:
 		pr_debug("%s: zcset\n", __func__);
 
 		cset = to_zio_cset(dev);
@@ -833,11 +833,11 @@ static void __zobj_enable(struct device *dev, unsigned int enable)
 			__zobj_enable(&cset->chan[i].head.dev, enable);
 		/* cset callback */
 		break;
-	case ZCHAN:
+	case ZIO_CHAN:
 		pr_debug("%s: zchan\n", __func__);
 		/* channel callback */
 		break;
-	case ZTI:
+	case ZIO_TI:
 		pr_debug("%s: zti\n", __func__);
 
 		ti = to_zio_ti(dev);
@@ -847,9 +847,9 @@ static void __zobj_enable(struct device *dev, unsigned int enable)
 			ti->t_op->change_status(ti, status);
 		break;
 	/* following objects can't be enabled/disabled */
-	case ZBUF:
-	case ZTRIG:
-	case ZBI:
+	case ZIO_BUF:
+	case ZIO_TRG:
+	case ZIO_BI:
 		pr_debug("%s: others\n", __func__);
 		/* buffer instance callback */
 		break;
@@ -1468,7 +1468,7 @@ static struct zio_bi *__bi_create_and_init(struct zio_buffer_type *zbuf,
 	/* Initialize head */
 	bi->head.dev.type = &bi_device_type;
 	bi->head.dev.parent = &chan->head.dev;
-	bi->head.zobj_type = ZBI;
+	bi->head.zobj_type = ZIO_BI;
 	snprintf(bi->head.name, ZIO_NAME_LEN, "%s-%s-%d-%d",
 		 zbuf->head.name, chan->cset->zdev->head.name,
 		 chan->cset->index, chan->index);
@@ -1556,7 +1556,7 @@ static struct zio_ti *__ti_create_and_init(struct zio_trigger_type *trig,
 	/* Initialize head */
 	ti->head.dev.type = &zobj_device_type;
 	ti->head.dev.parent = &cset->head.dev;
-	ti->head.zobj_type = ZTI;
+	ti->head.zobj_type = ZIO_TI;
 	snprintf(ti->head.name, ZIO_NAME_LEN, "%s-%s-%d",
 		 trig->head.name, cset->zdev->head.name, cset->index);
 	/* Copy sysfs attribute from trigger type */
@@ -1665,13 +1665,13 @@ static int chan_register(struct zio_channel *chan, struct zio_channel *chan_t)
 	pr_debug("%s:%d\n", __func__, __LINE__);
 	if (!chan)
 		return -EINVAL;
-	chan->head.zobj_type = ZCHAN;
+	chan->head.zobj_type = ZIO_CHAN;
 
 	/* Copy from template, initialize and verify zio attributes */
 	if (chan_t) { /* ZIO_CSET_CHAN_TEMPLATE is set */
 		chan->flags |= chan_t->flags;
 		if (chan_t->zattr_set.std_zattr)
-			chan_t->zattr_set.n_std_attr = ZATTR_STD_NUM_ZDEV;
+			chan_t->zattr_set.n_std_attr = _ZIO_DEV_ATTR_STD_NUM;
 		err = __zattr_set_copy(&chan->zattr_set, &chan_t->zattr_set);
 		if (err)
 			goto out_zattr_copy;
@@ -1839,7 +1839,7 @@ static int cset_register(struct zio_cset *cset, struct zio_cset *cset_t)
 	struct zio_ti *ti = NULL;
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
-	cset->head.zobj_type = ZCSET;
+	cset->head.zobj_type = ZIO_CSET;
 
 	/* Get an available minor base */
 	err = __zio_minorbase_get(cset);
@@ -1850,7 +1850,7 @@ static int cset_register(struct zio_cset *cset, struct zio_cset *cset_t)
 
 	/* Copy from template, initialize and verify zio attributes */
 	if (cset_t->zattr_set.std_zattr)
-		cset_t->zattr_set.n_std_attr = ZATTR_STD_NUM_ZDEV;
+		cset_t->zattr_set.n_std_attr = _ZIO_DEV_ATTR_STD_NUM;
 	err = __zattr_set_copy(&cset->zattr_set, &cset_t->zattr_set);
 	if (err)
 		goto out_zattr_copy;
@@ -2060,7 +2060,7 @@ static int __zdev_register(struct zio_device *parent,
 
 	spin_lock_init(&zdev->lock);
 	zdev->priv_d = parent->priv_d;
-	zdev->head.zobj_type = ZDEV;
+	zdev->head.zobj_type = ZIO_DEV;
 	zdev->head.dev.parent = &parent->head.dev;
 	zdev->dev_id = parent->dev_id;
 	zdev->head.dev.type = &zobj_device_type;
@@ -2080,7 +2080,7 @@ static int __zdev_register(struct zio_device *parent,
 
 
 	if (tmpl->zattr_set.std_zattr)
-		tmpl->zattr_set.n_std_attr = ZATTR_STD_NUM_ZDEV;
+		tmpl->zattr_set.n_std_attr = _ZIO_DEV_ATTR_STD_NUM;
 	/* Create standard and extended sysfs attribute for device */
 	err = __zattr_set_copy(&zdev->zattr_set, &tmpl->zattr_set);
 	if (err)
@@ -2247,14 +2247,14 @@ int zio_register_buf(struct zio_buffer_type *zbuf, const char *name)
 	if (err < 0)
 		return err;
 
-	zbuf->head.zobj_type = ZBUF;
+	zbuf->head.zobj_type = ZIO_BUF;
 	err = zobj_register(&zstat->all_buffer_types, &zbuf->head, zbuf->owner);
 	if (err) {
 		zio_fini_buffer_fops(zbuf);
 		return err;
 	}
 	if (zbuf->zattr_set.std_zattr)
-		zbuf->zattr_set.n_std_attr = ZATTR_STD_NUM_ZBUF;
+		zbuf->zattr_set.n_std_attr = _ZIO_BUF_ATTR_STD_NUM;
 	INIT_LIST_HEAD(&zbuf->list);
 	spin_lock_init(&zbuf->lock);
 
@@ -2292,12 +2292,12 @@ int zio_register_trig(struct zio_trigger_type *trig, const char *name)
 	if (err)
 		return err < 0 ? err: -EBUSY;
 	strncpy(trig->head.name, name, ZIO_OBJ_NAME_LEN);
-	trig->head.zobj_type = ZTRIG;
+	trig->head.zobj_type = ZIO_TRG;
 	err = zobj_register(&zstat->all_trigger_types, &trig->head, trig->owner);
 	if (err)
 		return err;
 	if (trig->zattr_set.std_zattr)
-		trig->zattr_set.n_std_attr = ZATTR_STD_NUM_TRIG;
+		trig->zattr_set.n_std_attr = _ZIO_TRG_ATTR_STD_NUM;
 	INIT_LIST_HEAD(&trig->list);
 	spin_lock_init(&trig->lock);
 
@@ -2326,9 +2326,9 @@ static int __init zio_init(void)
 	BUILD_BUG_ON_NOT_POWER_OF_2(ZIO_CHAN_MAXNUM);
 	BUILD_BUG_ON_NOT_POWER_OF_2(ZIO_CSET_MAXNUM);
 	BUILD_BUG_ON(ZIO_CSET_MAXNUM * ZIO_CHAN_MAXNUM * 2 > MINORMASK);
-	BUILD_BUG_ON(ZATTR_STD_NUM_ZDEV != ARRAY_SIZE(zio_zdev_attr_names));
-	BUILD_BUG_ON(ZATTR_STD_NUM_ZBUF != ARRAY_SIZE(zio_zbuf_attr_names));
-	BUILD_BUG_ON(ZATTR_STD_NUM_TRIG != ARRAY_SIZE(zio_trig_attr_names));
+	BUILD_BUG_ON(_ZIO_DEV_ATTR_STD_NUM != ARRAY_SIZE(zio_zdev_attr_names));
+	BUILD_BUG_ON(_ZIO_BUF_ATTR_STD_NUM != ARRAY_SIZE(zio_zbuf_attr_names));
+	BUILD_BUG_ON(_ZIO_TRG_ATTR_STD_NUM != ARRAY_SIZE(zio_trig_attr_names));
 
 	err = zio_slab_init();
 	if (err)
@@ -2343,11 +2343,11 @@ static int __init zio_init(void)
 		goto out_cdev;
 
 	INIT_LIST_HEAD(&zstat->all_devices.list);
-	zstat->all_devices.zobj_type = ZDEV;
+	zstat->all_devices.zobj_type = ZIO_DEV;
 	INIT_LIST_HEAD(&zstat->all_trigger_types.list);
-	zstat->all_trigger_types.zobj_type = ZTRIG;
+	zstat->all_trigger_types.zobj_type = ZIO_TRG;
 	INIT_LIST_HEAD(&zstat->all_buffer_types.list);
-	zstat->all_buffer_types.zobj_type = ZBUF;
+	zstat->all_buffer_types.zobj_type = ZIO_BUF;
 
 	err = zio_default_buffer_init();
 	if (err)

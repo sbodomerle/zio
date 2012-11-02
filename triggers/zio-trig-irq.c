@@ -28,7 +28,7 @@ enum zti_attrs {
 	ZTI_ATTR_GPIO,
 };
 
-static DEFINE_ZATTR_STD(TRIG, zti_std_attr) = {
+static DEFINE_ZATTR_STD(ZIO_TRG, zti_std_attr) = {
 	ZATTR_REG(trig, ZATTR_TRIG_POST_SAMP, S_IRUGO | S_IWUGO,
 		  ZTI_ATTR_NSAMPLES, 16),
 };

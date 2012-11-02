@@ -69,32 +69,32 @@ struct zio_attribute_set {
 	unsigned int		n_ext_attr;
 };
 
-enum zattr_standard_zdev {
+enum zio_dev_std_attr {
 	ZATTR_NBITS,	/* number of bits per sample */
 	ZATTR_GAIN,	/* gain for signal, integer in 0.001 steps */
 	ZATTR_OFFSET,	/* microvolts */
 	ZATTR_MAXRATE,	/* hertz */
 	ZATTR_VREFTYPE,	/* source of Vref (0 = default) */
-	ZATTR_STD_NUM_ZDEV,		/* used to size arrays */
+	_ZIO_DEV_ATTR_STD_NUM,	/* used to size arrays */
 };
-enum zattr_standard_trig {
+enum zio_trg_std_attr {
 	ZATTR_TRIG_REENABLE = 0,/* re-arm trigger */
 	ZATTR_TRIG_POST_SAMP,	/* samples after trigger fire */
 	ZATTR_TRIG_PRE_SAMP,	/* samples before trigger fire */
-	ZATTR_STD_NUM_TRIG,	/* used to size arrays */
+	_ZIO_TRG_ATTR_STD_NUM,	/* used to size arrays */
 };
-enum zattr_standard_zbuf {
+enum zio_buf_std_attr {
 	ZATTR_ZBUF_MAXLEN = 0,	/* max number of element in buffer */
 	ZATTR_ZBUF_MAXKB,	/* max number of kB in buffer */
-	ZATTR_STD_NUM_ZBUF,	/* used to size arrays */
+	_ZIO_BUF_ATTR_STD_NUM,	/* used to size arrays */
 };
 
-extern const char zio_zdev_attr_names[ZATTR_STD_NUM_ZDEV][ZIO_NAME_LEN];
-extern const char zio_trig_attr_names[ZATTR_STD_NUM_TRIG][ZIO_NAME_LEN];
-extern const char zio_zbuf_attr_names[ZATTR_STD_NUM_ZBUF][ZIO_NAME_LEN];
+extern const char zio_zdev_attr_names[_ZIO_DEV_ATTR_STD_NUM][ZIO_NAME_LEN];
+extern const char zio_trig_attr_names[_ZIO_TRG_ATTR_STD_NUM][ZIO_NAME_LEN];
+extern const char zio_zbuf_attr_names[_ZIO_BUF_ATTR_STD_NUM][ZIO_NAME_LEN];
 
 #define DEFINE_ZATTR_STD(_type, _name) struct zio_attribute \
-	_name[ZATTR_STD_NUM_##_type]
+	_name[_##_type##_ATTR_STD_NUM]
 
 /*
  * @ZATTR_REG: define a zio attribute with address register

@@ -18,10 +18,10 @@
 ZIO_PARAM_TRIGGER(zzero_trigger);
 ZIO_PARAM_BUFFER(zzero_buffer);
 
-DEFINE_ZATTR_STD(ZDEV, zzero_zattr_cset8) = {
+DEFINE_ZATTR_STD(ZIO_DEV, zzero_zattr_cset8) = {
 	ZATTR_REG(zdev, ZATTR_NBITS, S_IRUGO, 0, 8), /* 8 bit -> ssize = 1 */
 };
-DEFINE_ZATTR_STD(ZDEV, zzero_zattr_cset32) = {
+DEFINE_ZATTR_STD(ZIO_DEV, zzero_zattr_cset32) = {
 	ZATTR_REG(zdev, ZATTR_NBITS, S_IRUGO, 0, 32), /* 32 bit -> ssize = 4 */
 };
 /* This attribute is the sequence point for input channel number 0 of cset 2 */

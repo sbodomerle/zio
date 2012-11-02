@@ -19,7 +19,7 @@
 
 #define ZTU_DEFAULT_BLOCK_SIZE 16
 
-static DEFINE_ZATTR_STD(TRIG, ztu_std_attr) = {
+static DEFINE_ZATTR_STD(ZIO_TRG, ztu_std_attr) = {
 	ZATTR_REG(trig, ZATTR_TRIG_POST_SAMP, S_IRUGO | S_IWUGO,
 		  0 /* no addr needed */, ZTU_DEFAULT_BLOCK_SIZE),
 };

@@ -54,10 +54,10 @@ struct zio_trigger_operations;
  * begin with the type identifier, and zio_obj_head is used in container_of
  */
 enum zio_object_type {
-	ZNONE = 0,	/* reserved for non zio object */
-	ZDEV, ZCSET, ZCHAN,
-	ZTRIG, ZTI,	/* trigger and trigger instance */
-	ZBUF, ZBI,	/* buffer and buffer instance */
+	ZIO_NONE = 0,	/* reserved for non zio object */
+	ZIO_DEV, ZIO_CSET, ZIO_CHAN,
+	ZIO_TRG, ZIO_TI, /* trigger and trigger instance */
+	ZIO_BUF, ZIO_BI, /* buffer and buffer instance */
 };
 
 /* zio_obj_head is for internal use only, as explained above */
@@ -80,25 +80,25 @@ struct zio_obj_head {
 #define __get_from_zobj(_head, member) ({				\
 	typeof(to_zio_dev(&_head->dev)->member) (*el) = NULL;		\
 	switch (_head->zobj_type) {					\
-	case ZDEV:							\
+	case ZIO_DEV:							\
 		el = &to_zio_dev(&_head->dev)->member;			\
 		break;							\
-	case ZCSET:							\
+	case ZIO_CSET:							\
 		el = &to_zio_cset(&_head->dev)->member;			\
 		break;							\
-	case ZCHAN:							\
+	case ZIO_CHAN:							\
 		el = &to_zio_chan(&_head->dev)->member;			\
 		break;							\
-	case ZBUF:							\
+	case ZIO_BUF:							\
 		el = &to_zio_buf(&_head->dev)->member;			\
 		break;							\
-	case ZTRIG:							\
+	case ZIO_TRG:							\
 		el = &to_zio_trig(&_head->dev)->member;			\
 		break;							\
-	case ZTI:							\
+	case ZIO_TI:							\
 		el = &to_zio_ti(&_head->dev)->member;			\
 		break;							\
-	case ZBI:							\
+	case ZIO_BI:							\
 		el = &to_zio_bi(&_head->dev)->member;			\
 		break;							\
 	default:							\

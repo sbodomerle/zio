@@ -32,7 +32,7 @@ enum ztt_attrs { /* names for the "addr" value of sw parameters */
 	ZTT_ATTR_PERIOD,
 };
 
-static DEFINE_ZATTR_STD(TRIG, ztt_std_attr) = {
+static DEFINE_ZATTR_STD(ZIO_TRG, ztt_std_attr) = {
 	ZATTR_REG(trig, ZATTR_TRIG_POST_SAMP, S_IRUGO | S_IWUGO,
 		  ZTT_ATTR_NSAMPLES, 16),
 };

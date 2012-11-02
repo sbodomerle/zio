@@ -35,7 +35,7 @@ module_param_array_named(in, zgp_in, int, &zgp_nin, 0444);
 ZIO_PARAM_TRIGGER(zgp_trigger);
 ZIO_PARAM_BUFFER(zgp_buffer);
 
-DEFINE_ZATTR_STD(ZDEV, zgp_zattr_dev) = {
+DEFINE_ZATTR_STD(ZIO_DEV, zgp_zattr_dev) = {
 	ZATTR_REG(zdev, ZATTR_NBITS, S_IRUGO, 0, 1), /* digital */
 };
 
