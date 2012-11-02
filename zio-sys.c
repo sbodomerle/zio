@@ -1645,8 +1645,7 @@ static uint16_t __get_nbits(struct zio_channel *chan)
 		if (zdev->zattr_set.std_zattr[ZIO_ATTR_NBITS].value)
 			return zdev->zattr_set.std_zattr[ZIO_ATTR_NBITS].value;
 
-	pr_warn("%s: device \"%s\" lacks \"resolution bit\" attribute\n",
-		__func__, chan->cset->zdev->head.name);
+	/* The attr. is optional, so devices with no attributes are allowed */
 	return chan->cset->ssize * BITS_PER_BYTE;
 }
 /*
