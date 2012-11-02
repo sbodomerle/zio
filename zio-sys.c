@@ -996,6 +996,39 @@ static ssize_t zattr_store(struct device *dev, struct device_attribute *attr,
 	return count;
 }
 
+/*
+ * zobj_read_cur_ctrl
+ * it returns the current control to userspace through binary sysfs file
+ */
+ssize_t zobj_read_cur_ctrl(struct file *file,struct kobject *kobj,
+			   struct bin_attribute *bin_attr,
+			   char *buf, loff_t off, size_t count)
+{
+	struct zio_channel *chan;
+
+	if (off >= bin_attr->size)
+		return 0;
+
+	/* This file must be read entirely */
+	if (off != 0)
+		return -ESPIPE; /* Illegal seek */
+	if (count < bin_attr->size)
+		return -EINVAL;
+	if (count > bin_attr->size)
+		count = bin_attr->size;
+
+	chan = to_zio_chan(container_of(kobj, struct device, kobj));
+	memcpy(buf, chan->current_ctrl, count); /* FIXME: lock */
+
+	return count;
+}
+
+static struct bin_attribute zio_attr_cur_ctrl = {
+	.attr = { .name = "current-control", .mode = 0444, },
+	.size = ZIO_CONTROL_SIZE, /* Will be modified for TLV support */
+	.read = zobj_read_cur_ctrl,
+};
+
 /* default zio attributes */
 static struct device_attribute zio_default_attributes[] = {
 	__ATTR(name, 0444, zobj_show_name, NULL),
@@ -1031,7 +1064,7 @@ static const struct attribute_group zio_groups[] = {
 	},
 	{	/* bi only group */
 		.attrs = def_bi_attrs_ptr,
-	}
+	},
 };
 /* default groups for most of the zio object */
 static const struct attribute_group *def_device_groups_ptr[] = {
@@ -1704,7 +1737,10 @@ static int chan_register(struct zio_channel *chan, struct zio_channel *chan_t)
 	err = device_register(&chan->head.dev);
 	if (err)
 		goto out_ctrl_bits;
-
+	/* Create the sysfs binary file for the current control */
+	err = sysfs_create_bin_file(&chan->head.dev.kobj, &zio_attr_cur_ctrl);
+	if (err)
+		goto out_bin_attr;
 	/* Create buffer */
 	bi = __bi_create_and_init(chan->cset->zbuf, chan);
 	if (IS_ERR(bi)) {
@@ -1728,6 +1764,8 @@ out_cdev_create:
 out_buf_reg:
 	__bi_destroy(chan->cset->zbuf, bi);
 out_buf_create:
+	sysfs_remove_bin_file(&chan->head.dev.kobj, &zio_attr_cur_ctrl);
+out_bin_attr:
 	device_unregister(&chan->head.dev);
 out_ctrl_bits:
 	zio_free_control(ctrl);
@@ -1749,6 +1787,7 @@ static void chan_unregister(struct zio_channel *chan)
 	/* destroy buffer instance */
 	__bi_unregister(chan->cset->zbuf, chan->bi);
 	__bi_destroy(chan->cset->zbuf, chan->bi);
+	sysfs_remove_bin_file(&chan->head.dev.kobj, &zio_attr_cur_ctrl);
 	device_unregister(&chan->head.dev);
 	zio_free_control(chan->current_ctrl);
 	zattr_set_remove(&chan->head);
