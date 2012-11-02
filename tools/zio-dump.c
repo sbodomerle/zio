@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <getopt.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/types.h>
@@ -121,7 +122,18 @@ void read_channel(int cfd, int dfd, FILE *log)
 
 	/* FIXME: some control information not being printed yet */
 
-	i = read(dfd, buf, sizeof(buf));
+	if (cfd != dfd) {
+		/* different files, we expect _only_ this data */
+		i = read(dfd, buf, sizeof(buf));
+	} else {
+		/* combined mode: only read the size we expect */
+		if (ctrl.nsamples * ctrl.ssize > sizeof(buf)) {
+			fprintf(stderr, "%s: buffer too small: "
+				"please fix me and recompile\n", prgname);
+			exit(1);
+		}
+		i = read(dfd, buf, ctrl.nsamples * ctrl.ssize);
+	}
 	if (i < 0) {
 		fprintf(stderr, "%s: data read: %s\n",
 			prgname, strerror(errno));
@@ -156,6 +168,18 @@ void read_channel(int cfd, int dfd, FILE *log)
 	putchar('\n');
 }
 
+void help(char *name)
+{
+	fprintf(stderr, "%s: Wrong number of arguments\n"
+		"Use:    \"%s [<opts>] <ctrl-file> <data-file> [...]\"\n"
+		"    or  \"%s -c <combined-file>\"\n",
+		name, name, name);
+	fprintf(stderr, "       -a   dump attributes too\n");
+	fprintf(stderr, "       -A   dump all attributes\n");
+	fprintf(stderr, "       -c   combined file (control+data)\n");
+	exit(1);
+}
+
 int main(int argc, char **argv)
 {
 	FILE *f;
@@ -163,27 +187,36 @@ int main(int argc, char **argv)
 	int *cfd; /* control file descriptors */
 	int *dfd; /* data file descriptors */
 	fd_set control_set, ready_set;
-	int i, j, maxfd, ndev;
+	int c, i, j, maxfd, ndev;
+	int combined = 0;
 
 	prgname = argv[0];
 
-	if (argc > 1 && !strcmp(argv[1], "-a")) {
-		do_print_attr = 1;
-		argv++;
-		argc--;
+        while ((c = getopt (argc, argv, "aAc")) != -1) {
+		switch(c) {
+		case 'a':
+			do_print_attr = 1;
+			break;
+		case 'A':
+			do_print_attr = 2;
+			break;
+		case 'c':
+			combined = 1;
+			break;
+		default:
+			help(prgname);
+		}
 	}
-	if (argc > 1 && !strcmp(argv[1], "-A")) {
-		do_print_attr = 2;
-		argv++;
-		argc--;
+	argv += optind - 1;
+	argc -= optind - 1;
+
+	if (combined && argc != 2)
+		help(prgname);
+	if (!combined) {
+		if (argc < 3 || (argc & 1) != 1)
+			help(prgname);
 	}
 
-	if (argc < 3 || (argc & 1) != 1) {
-		fprintf(stderr, "%s: Wrong number of arguments\n"
-			"Use: \"%s <ctrl-file> <data-file> [...]\"\n",
-			prgname, prgname);
-		exit(1);
-	}
 	cfd = malloc(argc / 2 * sizeof(*cfd));
 	dfd = malloc(argc / 2 * sizeof(*dfd));
 	if (!cfd || !dfd) {
@@ -193,7 +226,7 @@ int main(int argc, char **argv)
 
 	/* Open all pairs, and build the fd_set for later select() */
 	FD_ZERO(&control_set);
-	for (i = 1, j = 0; i < argc; i += 2, j++) {
+	for (i = 1, j = 0; !combined && i < argc; i += 2, j++) {
 		cfd[j] = open(argv[i], O_RDONLY);
 		dfd[j] = open(argv[i + 1], O_RDONLY);
 		if (cfd[j] < 0) {
@@ -223,12 +256,12 @@ int main(int argc, char **argv)
 			strerror(errno));
 		exit(1);
 	}
-	/* ensure proper strace information and output to pipes */
+	/* ensure proper strace information and proper output to pipes */
 	setlinebuf(stdout);
 	setbuf(f, NULL);
 
-	/* now read control and then data, forever */
-	while (1) {
+	/* now read control and then data, forever (unless "combined") */
+	while (!combined) {
 		ready_set = control_set;
 		i = select(maxfd + 1, &ready_set, NULL, NULL, NULL);
 		if (i < 0 && errno == EINTR)
@@ -242,4 +275,17 @@ int main(int argc, char **argv)
 			if (FD_ISSET(cfd[j], &ready_set))
 				read_channel(cfd[j], dfd[j], f);
 	}
+
+	/*
+	 * So, we are reading one combined file. Just open it and
+	 * read it forever (the function read_channel() will block)
+	 */
+	cfd[0] = open(argv[1], O_RDONLY);
+	if (cfd[0] < 0) {
+		fprintf(stderr, "%s: %s: %s\n", prgname, argv[1],
+			strerror(errno));
+		exit(1);
+	}
+	while (1)
+		read_channel(cfd[0], cfd[0], f);
 }
