@@ -1,6 +1,6 @@
 LINUX ?= /lib/modules/$(shell uname -r)/build
 
-zio-y := core.o chardev.o sysfs.o misc.o
+zio-y := core.o chardev.o sysfs.o misc.o tlv.o
 zio-y += bus.o objects.o helpers.o dma.o
 zio-y += buffers/zio-buf-kmalloc.o triggers/zio-trig-user.o
 

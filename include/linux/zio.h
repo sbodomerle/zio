@@ -149,6 +149,8 @@ struct zio_device {
 	char *preferred_buffer;
 	char *preferred_trigger;
 	void *priv_d;
+
+	struct zio_tlv *priv_tlv[ZIO_TLV_N_MAX]; /* Used by ZIO */
 };
 struct zio_device *zio_allocate_device(void);
 void zio_free_device(struct zio_device *dev);
@@ -178,11 +180,13 @@ struct zio_cset {
 	struct zio_channel	*chan_template;
 	/* Interleaved channel template */
 	struct zio_channel	*interleave;
+	struct zio_tlv		*tlv_interleave;
 	/* The cset is an array of channels */
 	struct zio_channel	*chan;
 	unsigned int		n_chan;
 
 	void			*priv_d;	/* private for the device */
+	struct zio_tlv		tlv;		/* tlv for the device*/
 
 	struct list_head	list_cset;	/* for cset global list */
 	int			minor, maxminor;

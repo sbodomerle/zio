@@ -152,7 +152,7 @@ void __zio_attr_propagate_value(struct zio_obj_head *head,
 	unsigned long flags;
 	struct zio_ti *ti;
 	struct zio_device *zdev;
-	struct zio_channel *chan;
+	struct zio_channel *chan, *interleave;
 	struct zio_cset *cset;
 	struct zio_control *ctrl;
 
@@ -178,8 +178,31 @@ void __zio_attr_propagate_value(struct zio_obj_head *head,
 		}
 		break;
 	case ZIO_CHAN:
-		ctrl = to_zio_chan(&head->dev)->current_ctrl;
+		chan = to_zio_chan(&head->dev);
+		ctrl = chan->current_ctrl;
 		__zattr_valcpy(&ctrl->attr_channel, zattr);
+
+
+		/*
+		 * If the parent cset allow interleaving, then copy
+		 * the value also in the TLV extension.
+		 */
+		if (!(chan->cset->flags & ZIO_CSET_CHAN_INTERLEAVE))
+			break;
+		cset = chan->cset;
+		interleave = cset->interleave;
+		ctrl = interleave->current_ctrl;
+
+		if (chan->index == 0) {
+			__zattr_valcpy(&ctrl->attr_channel, zattr);
+		} else {
+			struct zio_ctrl_attr *ctrl_attr;
+
+			ctrl_attr = zio_tlv_get_ctrl_attr(cset->tlv_interleave,
+							  chan->index);
+			__zattr_valcpy(ctrl_attr, zattr);
+		}
+
 		break;
 	case ZIO_TI:
 		ti = to_zio_ti(&head->dev);

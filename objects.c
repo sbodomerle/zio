@@ -38,7 +38,7 @@ static void __zdev_release(struct device *dev)
 	struct zio_device *zdev = to_zio_dev(dev);
 
 	dev_dbg(dev, "releasing device\n");
-
+	zio_tlv_destroy(zdev);
 	zobj_unregister(&zstat->all_devices, &zdev->head);
 	zio_destroy_attributes(&zdev->head);
 	kfree(zdev->cset);
@@ -1119,12 +1119,19 @@ int __zdev_register(struct zio_device *parent,
 		if (err)
 			goto out_cset;
 	}
+
+	err = zio_tlv_create(zdev);
+	if (err)
+		goto out_cset;
+
 	/* Fix extended attribute index */
 	err = __zattr_dev_init_ctrl(zdev);
 	if (err)
 		goto out_cset;
 
 	return 0;
+out_tlv:
+	/* Something */
 out_cset:
 	while (--i >= 0)
 		cset_unregister(&zdev->cset[i]);

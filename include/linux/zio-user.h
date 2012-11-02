@@ -68,6 +68,9 @@ enum zio_buf_std_attr {
  */
 #define __ZIO_CONTROL_SIZE	512
 
+/* Number of maximum TLV extension to the zio_control */
+#define ZIO_TLV_N_MAX		32
+
 /*
  * The timestamp is mostly app-specific. It cam be timspec-alike but
  * indidual devices may do whatever they want to match hardware.
@@ -109,6 +112,13 @@ struct zio_addr {
 	char devname[ZIO_OBJ_NAME_LEN];
 };
 
+/* List of supported extension by ZIO TLV */
+enum zio_tlv_type {
+	ZTLV_NONE = 0,	/* No more TLV available */
+	ZTLV_MORE,	/* Total Length of the next TLVs*/
+	ZTLV_INTERLEAVE,/* Payload is a zio_ctrl_attr structure */
+};
+
 /*
  * Extensions to the control (used in rare cases) use a TLV structure
  * that is made up of 16-byte lumps. The length is a number of lumps
@@ -121,6 +131,10 @@ struct zio_tlv {
 	uint32_t type;		/* low-half is globally assigned */
 	uint32_t length;	/* number of lumps, including this one */
 	uint8_t payload[8];
+};
+
+struct zio_tlv_attr {
+	struct zio_ctrl_attr attr;
 };
 
 /*
@@ -173,9 +187,11 @@ struct zio_control {
 	struct zio_ctrl_attr attr_trigger;
 
 	/* byte 496 */
+
 	struct zio_tlv tlv[1];
 	/* byte 512: we are done */
 };
+
 
 /* The following flags are used in the control structure */
 #define ZIO_CONTROL_LITTLE_ENDIAN	0x01000001

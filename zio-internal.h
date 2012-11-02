@@ -97,4 +97,9 @@ extern struct zio_device *zio_device_find_child(struct zio_device *parent);
 extern int zio_change_current_trigger(struct zio_cset *cset, char *name);
 extern int zio_change_current_buffer(struct zio_cset *cset, char *name);
 
+/* Defined in tlv.c */
+extern int zio_tlv_create(struct zio_device *zdev);
+extern void zio_tlv_destroy(struct zio_device *zdev);
+extern struct zio_ctrl_attr *zio_tlv_get_ctrl_attr(struct zio_tlv *tlv,
+						   unsigned int n_chan);
 #endif /* ZIO_INTERNAL_H_ */
