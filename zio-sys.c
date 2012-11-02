@@ -177,7 +177,7 @@ static void __zio_internal_data_done(struct zio_cset *cset)
 	zbuf = cset->zbuf;
 
 	if (unlikely((ti->flags & ZIO_DIR) == ZIO_DIR_OUTPUT)) {
-		cset_for_each(cset, chan) {
+		chan_for_each(chan, cset) {
 			bi = chan->bi;
 			block = chan->active_block;
 			if (block)
@@ -188,7 +188,7 @@ static void __zio_internal_data_done(struct zio_cset *cset)
 		return;
 	}
 	/* DIR_INPUT */
-	cset_for_each(cset, chan) {
+	chan_for_each(chan, cset) {
 		bi = chan->bi;
 		block = chan->active_block;
 		if (!block)
@@ -236,7 +236,7 @@ static void __zio_internal_abort_free(struct zio_cset *cset)
 	struct zio_channel *chan;
 	struct zio_block *block;
 
-	cset_for_each(cset, chan) {
+	chan_for_each(chan, cset) {
 		block = chan->active_block;
 		if (block)
 			cset->zbuf->b_op->free_block(chan->bi, block);
@@ -288,7 +288,7 @@ static void __zio_fire_input_trigger(struct zio_ti *ti)
 	pr_debug("%s:%d\n", __func__, __LINE__);
 
 	/* Allocate the buffer for the incoming sample, in active channels */
-	cset_for_each(cset, chan) {
+	chan_for_each(chan, cset) {
 		ch_ctrl = chan->current_ctrl;
 		ctrl = zio_alloc_control(GFP_ATOMIC);
 		if (!ctrl) {

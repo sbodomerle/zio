@@ -58,7 +58,7 @@ static int zzero_input_8(struct zio_cset *cset)
 	int i;
 
 	/* Return immediately: just fill the blocks */
-	cset_for_each(cset, chan) {
+	chan_for_each(chan, cset) {
 		block = chan->active_block;
 		if (!block)
 			continue;

@@ -48,7 +48,7 @@ static int zgp_output(struct zio_cset *cset)
 	uint8_t datum;
 	int i;
 
-	cset_for_each(cset, chan) {
+	chan_for_each(chan, cset) {
 		block = chan->active_block;
 		if (!block)
 			continue;
@@ -71,7 +71,7 @@ static int zgp_input(struct zio_cset *cset)
 	uint8_t datum;
 	int i, j;
 
-	cset_for_each(cset, chan) {
+	chan_for_each(chan, cset) {
 		block = chan->active_block;
 		if (!block)
 			continue;

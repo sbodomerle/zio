@@ -118,7 +118,7 @@ static void ad788x_complete(void *cont)
 	data = (uint16_t *) context->transfer.rx_buf;
 	data = &data[1];
 	/* demux data */
-	cset_for_each(cset, chan) {
+	chan_for_each(chan, cset) {
 			buf = (uint16_t *)chan->active_block->data;
 			for (i = 0; i < context->nsamples; ++i)
 				buf[i] = data[i * context->chan_enable + j];
@@ -165,7 +165,7 @@ static int ad788x_input_cset(struct zio_cset *cset)
 	command = (uint16_t *)context->transfer.tx_buf;
 	/* configure transfer buffer*/
 	for (i = 0,  k = 0; i < nsamples; ++i)
-		cset_for_each(cset, chan)
+		chan_for_each(chan, cset)
 			command[k++] = (chan->index << AD788x_ADDR_SHIFT) |
 							ad788x->cmd;
 	command[k] = ad788x->cmd;

@@ -258,7 +258,7 @@ static inline struct zio_channel *__first_enabled_chan(struct zio_cset *cset,
 		chan++;
 	}
 }
-#define cset_for_each(cset, cptr)				\
+#define chan_for_each(cptr, cset)				\
 		for (cptr = cset->chan;				\
 		     (cptr = __first_enabled_chan(cset, cptr));	\
 		     cptr++)
@@ -275,7 +275,7 @@ static inline unsigned int __get_n_chan_enabled(struct zio_cset *cset) {
 	struct zio_channel *chan;
 	unsigned int n_chan = 0;
 
-	cset_for_each(cset, chan)
+	chan_for_each(chan, cset)
 		++n_chan;
 	return n_chan;
 }
