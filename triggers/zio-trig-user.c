@@ -20,8 +20,8 @@
 #define ZTU_DEFAULT_BLOCK_SIZE 16
 
 static ZIO_ATTR_DEFINE_STD(ZIO_TRG, ztu_std_attr) = {
-	ZIO_ATTR_REG(trig, ZIO_ATTR_TRIG_POST_SAMP, S_IRUGO | S_IWUGO,
-		  0 /* no addr needed */, ZTU_DEFAULT_BLOCK_SIZE),
+	ZIO_ATTR(trig, ZIO_ATTR_TRIG_POST_SAMP, S_IRUGO | S_IWUGO,
+		 0 /* no addr needed */, ZTU_DEFAULT_BLOCK_SIZE),
 };
 
 int ztu_conf_set(struct device *dev, struct zio_attribute *zattr,

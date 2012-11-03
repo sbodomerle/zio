@@ -20,18 +20,18 @@ ZIO_PARAM_BUFFER(zzero_buffer);
 
 ZIO_ATTR_DEFINE_STD(ZIO_DEV, zzero_zattr_cset8) = {
 	/* 8 bit -> ssize = 1 */
-	ZIO_ATTR_REG(zdev, ZIO_ATTR_NBITS, S_IRUGO, 0, 8),
+	ZIO_ATTR(zdev, ZIO_ATTR_NBITS, S_IRUGO, 0, 8),
 };
 ZIO_ATTR_DEFINE_STD(ZIO_DEV, zzero_zattr_cset32) = {
 	/* 32 bit -> ssize = 4 */
-	ZIO_ATTR_REG(zdev, ZIO_ATTR_NBITS, S_IRUGO, 0, 32),
+	ZIO_ATTR(zdev, ZIO_ATTR_NBITS, S_IRUGO, 0, 32),
 };
 /* This attribute is the sequence point for input channel number 0 of cset 2 */
 enum zzero_ext {
 	ZZERO_SEQ,
 };
 static struct zio_attribute zzero_cset1_ext[] = {
-	ZIO_ATTR_EXT_REG("sequence", S_IRUGO | S_IWUGO, ZZERO_SEQ, 0),
+	ZIO_ATTR_EXT("sequence", S_IRUGO | S_IWUGO, ZZERO_SEQ, 0),
 };
 /*
  * This generates a sequence of 32-bit little-endian numbers.

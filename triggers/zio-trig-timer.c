@@ -33,13 +33,13 @@ enum ztt_attrs { /* names for the "addr" value of sw parameters */
 };
 
 static ZIO_ATTR_DEFINE_STD(ZIO_TRG, ztt_std_attr) = {
-	ZIO_ATTR_REG(trig, ZIO_ATTR_TRIG_POST_SAMP, S_IRUGO | S_IWUGO,
-		  ZTT_ATTR_NSAMPLES, 16),
+	ZIO_ATTR(trig, ZIO_ATTR_TRIG_POST_SAMP, S_IRUGO | S_IWUGO,
+		 ZTT_ATTR_NSAMPLES, 16),
 };
 
 static struct zio_attribute ztt_ext_attr[] = {
-	ZIO_ATTR_EXT_REG("ms-period", S_IRUGO | S_IWUGO,
-		      ZTT_ATTR_PERIOD, 2000),
+	ZIO_ATTR_EXT("ms-period", S_IRUGO | S_IWUGO,
+		     ZTT_ATTR_PERIOD, 2000),
 };
 static int ztt_conf_set(struct device *dev, struct zio_attribute *zattr,
 		uint32_t  usr_val)
@@ -48,7 +48,7 @@ static int ztt_conf_set(struct device *dev, struct zio_attribute *zattr,
 	struct ztt_instance *ztt;
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
-	switch (zattr->priv.addr) {
+	switch (zattr->id) {
 	case ZTT_ATTR_PERIOD:
 		ztt = to_ztt_instance(ti);
 		ztt->period = msecs_to_jiffies(usr_val);
@@ -58,7 +58,7 @@ static int ztt_conf_set(struct device *dev, struct zio_attribute *zattr,
 		break;
 	default:
 		pr_err("%s: unknown \"addr\" 0x%lx for configuration\n",
-				__func__, zattr->priv.addr);
+				__func__, zattr->id);
 		return -EINVAL;
 	}
 	return 0;

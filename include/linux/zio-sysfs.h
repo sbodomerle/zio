@@ -21,9 +21,9 @@
  * @attribute: standard attribute structure used to create a sysfs access
  * @flags: to set attribute capabilities
  * @index [INTERNAL]: index within a group of attribute (standard or extended)
- * @priv.reg: register address to use as is
- * @priv.reg_descriptor: a generic pointer used to specify how access to a
- *	particular register on device. This is defined by driver developer
+ * @id: something unique to identify the attribute. It can be the register
+ *      address which this attribute refers to. It can be an index of an array
+ *      which contain special information to gain access to a register.
  * @value: is the value stored on device
  * @show: is equivalent to info_get from zio_operations
  * @store: is equivalent to  conf_set from zio_operations
@@ -32,10 +32,7 @@ struct zio_attribute {
 	struct device_attribute			attr;
 	uint32_t				flags;
 	int					index;
-	union { /* priv is sometimes a pointer and sometimes an hw addr */
-		void				*ptr;
-		unsigned long			addr;
-	} priv;
+	unsigned long				id;
 	uint32_t				value;
 	const struct zio_sysfs_operations	*s_op;
 };
@@ -97,54 +94,34 @@ extern const char zio_zbuf_attr_names[_ZIO_BUF_ATTR_STD_NUM][ZIO_NAME_LEN];
 	_name[_##_type##_ATTR_STD_NUM]
 
 /*
- * @ZIO_ATTR_REG: define a zio attribute with address register
- * @ZIO_ATTR_PRV: define a zio attribute with private register
- * @ZIO_ATTR_EXT_REG: define a zio extended attribute with address register
- * @ZIO_ATTR_EXT_PRV: define a zio extended attribute with private register
- * @ZIO_PARAM_EXT_REG: define a zio attribute parameter with address register
- *                     (not included in ctrl)
- * @ZIO_PARAM_EXT_PRV: define a zio attribute parameter with private register
- *                     (not included in ctrl)
+ * @ZIO_ATTR: define a zio attribute
+ * @ZIO_ATTR_EXT: define a zio extended attribute
+ * @ZIO_PARAM_EXT: define a zio attribute parameter (not included in ctrl)
+
  */
-#define ZIO_ATTR_REG(zobj, _type, _mode, _add, _val)[_type] = {		\
+#define ZIO_ATTR(zobj, _type, _mode, _add, _val)[_type] = {		\
 		.attr = {						\
 			.attr = {					\
 				.name = zio_##zobj##_attr_names[_type],	\
 				.mode = _mode				\
 			},						\
 		},							\
-		.priv.addr = _add,					\
-		.value = _val,						\
-		.flags = ZIO_ATTR_CONTROL,		       		\
-}
-#define ZIO_ATTR_PRV(zobj, _type, _mode, _priv, _val)[_type] = {	\
-		.attr = {						\
-			.attr = {					\
-				.name = zio_##zobj##_attr_names[_type],	\
-				.mode = _mode				\
-			},						\
-		},							\
-		.priv.ptr = _priv,					\
+		.id = _add,						\
 		.value = _val,						\
 		.flags = ZIO_ATTR_CONTROL,				\
 }
-#define ZIO_ATTR_EXT_REG(_name, _mode, _add, _val) {			\
+#define ZIO_ATTR_EXT(_name, _mode, _add, _val) {			\
 		.attr = { .attr = {.name = _name, .mode = _mode},},	\
-		.priv.addr = _add,					\
+		.id = _add,						\
 		.value = _val,						\
 		.flags = ZIO_ATTR_CONTROL,				\
 }
-#define ZIO_PARAM_EXT_REG(_name, _mode, _add, _val) {			\
+#define ZIO_PARAM_EXT(_name, _mode, _add, _val) {			\
 		.attr = { .attr = {.name = _name, .mode = _mode},},	\
-		.priv.addr = _add,					\
+		.id = _add,						\
 		.value = _val,						\
 		.flags = 0,						\
 }
-#define ZIO_ATTR_EXT_PRV(_name, _mode, _priv, _val) {			\
-		.attr = { .attr = {.name = _name, .mode = _mode},},	\
-		.priv.ptr = _priv,					\
-		.value = _val,						\
-		.flags = ZIO_ATTR_CONTROL,				\
-}
+
 
 #endif /* ZIO_SYSFS_H_ */

@@ -51,7 +51,7 @@ struct zbk_item {
 #define to_item(block) container_of(block, struct zbk_item, block);
 
 static ZIO_ATTR_DEFINE_STD(ZIO_BUF, zbk_std_zattr) = {
-	ZIO_ATTR_REG(zbuf, ZIO_ATTR_ZBUF_MAXKB, S_IRUGO | S_IWUGO, 0x0, 128),
+	ZIO_ATTR(zbuf, ZIO_ATTR_ZBUF_MAXKB, S_IRUGO | S_IWUGO, 0x0, 128),
 };
 
 static int zbk_conf_set(struct device *dev, struct zio_attribute *zattr,
