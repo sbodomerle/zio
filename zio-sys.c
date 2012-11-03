@@ -696,6 +696,7 @@ static void __zattr_trig_init_ctrl(struct zio_ti *ti, struct zio_control *ctrl)
 static int __zattr_chan_init_ctrl(struct zio_channel *chan, unsigned int start)
 {
 	struct zio_ctrl_attr *ctrl_attr_chan;
+	struct zio_attribute *zattr;
 	struct zio_control *ctrl;
 	struct zio_device *zdev;
 	struct zio_cset *cset;
@@ -724,37 +725,39 @@ static int __zattr_chan_init_ctrl(struct zio_channel *chan, unsigned int start)
 	for (i = 0; i < zdev->zattr_set.n_std_attr; ++i)
 		__zattr_valcpy(ctrl_attr_chan, &zdev->zattr_set.std_zattr[i]);
 
+	zattr = chan->zattr_set.ext_zattr;
 	for (i = 0; i < chan->zattr_set.n_ext_attr; ++i) {
-		if (chan->zattr_set.ext_zattr[i].flags & ZIO_ATTR_CONTROL) {
+		if (zattr[i].flags & ZIO_ATTR_CONTROL) {
 			/* Fix channel extended attribute index */
-			chan->zattr_set.ext_zattr[i].index = start + i;
-			__zattr_valcpy(ctrl_attr_chan,
-				       &chan->zattr_set.ext_zattr[i]);
+			zattr[i].index = start + i;
+			__zattr_valcpy(ctrl_attr_chan, &zattr[i]);
 		} else {
-			chan->zattr_set.ext_zattr[i].index = ZIO_ATTR_INDEX_NONE;
+			zattr[i].index = ZIO_ATTR_INDEX_NONE;
 		}
 	}
+
+	zattr = cset->zattr_set.ext_zattr;
 	for (i = 0; i < cset->zattr_set.n_ext_attr; ++i)
-		if (cset->zattr_set.ext_zattr[i].flags & ZIO_ATTR_CONTROL)
-			__zattr_valcpy(ctrl_attr_chan,
-				       &cset->zattr_set.ext_zattr[i]);
+		if (zattr[i].flags & ZIO_ATTR_CONTROL)
+			__zattr_valcpy(ctrl_attr_chan, &zattr[i]);
 	for (i = 0; i < zdev->zattr_set.n_ext_attr; ++i)
-		if (zdev->zattr_set.ext_zattr[i].flags & ZIO_ATTR_CONTROL)
-			__zattr_valcpy(ctrl_attr_chan,
-				       &zdev->zattr_set.ext_zattr[i]);
+		if (zattr[i].flags & ZIO_ATTR_CONTROL)
+			__zattr_valcpy(ctrl_attr_chan, &zattr[i]);
 
 	return 0;
 }
 static int __zattr_cset_init_ctrl(struct zio_cset *cset, unsigned int start)
 {
+	struct zio_attribute *zattr;
 	int i, err, start_c = start;
 
 	/* Fix cset extended attribute index */
+	zattr = cset->zattr_set.ext_zattr;
 	for (i = 0; i < cset->zattr_set.n_ext_attr; ++i)
-		if (cset->zattr_set.ext_zattr[i].flags & ZIO_ATTR_CONTROL)
-			cset->zattr_set.ext_zattr[i].index = start_c++;
+		if (zattr[i].flags & ZIO_ATTR_CONTROL)
+			zattr[i].index = start_c++;
 		else
-			cset->zattr_set.ext_zattr[i].index = ZIO_ATTR_INDEX_NONE;
+			zattr[i].index = ZIO_ATTR_INDEX_NONE;
 
 	for (i = 0; i < cset->n_chan; ++i) {
 		err = __zattr_chan_init_ctrl(&cset->chan[i], start_c);
@@ -770,16 +773,18 @@ static int __zattr_cset_init_ctrl(struct zio_cset *cset, unsigned int start)
  */
 static int __zattr_dev_init_ctrl(struct zio_device *zdev)
 {
+	struct zio_attribute *zattr;
 	int i, err, start = 0;
 
 	pr_debug("%s\n", __func__);
 	/* Device level */
 	/* Fix device extended attribute index */
+	zattr = zdev->zattr_set.ext_zattr;
 	for (i = 0; i < zdev->zattr_set.n_ext_attr; ++i)
-		if (zdev->zattr_set.ext_zattr[i].flags & ZIO_ATTR_CONTROL)
-			zdev->zattr_set.ext_zattr[i].index = start++;
+		if (zattr[i].flags & ZIO_ATTR_CONTROL)
+			zattr[i].index = start++;
 		else
-			zdev->zattr_set.ext_zattr[i].index = ZIO_ATTR_INDEX_NONE;
+			zattr[i].index = ZIO_ATTR_INDEX_NONE;
 
 	for (i = 0; i < zdev->n_cset; ++i) {
 		err = __zattr_cset_init_ctrl(&zdev->cset[i], start);
@@ -1414,7 +1419,7 @@ ext:
 		zattr_set->ext_zattr[i].attr.show = zattr_show;
 		zattr_set->ext_zattr[i].attr.store = zattr_store;
 		zattr_set->ext_zattr[i].s_op = s_op;
-		zattr_set->ext_zattr[i].index = i; /* FIXME useless for zdev*/
+		zattr_set->ext_zattr[i].index = i;
 		zattr_set->ext_zattr[i].flags |= ZIO_ATTR_TYPE_EXT;
 	}
 	++g;
@@ -2274,18 +2279,20 @@ EXPORT_SYMBOL(zio_unregister_buf);
 /* Register a trigger into the available trigger list */
 int zio_register_trig(struct zio_trigger_type *trig, const char *name)
 {
+	struct zio_attribute *zattr;
 	int err;
 
 	if (!trig)
 		return -EINVAL;
-	if (!trig->zattr_set.std_zattr)
+	zattr = trig->zattr_set.std_zattr;
+	if (!zattr)
 		goto err_nsamp;
 	/*
 	 * The trigger must define how many samples acquire, so POST_SAMP or
 	 * PRE_SAMP attribute must be available
 	 */
-	if (!(trig->zattr_set.std_zattr[ZIO_ATTR_TRIG_POST_SAMP].attr.attr.mode ||
-		trig->zattr_set.std_zattr[ZIO_ATTR_TRIG_PRE_SAMP].attr.attr.mode))
+	if (!(zattr[ZIO_ATTR_TRIG_POST_SAMP].attr.attr.mode ||
+	      zattr[ZIO_ATTR_TRIG_PRE_SAMP].attr.attr.mode))
 		goto err_nsamp;
 	/* Verify if it is a valid name */
 	err = zobj_unique_name(&zstat->all_trigger_types, name);
@@ -2293,11 +2300,11 @@ int zio_register_trig(struct zio_trigger_type *trig, const char *name)
 		return err < 0 ? err : -EBUSY;
 	strncpy(trig->head.name, name, ZIO_OBJ_NAME_LEN);
 	trig->head.zobj_type = ZIO_TRG;
-	err = zobj_register(&zstat->all_trigger_types, &trig->head, trig->owner);
+	err = zobj_register(&zstat->all_trigger_types, &trig->head,
+			    trig->owner);
 	if (err)
 		return err;
-	if (trig->zattr_set.std_zattr)
-		trig->zattr_set.n_std_attr = _ZIO_TRG_ATTR_STD_NUM;
+	trig->zattr_set.n_std_attr = _ZIO_TRG_ATTR_STD_NUM;
 	INIT_LIST_HEAD(&trig->list);
 	spin_lock_init(&trig->lock);
 
