@@ -39,12 +39,12 @@ struct zio_attribute {
 	uint32_t				value;
 	const struct zio_sysfs_operations	*s_op;
 };
-#define ZATTR_INDEX_NONE -1
+#define ZIO_ATTR_INDEX_NONE -1
 enum zattr_flags {
-	ZATTR_TYPE	= 0x10,
-	ZATTR_TYPE_STD	= 0x00,
-	ZATTR_TYPE_EXT	= 0x10,
-	ZATTR_CONTROL	= 0x20,
+    ZIO_ATTR_TYPE	 = 0x10,
+	ZIO_ATTR_TYPE_STD	= 0x00,
+	ZIO_ATTR_TYPE_EXT	= 0x10,
+	ZIO_ATTR_CONTROL	= 0x20,
 };
 
 struct zio_sysfs_operations {
@@ -70,22 +70,22 @@ struct zio_attribute_set {
 };
 
 enum zio_dev_std_attr {
-	ZATTR_NBITS,	/* number of bits per sample */
-	ZATTR_GAIN,	/* gain for signal, integer in 0.001 steps */
-	ZATTR_OFFSET,	/* microvolts */
-	ZATTR_MAXRATE,	/* hertz */
-	ZATTR_VREFTYPE,	/* source of Vref (0 = default) */
+	ZIO_ATTR_NBITS,	/* number of bits per sample */
+	ZIO_ATTR_GAIN,	/* gain for signal, integer in 0.001 steps */
+	ZIO_ATTR_OFFSET,	/* microvolts */
+	ZIO_ATTR_MAXRATE,	/* hertz */
+	ZIO_ATTR_VREFTYPE,	/* source of Vref (0 = default) */
 	_ZIO_DEV_ATTR_STD_NUM,	/* used to size arrays */
 };
 enum zio_trg_std_attr {
-	ZATTR_TRIG_REENABLE = 0,/* re-arm trigger */
-	ZATTR_TRIG_POST_SAMP,	/* samples after trigger fire */
-	ZATTR_TRIG_PRE_SAMP,	/* samples before trigger fire */
+	ZIO_ATTR_TRIG_REENABLE = 0,/* re-arm trigger */
+	ZIO_ATTR_TRIG_POST_SAMP,	/* samples after trigger fire */
+	ZIO_ATTR_TRIG_PRE_SAMP,	/* samples before trigger fire */
 	_ZIO_TRG_ATTR_STD_NUM,	/* used to size arrays */
 };
 enum zio_buf_std_attr {
-	ZATTR_ZBUF_MAXLEN = 0,	/* max number of element in buffer */
-	ZATTR_ZBUF_MAXKB,	/* max number of kB in buffer */
+	ZIO_ATTR_ZBUF_MAXLEN = 0,	/* max number of element in buffer */
+	ZIO_ATTR_ZBUF_MAXKB,	/* max number of kB in buffer */
 	_ZIO_BUF_ATTR_STD_NUM,	/* used to size arrays */
 };
 
@@ -93,16 +93,20 @@ extern const char zio_zdev_attr_names[_ZIO_DEV_ATTR_STD_NUM][ZIO_NAME_LEN];
 extern const char zio_trig_attr_names[_ZIO_TRG_ATTR_STD_NUM][ZIO_NAME_LEN];
 extern const char zio_zbuf_attr_names[_ZIO_BUF_ATTR_STD_NUM][ZIO_NAME_LEN];
 
-#define DEFINE_ZATTR_STD(_type, _name) struct zio_attribute \
+#define ZIO_ATTR_DEFINE_STD(_type, _name) struct zio_attribute \
 	_name[_##_type##_ATTR_STD_NUM]
 
 /*
- * @ZATTR_REG: define a zio attribute with address register
- * @ZATTR_PRV: define a zio attribute with private register
- * @ZATTR_EXT_REG: define a zio extended attribute with address register
- * @ZATTR_EXT_PRV: define a zio extended attribute with private register
+ * @ZIO_ATTR_REG: define a zio attribute with address register
+ * @ZIO_ATTR_PRV: define a zio attribute with private register
+ * @ZIO_ATTR_EXT_REG: define a zio extended attribute with address register
+ * @ZIO_ATTR_EXT_PRV: define a zio extended attribute with private register
+ * @ZIO_PARAM_EXT_REG: define a zio attribute parameter with address register
+ *                     (not included in ctrl)
+ * @ZIO_PARAM_EXT_PRV: define a zio attribute parameter with private register
+ *                     (not included in ctrl)
  */
-#define ZATTR_REG(zobj, _type, _mode, _add, _val)[_type] = {		\
+#define ZIO_ATTR_REG(zobj, _type, _mode, _add, _val)[_type] = {		\
 		.attr = {						\
 			.attr = {					\
 				.name = zio_##zobj##_attr_names[_type],	\
@@ -111,9 +115,9 @@ extern const char zio_zbuf_attr_names[_ZIO_BUF_ATTR_STD_NUM][ZIO_NAME_LEN];
 		},							\
 		.priv.addr = _add,					\
 		.value = _val,						\
-		.flags = ZATTR_CONTROL,					\
+		.flags = ZIO_ATTR_CONTROL,		       		\
 }
-#define ZATTR_PRV(zobj, _type, _mode, _priv, _val)[_type] = {		\
+#define ZIO_ATTR_PRV(zobj, _type, _mode, _priv, _val)[_type] = {	\
 		.attr = {						\
 			.attr = {					\
 				.name = zio_##zobj##_attr_names[_type],	\
@@ -122,25 +126,25 @@ extern const char zio_zbuf_attr_names[_ZIO_BUF_ATTR_STD_NUM][ZIO_NAME_LEN];
 		},							\
 		.priv.ptr = _priv,					\
 		.value = _val,						\
-		.flags = ZATTR_CONTROL,					\
+		.flags = ZIO_ATTR_CONTROL,				\
 }
-#define ZATTR_EXT_REG(_name, _mode, _add, _val) {			\
+#define ZIO_ATTR_EXT_REG(_name, _mode, _add, _val) {			\
 		.attr = { .attr = {.name = _name, .mode = _mode},},	\
 		.priv.addr = _add,					\
 		.value = _val,						\
-		.flags = ZATTR_CONTROL,					\
+		.flags = ZIO_ATTR_CONTROL,				\
 }
-#define PARAM_EXT_REG(_name, _mode, _add, _val) {			\
+#define ZIO_PARAM_EXT_REG(_name, _mode, _add, _val) {			\
 		.attr = { .attr = {.name = _name, .mode = _mode},},	\
 		.priv.addr = _add,					\
 		.value = _val,						\
 		.flags = 0,						\
 }
-#define ZATTR_EXT_PRV(_name, _mode, _priv, _val) {			\
+#define ZIO_ATTR_EXT_PRV(_name, _mode, _priv, _val) {			\
 		.attr = { .attr = {.name = _name, .mode = _mode},},	\
 		.priv.ptr = _priv,					\
 		.value = _val,						\
-		.flags = ZATTR_CONTROL,					\
+		.flags = ZIO_ATTR_CONTROL,				\
 }
 
 #endif /* ZIO_SYSFS_H_ */

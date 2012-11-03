@@ -32,13 +32,13 @@ enum ztt_attrs { /* names for the "addr" value of sw parameters */
 	ZTT_ATTR_PERIOD,
 };
 
-static DEFINE_ZATTR_STD(ZIO_TRG, ztt_std_attr) = {
-	ZATTR_REG(trig, ZATTR_TRIG_POST_SAMP, S_IRUGO | S_IWUGO,
+static ZIO_ATTR_DEFINE_STD(ZIO_TRG, ztt_std_attr) = {
+	ZIO_ATTR_REG(trig, ZIO_ATTR_TRIG_POST_SAMP, S_IRUGO | S_IWUGO,
 		  ZTT_ATTR_NSAMPLES, 16),
 };
 
 static struct zio_attribute ztt_ext_attr[] = {
-	ZATTR_EXT_REG("ms-period", S_IRUGO | S_IWUGO,
+	ZIO_ATTR_EXT_REG("ms-period", S_IRUGO | S_IWUGO,
 		      ZTT_ATTR_PERIOD, 2000),
 };
 static int ztt_conf_set(struct device *dev, struct zio_attribute *zattr,

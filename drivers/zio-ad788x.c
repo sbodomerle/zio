@@ -55,28 +55,28 @@ struct ad788x {
  * register to set but only a value. Address is used as mask in the tx_buf.
  */
 /* Standard attributes for AD7887*/
-static DEFINE_ZATTR_STD(ZIO_DEV, zattr_dev_ad7887) = {
-	ZATTR_REG(zdev, ZATTR_NBITS, S_IRUGO, 0, 12),
+static ZIO_ATTR_DEFINE_STD(ZIO_DEV, zattr_dev_ad7887) = {
+	ZIO_ATTR_REG(zdev, ZIO_ATTR_NBITS, S_IRUGO, 0, 12),
 	/* vref_src can be internal (0) or external (1)*/
-	ZATTR_REG(zdev, ZATTR_VREFTYPE, S_IRUGO | S_IWUGO, AD7887_VREF_ADDR, 1),
+	ZIO_ATTR_REG(zdev, ZIO_ATTR_VREFTYPE, S_IRUGO | S_IWUGO, AD7887_VREF_ADDR, 1),
 };
 /* Standard attributes for AD7888*/
-static DEFINE_ZATTR_STD(ZIO_DEV, zattr_dev_ad7888) = {
-	ZATTR_REG(zdev, ZATTR_NBITS, S_IRUGO, 0, 12),
+static ZIO_ATTR_DEFINE_STD(ZIO_DEV, zattr_dev_ad7888) = {
+	ZIO_ATTR_REG(zdev, ZIO_ATTR_NBITS, S_IRUGO, 0, 12),
 	/* vref_src can be internal (0) or external (1)*/
-	ZATTR_REG(zdev, ZATTR_VREFTYPE, S_IRUGO | S_IWUGO, AD7888_VREF_ADDR, 0),
+	ZIO_ATTR_REG(zdev, ZIO_ATTR_VREFTYPE, S_IRUGO | S_IWUGO, AD7888_VREF_ADDR, 0),
 };
 /* Extended attributes for AD7887 */
 static struct zio_attribute zattr_dev_ext_ad7887[] = {
-		ZATTR_EXT_REG(AD788x_PM_NAME, S_IRUGO | S_IWUGO,
+		ZIO_ATTR_EXT_REG(AD788x_PM_NAME, S_IRUGO | S_IWUGO,
 			      AD788x_PM_ADDR, 0x0),
 		/* 0 single channel, 1 dual channel*/
-		ZATTR_EXT_REG(AD7887_DUAL_NAME, S_IRUGO | S_IWUGO,
+		ZIO_ATTR_EXT_REG(AD7887_DUAL_NAME, S_IRUGO | S_IWUGO,
 			      AD7887_SINDUAL_ADDR, 1),
 };
 /* Extended attributes for AD7888 */
 static struct zio_attribute zattr_dev_ext_ad7888[] = {
-		ZATTR_EXT_REG(AD788x_PM_NAME, S_IRUGO | S_IWUGO,
+		ZIO_ATTR_EXT_REG(AD788x_PM_NAME, S_IRUGO | S_IWUGO,
 			      AD788x_PM_ADDR, 0x0),
 };
 
@@ -251,7 +251,7 @@ static int ad788x_zio_probe(struct zio_device *zdev)
 	/* Setting up the default value for the SPI command */
 	vshift = (ad788x->type == ID_AD7887 ? AD7887_VREF_SHIFT :
 					      AD7888_VREF_SHIFT);
-	ad788x->cmd = zattr_set->std_zattr[ZATTR_VREFTYPE].value << vshift;
+	ad788x->cmd = zattr_set->std_zattr[ZIO_ATTR_VREFTYPE].value << vshift;
 	ad788x->cmd |= zattr_set->ext_zattr[0].value << AD788x_PM_SHIFT;
 	if (ad788x->type == ID_AD7887)
 		ad788x->cmd |= zattr_set->ext_zattr[1].value <<

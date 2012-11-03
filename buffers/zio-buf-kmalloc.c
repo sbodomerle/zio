@@ -41,8 +41,8 @@ struct zbk_item {
 };
 #define to_item(block) container_of(block, struct zbk_item, block);
 
-static DEFINE_ZATTR_STD(ZIO_BUF, zbk_std_zattr) = {
-	ZATTR_REG(zbuf, ZATTR_ZBUF_MAXLEN, S_IRUGO | S_IWUGO, 0x0, 16),
+static ZIO_ATTR_DEFINE_STD(ZIO_BUF, zbk_std_zattr) = {
+	ZIO_ATTR_REG(zbuf, ZIO_ATTR_ZBUF_MAXLEN, S_IRUGO | S_IWUGO, 0x0, 16),
 };
 
 static int zbk_conf_set(struct device *dev, struct zio_attribute *zattr,
@@ -149,7 +149,7 @@ static int zbk_store_block(struct zio_bi *bi, struct zio_block *block)
 
 	/* add to the buffer instance or push to the trigger */
 	spin_lock(&bi->lock);
-	if (zbki->nitem >= bi->zattr_set.std_zattr[ZATTR_ZBUF_MAXLEN].value)
+	if (zbki->nitem >= bi->zattr_set.std_zattr[ZIO_ATTR_ZBUF_MAXLEN].value)
 		goto out_unlock;
 	list_add_tail(&item->list, &zbki->list);
 	if (!zbki->nitem) {
@@ -190,7 +190,7 @@ static struct zio_block *zbk_retr_block(struct zio_bi *bi)
 	first = zbki->list.next;
 	item = list_entry(first, struct zbk_item, list);
 	list_del(&item->list);
-	if (zbki->nitem == bi->zattr_set.std_zattr[ZATTR_ZBUF_MAXLEN].value)
+	if (zbki->nitem == bi->zattr_set.std_zattr[ZIO_ATTR_ZBUF_MAXLEN].value)
 		awake = 1;
 	zbki->nitem--;
 	spin_unlock(&bi->lock);

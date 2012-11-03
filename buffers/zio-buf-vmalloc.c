@@ -50,8 +50,8 @@ struct zbk_item {
 };
 #define to_item(block) container_of(block, struct zbk_item, block);
 
-static DEFINE_ZATTR_STD(ZIO_BUF, zbk_std_zattr) = {
-	ZATTR_REG(zbuf, ZATTR_ZBUF_MAXKB, S_IRUGO | S_IWUGO, 0x0, 128 /* kB */),
+static ZIO_ATTR_DEFINE_STD(ZIO_BUF, zbk_std_zattr) = {
+	ZIO_ATTR_REG(zbuf, ZIO_ATTR_ZBUF_MAXKB, S_IRUGO | S_IWUGO, 0x0, 128 /* kB */),
 };
 
 static int zbk_conf_set(struct device *dev, struct zio_attribute *zattr,
@@ -273,7 +273,7 @@ static struct zio_bi *zbk_create(struct zio_buffer_type *zbuf,
 	zbki = kzalloc(sizeof(*zbki), GFP_KERNEL);
 	if (!zbki)
 		return ERR_PTR(-ENOMEM);
-	size = 1024 * zbuf->zattr_set.std_zattr[ZATTR_ZBUF_MAXKB].value;
+	size = 1024 * zbuf->zattr_set.std_zattr[ZIO_ATTR_ZBUF_MAXKB].value;
 	zbki->size = size;
 	zbki->data = vmalloc(size);
 	if (!zbki->data) {
