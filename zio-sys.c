@@ -2288,7 +2288,7 @@ int zio_register_trig(struct zio_trigger_type *trig, const char *name)
 		trig->zattr_set.std_zattr[ZATTR_TRIG_PRE_SAMP].attr.attr.mode))
 		goto err_nsamp;
 	/* Verify if it is a valid name */
-	err = zobj_unique_name(&zstat->all_buffer_types, name);
+	err = zobj_unique_name(&zstat->all_trigger_types, name);
 	if (err)
 		return err < 0 ? err: -EBUSY;
 	strncpy(trig->head.name, name, ZIO_OBJ_NAME_LEN);
