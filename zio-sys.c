@@ -261,7 +261,7 @@ void zio_trigger_abort(struct zio_cset *cset)
 	 */
 	spin_lock(&cset->lock);
 	if ((ti->flags & ZIO_TI_BUSY) && !(ti->flags & ZIO_TI_COMPLETING)) {
-		if(ti->t_op->abort)
+		if (ti->t_op->abort)
 			ti->t_op->abort(cset);
 		else
 			__zio_internal_abort_free(cset);
@@ -381,8 +381,8 @@ static int zobj_unique_name(struct zio_object_list *zobj_list, const char *name)
 		return -EINVAL;
 	}
 	if (strlen(name) > ZIO_OBJ_NAME_LEN)
-		pr_warning("ZIO: name too long, cut to %d characters\n",
-			   ZIO_OBJ_NAME_LEN);
+		pr_warn("ZIO: name too long, cut to %d characters\n",
+			ZIO_OBJ_NAME_LEN);
 
 	pr_debug("%s\n", __func__);
 	list_for_each_entry(cur, &zobj_list->list, list) {
@@ -695,7 +695,7 @@ static void __zattr_trig_init_ctrl(struct zio_ti *ti, struct zio_control *ctrl)
 }
 static int __zattr_chan_init_ctrl(struct zio_channel *chan, unsigned int start)
 {
-	struct zio_ctrl_attr*ctrl_attr_chan;
+	struct zio_ctrl_attr *ctrl_attr_chan;
 	struct zio_control *ctrl;
 	struct zio_device *zdev;
 	struct zio_cset *cset;
@@ -1140,7 +1140,7 @@ static const struct zio_device_id *zio_match_id(const struct zio_device_id *id,
 						const struct zio_obj_head *head)
 {
 	while (id->name[0]) {
-		pr_debug("%s comparing  %s == %s \n", __func__,
+		pr_debug("%s comparing  %s == %s\n", __func__,
 			 id->name, head->name);
 		if (!strcmp(head->name, id->name))
 			return id;
@@ -1165,7 +1165,7 @@ static int zio_match_device(struct device *dev, struct device_driver *drv)
 	if (!zdrv->id_table)
 		return 0;
 	id = zio_match_id(zdrv->id_table, to_zio_head(dev));
-	if(!id)
+	if (!id)
 		return 0;
 	pr_debug("%s:%d\n", __func__, __LINE__);
 	/* device and driver match */
@@ -1366,7 +1366,7 @@ static int zattr_set_create(struct zio_obj_head *head,
 		goto out;
 
 	/* Allocate needed groups. dev->groups is null ended */
-	groups = kzalloc(sizeof(struct attribute_group*) * (g_count + 1),
+	groups = kzalloc(sizeof(struct attribute_group *) * (g_count + 1),
 			 GFP_KERNEL);
 	if (!groups)
 		return -ENOMEM;
@@ -1434,7 +1434,7 @@ static void zattr_set_remove(struct zio_obj_head *head)
 	zattr_set = zio_get_from_obj(head, zattr_set);
 	if (!zattr_set)
 		return;
-	if (! head->dev.groups)
+	if (!head->dev.groups)
 		return;
 	for (i = 0; head->dev.groups[i]; ++i) {
 		kfree(head->dev.groups[i]->attrs);
@@ -2240,7 +2240,7 @@ int zio_register_buf(struct zio_buffer_type *zbuf, const char *name)
 	/* Verify if it is a valid name */
 	err = zobj_unique_name(&zstat->all_buffer_types, name);
 	if (err)
-		return err < 0 ? err: -EBUSY;
+		return err < 0 ? err : -EBUSY;
 	strncpy(zbuf->head.name, name, ZIO_OBJ_NAME_LEN);
 
 	err = zio_init_buffer_fops(zbuf);
@@ -2290,7 +2290,7 @@ int zio_register_trig(struct zio_trigger_type *trig, const char *name)
 	/* Verify if it is a valid name */
 	err = zobj_unique_name(&zstat->all_trigger_types, name);
 	if (err)
-		return err < 0 ? err: -EBUSY;
+		return err < 0 ? err : -EBUSY;
 	strncpy(trig->head.name, name, ZIO_OBJ_NAME_LEN);
 	trig->head.zobj_type = ZIO_TRG;
 	err = zobj_register(&zstat->all_trigger_types, &trig->head, trig->owner);

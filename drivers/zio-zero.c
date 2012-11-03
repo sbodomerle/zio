@@ -19,13 +19,15 @@ ZIO_PARAM_TRIGGER(zzero_trigger);
 ZIO_PARAM_BUFFER(zzero_buffer);
 
 ZIO_ATTR_DEFINE_STD(ZIO_DEV, zzero_zattr_cset8) = {
-	ZIO_ATTR_REG(zdev, ZIO_ATTR_NBITS, S_IRUGO, 0, 8), /* 8 bit -> ssize = 1 */
+	/* 8 bit -> ssize = 1 */
+	ZIO_ATTR_REG(zdev, ZIO_ATTR_NBITS, S_IRUGO, 0, 8),
 };
 ZIO_ATTR_DEFINE_STD(ZIO_DEV, zzero_zattr_cset32) = {
-	ZIO_ATTR_REG(zdev, ZIO_ATTR_NBITS, S_IRUGO, 0, 32), /* 32 bit -> ssize = 4 */
+	/* 32 bit -> ssize = 4 */
+	ZIO_ATTR_REG(zdev, ZIO_ATTR_NBITS, S_IRUGO, 0, 32),
 };
 /* This attribute is the sequence point for input channel number 0 of cset 2 */
-enum zzero_ext{
+enum zzero_ext {
 	ZZERO_SEQ,
 };
 static struct zio_attribute zzero_cset1_ext[] = {

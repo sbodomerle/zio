@@ -58,13 +58,15 @@ struct ad788x {
 static ZIO_ATTR_DEFINE_STD(ZIO_DEV, zattr_dev_ad7887) = {
 	ZIO_ATTR_REG(zdev, ZIO_ATTR_NBITS, S_IRUGO, 0, 12),
 	/* vref_src can be internal (0) or external (1)*/
-	ZIO_ATTR_REG(zdev, ZIO_ATTR_VREFTYPE, S_IRUGO | S_IWUGO, AD7887_VREF_ADDR, 1),
+	ZIO_ATTR_REG(zdev, ZIO_ATTR_VREFTYPE, S_IRUGO | S_IWUGO,
+		     AD7887_VREF_ADDR, 1),
 };
 /* Standard attributes for AD7888*/
 static ZIO_ATTR_DEFINE_STD(ZIO_DEV, zattr_dev_ad7888) = {
 	ZIO_ATTR_REG(zdev, ZIO_ATTR_NBITS, S_IRUGO, 0, 12),
 	/* vref_src can be internal (0) or external (1)*/
-	ZIO_ATTR_REG(zdev, ZIO_ATTR_VREFTYPE, S_IRUGO | S_IWUGO, AD7888_VREF_ADDR, 0),
+	ZIO_ATTR_REG(zdev, ZIO_ATTR_VREFTYPE, S_IRUGO | S_IWUGO,
+		     AD7888_VREF_ADDR, 0),
 };
 /* Extended attributes for AD7887 */
 static struct zio_attribute zattr_dev_ext_ad7887[] = {
@@ -305,7 +307,7 @@ static int __devinit ad788x_spi_probe(struct spi_device *spi)
 	dev_id = spi->chip_select | (spi->master->bus_num << 8);
 
 	/* Register a ZIO device */
-	err= zio_register_device(zdev, spi_id->name, dev_id);
+	err = zio_register_device(zdev, spi_id->name, dev_id);
 	if (err)
 		kfree(ad788x);
 	return err;

@@ -171,8 +171,8 @@ static int __init zgp_init(void)
 	zgp_dev->owner = THIS_MODULE;
 	err = zio_register_device(zgp_dev, "gpio", 0);
 	if (err) {
-		pr_err(KBUILD_MODNAME ": can't register zio driver "
-		       "(error %i)\n", err);
+		pr_err(KBUILD_MODNAME ": can't register zio driver (err %i)\n",
+		       err);
 		goto out_reg;
 	}
 

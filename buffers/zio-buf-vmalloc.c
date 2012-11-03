@@ -51,7 +51,7 @@ struct zbk_item {
 #define to_item(block) container_of(block, struct zbk_item, block);
 
 static ZIO_ATTR_DEFINE_STD(ZIO_BUF, zbk_std_zattr) = {
-	ZIO_ATTR_REG(zbuf, ZIO_ATTR_ZBUF_MAXKB, S_IRUGO | S_IWUGO, 0x0, 128 /* kB */),
+	ZIO_ATTR_REG(zbuf, ZIO_ATTR_ZBUF_MAXKB, S_IRUGO | S_IWUGO, 0x0, 128),
 };
 
 static int zbk_conf_set(struct device *dev, struct zio_attribute *zattr,
@@ -251,7 +251,7 @@ out_unlock:
 	spin_unlock(&bi->lock);
 	/* There is no data in buffer, and we may pull to have data soon */
 	ti = bi->cset->ti;
-	if ((bi->flags & ZIO_DIR) == ZIO_DIR_INPUT && ti->t_op->pull_block){
+	if ((bi->flags & ZIO_DIR) == ZIO_DIR_INPUT && ti->t_op->pull_block) {
 		/* chek if trigger is disabled */
 		if (unlikely((ti->flags & ZIO_STATUS) == ZIO_DISABLED))
 			return NULL;
@@ -325,23 +325,23 @@ static int zbk_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	struct zio_bi *bi = priv->chan->bi;
 	struct zbk_instance *zbki = to_zbki(bi);
 	long off = vmf->pgoff * PAGE_SIZE;
-        struct page *p;
+	struct page *p;
 	void *addr;
 
 	if (priv->type == ZIO_CDEV_CTRL)
 		return VM_FAULT_SIGBUS;
 
 	printk("fault at %li (size %li)\n", off, zbki->size);
-        if (off > zbki->size)
+	if (off > zbki->size)
 		return VM_FAULT_SIGBUS;
 
-        addr = zbki->data + off;
-        printk("%s: uaddr %p, off %li: kaddr %p\n",
-               __FUNCTION__, vmf->virtual_address, off, addr);
-        p = vmalloc_to_page(addr);
-        get_page(p);
-        vmf->page = p;
-        return 0;
+	addr = zbki->data + off;
+	printk("%s: uaddr %p, off %li: kaddr %p\n",
+		__func__, vmf->virtual_address, off, addr);
+	p = vmalloc_to_page(addr);
+	get_page(p);
+	vmf->page = p;
+	return 0;
 }
 
 static struct vm_operations_struct zbk_vma_ops = {

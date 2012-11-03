@@ -204,7 +204,7 @@ out_unlock:
 	spin_unlock(&bi->lock);
 	/* There is no data in buffer, and we may pull to have data soon */
 	ti = bi->cset->ti;
-	if ((bi->flags & ZIO_DIR) == ZIO_DIR_INPUT && ti->t_op->pull_block){
+	if ((bi->flags & ZIO_DIR) == ZIO_DIR_INPUT && ti->t_op->pull_block) {
 		/* chek if trigger is disabled */
 		if (unlikely((ti->flags & ZIO_STATUS) == ZIO_DISABLED))
 			return NULL;
@@ -290,5 +290,5 @@ static void __exit zbk_exit(void)
 }
 
 /* This is the default buffer, and is part of zio-core: no module init/exit */
-int __init  __attribute__((alias("zbk_init"))) zio_default_buffer_init(void);
+int __init __attribute__((alias("zbk_init"))) zio_default_buffer_init(void);
 void __exit __attribute__((alias("zbk_exit"))) zio_default_buffer_exit(void);

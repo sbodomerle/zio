@@ -41,7 +41,7 @@ struct zio_attribute {
 };
 #define ZIO_ATTR_INDEX_NONE -1
 enum zattr_flags {
-    ZIO_ATTR_TYPE	 = 0x10,
+	ZIO_ATTR_TYPE		= 0x10,
 	ZIO_ATTR_TYPE_STD	= 0x00,
 	ZIO_ATTR_TYPE_EXT	= 0x10,
 	ZIO_ATTR_CONTROL	= 0x20,
