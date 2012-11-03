@@ -44,9 +44,9 @@ struct zio_ti {
 };
 
 /* first 4bit are reserved for zio object universal flags */
-enum zti_flag_mask {
-	ZTI_BUSY = 0x10,	/* trigger fire and transfer occurs */
-	ZTI_COMPLETING = 0x20	/* trigger is clompleting transfert */
+enum zio_ti_flag_mask {
+	ZIO_TI_BUSY = 0x10,	/* trigger fire and transfer occurs */
+	ZIO_TI_COMPLETING = 0x20	/* trigger is clompleting transfert */
 };
 
 #define to_zio_ti(obj) container_of(obj, struct zio_ti, head.dev)

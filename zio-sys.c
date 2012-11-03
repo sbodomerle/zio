@@ -209,13 +209,13 @@ static void __zio_internal_data_done(struct zio_cset *cset)
  * zio_trigger_data_done
  * This is a ZIO helper to invoke the data_done trigger operation when a data
  * transfer is over and we need to complete the operation.
- * It is useless check for pending ZTI_COMPLETING because only one fire at
+ * It is useless check for pending ZIO_TI_COMPLETING because only one fire at
  * time is allowed so they cannot exist concurrent completation.
  */
 void zio_trigger_data_done(struct zio_cset *cset)
 {
 	spin_lock(&cset->lock);
-	cset->ti->flags |= ZTI_COMPLETING; /* transfer is completing*/
+	cset->ti->flags |= ZIO_TI_COMPLETING; /* transfer is completing*/
 	spin_unlock(&cset->lock);
 
 	/* Call the data_done function */
@@ -226,7 +226,7 @@ void zio_trigger_data_done(struct zio_cset *cset)
 
 	/* transfer is over, resetting completing and busy flags */
 	spin_lock(&cset->lock);
-	cset->ti->flags &= (~(ZTI_COMPLETING | ZTI_BUSY));
+	cset->ti->flags &= (~(ZIO_TI_COMPLETING | ZIO_TI_BUSY));
 	spin_unlock(&cset->lock);
 }
 EXPORT_SYMBOL(zio_trigger_data_done);
@@ -254,18 +254,18 @@ void zio_trigger_abort(struct zio_cset *cset)
 	struct zio_ti *ti = cset->ti;
 
 	/*
-	 * If trigger is running (ZTI_BUSY) but it is not
-	 * completing the transfer (ZTI_COMPLETING), then abort it.
+	 * If trigger is running (ZIO_TI_BUSY) but it is not
+	 * completing the transfer (ZIO_TI_COMPLETING), then abort it.
 	 * If the trigger is completing its run, don't abort it because
 	 * it finished and the blocks are full of data.
 	 */
 	spin_lock(&cset->lock);
-	if ((ti->flags & ZTI_BUSY) && !(ti->flags & ZTI_COMPLETING)) {
+	if ((ti->flags & ZIO_TI_BUSY) && !(ti->flags & ZIO_TI_COMPLETING)) {
 		if(ti->t_op->abort)
 			ti->t_op->abort(cset);
 		else
 			__zio_internal_abort_free(cset);
-		ti->flags &= (~ZTI_BUSY); /* when disabled is not busy */
+		ti->flags &= (~ZIO_TI_BUSY); /* when disabled is not busy */
 	}
 	spin_unlock(&cset->lock);
 }
@@ -345,10 +345,10 @@ void zio_fire_trigger(struct zio_ti *ti)
 
 	/* check if trigger is disabled or previous fire is still running */
 	if (unlikely((ti->flags & ZIO_STATUS) == ZIO_DISABLED ||
-			(ti->flags & ZTI_BUSY)))
+			(ti->flags & ZIO_TI_BUSY)))
 		return;
 	spin_lock(&ti->cset->lock);
-	ti->flags |= ZTI_BUSY;
+	ti->flags |= ZIO_TI_BUSY;
 	spin_unlock(&ti->cset->lock);
 
 	if (likely((ti->flags & ZIO_DIR) == ZIO_DIR_INPUT))
@@ -474,12 +474,12 @@ static int zio_change_current_trigger(struct zio_cset *cset, char *name)
 
 	pr_debug("%s\n", __func__);
 	spin_lock(&cset->lock);
-	if (ti_old->flags & ZTI_BUSY) {
+	if (ti_old->flags & ZIO_TI_BUSY) {
 		spin_unlock(&cset->lock);
 		return -EBUSY;
 	}
 	/* Set ti BUSY, so it cannot fire */
-	ti_old->flags |= ZTI_BUSY;
+	ti_old->flags |= ZIO_TI_BUSY;
 	spin_unlock(&cset->lock);
 
 	if (strlen(name) > ZIO_OBJ_NAME_LEN)
