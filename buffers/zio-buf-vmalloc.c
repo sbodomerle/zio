@@ -331,13 +331,13 @@ static int zbk_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	if (priv->type == ZIO_CDEV_CTRL)
 		return VM_FAULT_SIGBUS;
 
-	printk("fault at %li (size %li)\n", off, zbki->size);
+	pr_debug("%s: fault at %li (size %li)\n", __func__, off, zbki->size);
 	if (off > zbki->size)
 		return VM_FAULT_SIGBUS;
 
 	addr = zbki->data + off;
-	printk("%s: uaddr %p, off %li: kaddr %p\n",
-		__func__, vmf->virtual_address, off, addr);
+	pr_debug("%s: uaddr %p, off %li: kaddr %p\n", __func__,
+		 vmf->virtual_address, off, addr);
 	p = vmalloc_to_page(addr);
 	get_page(p);
 	vmf->page = p;
