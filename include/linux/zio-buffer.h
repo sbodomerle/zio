@@ -45,7 +45,7 @@ struct zio_buffer_type {
 #define to_zio_buf(ptr) container_of(ptr, struct zio_buffer_type, head.dev)
 
 /* buffer_type->flags */
-#define ZIO_BFLAG_ALLOC_FOPS	0x00000001 /* set by zio-core */
+#define ZIO_BUF_FLAG_ALLOC_FOPS	0x00000001 /* set by zio-core */
 
 extern const struct file_operations zio_generic_file_operations;
 

@@ -549,7 +549,7 @@ int zio_init_buffer_fops(struct zio_buffer_type *zbuf)
 	ops = kzalloc(sizeof(*ops), GFP_KERNEL);
 	if (!ops)
 		return -ENOMEM;
-	zbuf->flags |= ZIO_BFLAG_ALLOC_FOPS;
+	zbuf->flags |= ZIO_BUF_FLAG_ALLOC_FOPS;
 	*ops = zio_generic_file_operations;
 	ops->owner = zbuf->owner;
 	zbuf->f_op = ops;
@@ -558,9 +558,9 @@ int zio_init_buffer_fops(struct zio_buffer_type *zbuf)
 
 int zio_fini_buffer_fops(struct zio_buffer_type *zbuf)
 {
-	if (!(zbuf->flags & ZIO_BFLAG_ALLOC_FOPS))
+	if (!(zbuf->flags & ZIO_BUF_FLAG_ALLOC_FOPS))
 		return 0;
-	zbuf->flags &= ~ZIO_BFLAG_ALLOC_FOPS;
+	zbuf->flags &= ~ZIO_BUF_FLAG_ALLOC_FOPS;
 	kfree(zbuf->f_op);
 	zbuf->f_op = &zio_generic_file_operations;
 	return 0;
