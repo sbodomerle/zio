@@ -805,7 +805,7 @@ static void __zobj_enable(struct device *dev, unsigned int enable)
 	pr_debug("%s\n", __func__);
 	head = to_zio_head(dev);
 
-	flags = __get_from_zobj(to_zio_head(dev), flags);
+	flags = zio_get_from_obj(to_zio_head(dev), flags);
 	status = !((*flags) & ZIO_STATUS);
 	/* if the status is not changing */
 	if (!(enable ^ status))
@@ -919,7 +919,7 @@ static ssize_t zobj_show_enable(struct device *dev,
 	unsigned long *flags;
 	int status;
 
-	flags = __get_from_zobj(to_zio_head(dev), flags);
+	flags = zio_get_from_obj(to_zio_head(dev), flags);
 	status = !(*flags & ZIO_DISABLED);
 	return sprintf(buf, "%d\n", status);
 }
@@ -1349,7 +1349,7 @@ static int zattr_set_create(struct zio_obj_head *head,
 	struct attribute *attr;
 
 	pr_debug("%s\n", __func__);
-	zattr_set = __get_from_zobj(head, zattr_set);
+	zattr_set = zio_get_from_obj(head, zattr_set);
 	if (!zattr_set)
 		return -EINVAL; /* message already printed */
 
@@ -1431,7 +1431,7 @@ static void zattr_set_remove(struct zio_obj_head *head)
 	struct zio_attribute_set *zattr_set;
 	int i;
 
-	zattr_set = __get_from_zobj(head, zattr_set);
+	zattr_set = zio_get_from_obj(head, zattr_set);
 	if (!zattr_set)
 		return;
 	if (! head->dev.groups)

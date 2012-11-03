@@ -77,7 +77,7 @@ struct zio_obj_head {
  * _zhead: zio_obj_header pointer
  * member: which member return from the correspondent zio_object
  */
-#define __get_from_zobj(_head, member) ({				\
+#define zio_get_from_obj(_head, member) ({				\
 	typeof(to_zio_dev(&_head->dev)->member) (*el) = NULL;		\
 	switch (_head->zobj_type) {					\
 	case ZIO_DEV:							\
