@@ -176,11 +176,11 @@ static inline int __try_push(struct zio_bi *bi, struct zio_channel *chan,
 	 * the trigger may call retr_block right now.  So
 	 * release the lock but also say we can't retrieve now.
 	 */
-	bi->flags |= ZBI_PUSHING;
+	bi->flags |= ZIO_BI_PUSHING;
 	spin_unlock(&bi->lock);
 	pushed = (ti->t_op->push_block(ti, chan, block) == 0);
 	spin_lock(&bi->lock);
-	bi->flags &=  ~ZBI_PUSHING;
+	bi->flags &=  ~ZIO_BI_PUSHING;
 	return pushed;
 }
 
@@ -234,7 +234,7 @@ static struct zio_block *zbk_retr_block(struct zio_bi *bi)
 	zbki = to_zbki(bi);
 
 	spin_lock(&bi->lock);
-	if (list_empty(&zbki->list) || bi->flags & ZBI_PUSHING)
+	if (list_empty(&zbki->list) || bi->flags & ZIO_BI_PUSHING)
 		goto out_unlock;
 	first = zbki->list.next;
 	item = list_entry(first, struct zbk_item, list);
