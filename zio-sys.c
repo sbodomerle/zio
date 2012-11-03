@@ -708,15 +708,12 @@ static int __zattr_chan_init_ctrl(struct zio_channel *chan, unsigned int start)
 	ctrl->addr.dev_id = chan->cset->zdev->dev_id;
 	ctrl_attr_chan = &chan->current_ctrl->attr_channel;
 	if (!(start + chan->zattr_set.n_ext_attr < 32)) {
-		pr_err("%s: too many extended attribute in %s",
-			__func__, chan->cset->zdev->head.name);
+		dev_err(&zdev->head.dev, "too many extended attribute");
 		return -EINVAL;
 	}
 
-	pr_debug("%s copy trigger values\n", __func__);
 	__zattr_trig_init_ctrl(cset->ti, chan->current_ctrl);
 
-	pr_debug("%s copy device values\n", __func__);
 	/* Copy channel attributes */
 	for (i = 0; i < chan->zattr_set.n_std_attr; ++i)
 		__zattr_valcpy(ctrl_attr_chan, &chan->zattr_set.std_zattr[i]);
@@ -1145,13 +1142,13 @@ static const struct zio_device_id *zio_match_id(const struct zio_device_id *id,
 						const struct zio_obj_head *head)
 {
 	while (id->name[0]) {
-		pr_debug("%s comparing  %s == %s\n", __func__,
+		dev_dbg(&head->dev, "%s comparing  %s == %s\n", __func__,
 			 id->name, head->name);
 		if (!strcmp(head->name, id->name))
 			return id;
 		++id;
 	}
-	pr_debug("%s:%d fail\n", __func__, __LINE__);
+	dev_dbg(&head->dev, "%s fail\n", __func__);
 	return NULL;
 }
 const struct zio_device_id *zio_get_device_id(const struct zio_device *zdev)
@@ -1235,24 +1232,28 @@ static int _zdev_template_check_and_init(struct zio_device *zdev,
 	pr_debug("%s:%d\n", __func__, __LINE__);
 	if (!zdev->owner) {
 		/* FIXME I can use driver->owner */
-		pr_err("ZIO: device template %s has no owner\n", name);
+		dev_err(&zdev->head.dev, "device template %s has no owner\n",
+			name);
 		return -EINVAL;
 	}
 	if (!zdev->cset || !zdev->n_cset) {
-		pr_err("ZIO: no cset in device template %s", name);
+		dev_err(&zdev->head.dev, "no cset in device template %s",
+			name);
 		return -EINVAL;
 	}
 
 	for (i = 0; i < zdev->n_cset; ++i) {
 		cset = &zdev->cset[i];
 		if (!cset->n_chan) {
-			pr_err("ZIO: no channels in %s cset%i\n", name,
-				cset->index);
+			dev_err(&zdev->head.dev,
+				"no channels in %s cset%i\n",
+				name, cset->index);
 			return -EINVAL;
 		}
 		if (!cset->ssize) {
-			pr_err("ZIO: ssize can not be 0 in %s cset%i\n", name,
-				cset->index);
+			dev_err(&zdev->head.dev,
+				"ssize can not be 0 in %s cset%i\n",
+				name, cset->index);
 			return -EINVAL;
 		}
 	}
