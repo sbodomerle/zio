@@ -19,9 +19,9 @@
 
 #define ZTU_DEFAULT_BLOCK_SIZE 16
 
-static DEFINE_ZATTR_STD(TRIG, ztu_std_attr) = {
-	ZATTR_REG(trig, ZATTR_TRIG_POST_SAMP, S_IRUGO | S_IWUGO,
-		  0 /* no addr needed */, ZTU_DEFAULT_BLOCK_SIZE),
+static ZIO_ATTR_DEFINE_STD(ZIO_TRG, ztu_std_attr) = {
+	ZIO_ATTR(trig, ZIO_ATTR_TRIG_POST_SAMP, S_IRUGO | S_IWUGO,
+		 0 /* no addr needed */, ZTU_DEFAULT_BLOCK_SIZE),
 };
 
 int ztu_conf_set(struct device *dev, struct zio_attribute *zattr,
@@ -117,5 +117,5 @@ static void __exit ztu_exit(void)
 
 
 /* This is the default trigger, and is part of zio-core: no module init/exit */
-int __init  __attribute__((alias("ztu_init"))) zio_default_trigger_init(void);
+int __init __attribute__((alias("ztu_init"))) zio_default_trigger_init(void);
 void __exit __attribute__((alias("ztu_exit"))) zio_default_trigger_exit(void);

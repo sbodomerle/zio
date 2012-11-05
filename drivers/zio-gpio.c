@@ -35,8 +35,8 @@ module_param_array_named(in, zgp_in, int, &zgp_nin, 0444);
 ZIO_PARAM_TRIGGER(zgp_trigger);
 ZIO_PARAM_BUFFER(zgp_buffer);
 
-DEFINE_ZATTR_STD(ZDEV, zgp_zattr_dev) = {
-	ZATTR_REG(zdev, ZATTR_NBITS, S_IRUGO, 0, 1), /* digital */
+ZIO_ATTR_DEFINE_STD(ZIO_DEV, zgp_zattr_dev) = {
+	ZIO_ATTR(zdev, ZIO_ATTR_NBITS, S_IRUGO, 0, 1), /* digital */
 };
 
 /* This outputs a cset, currently made up of one channel only */
@@ -48,7 +48,7 @@ static int zgp_output(struct zio_cset *cset)
 	uint8_t datum;
 	int i;
 
-	cset_for_each(cset, chan) {
+	chan_for_each(chan, cset) {
 		block = chan->active_block;
 		if (!block)
 			continue;
@@ -71,7 +71,7 @@ static int zgp_input(struct zio_cset *cset)
 	uint8_t datum;
 	int i, j;
 
-	cset_for_each(cset, chan) {
+	chan_for_each(chan, cset) {
 		block = chan->active_block;
 		if (!block)
 			continue;
@@ -92,13 +92,13 @@ static struct zio_cset zgp_cset[] = {
 		.raw_io =	zgp_output,
 		.n_chan =	1,
 		.ssize =	1,
-		.flags =	ZIO_DIR_OUTPUT | ZCSET_TYPE_ANALOG,
+		.flags =	ZIO_DIR_OUTPUT | ZIO_CSET_TYPE_ANALOG,
 	},
 	{
 		.raw_io =	zgp_input,
 		.n_chan =	1,
 		.ssize =	1,
-		.flags =	ZIO_DIR_INPUT | ZCSET_TYPE_ANALOG,
+		.flags =	ZIO_DIR_INPUT | ZIO_CSET_TYPE_ANALOG,
 	},
 };
 static struct zio_device zgp_tmpl = {
@@ -171,8 +171,8 @@ static int __init zgp_init(void)
 	zgp_dev->owner = THIS_MODULE;
 	err = zio_register_device(zgp_dev, "gpio", 0);
 	if (err) {
-		pr_err(KBUILD_MODNAME ": can't register zio driver "
-		       "(error %i)\n", err);
+		pr_err(KBUILD_MODNAME ": can't register zio driver (err %i)\n",
+		       err);
 		goto out_reg;
 	}
 

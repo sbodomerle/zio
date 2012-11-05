@@ -54,10 +54,10 @@ struct zio_trigger_operations;
  * begin with the type identifier, and zio_obj_head is used in container_of
  */
 enum zio_object_type {
-	ZNONE = 0,	/* reserved for non zio object */
-	ZDEV, ZCSET, ZCHAN,
-	ZTRIG, ZTI,	/* trigger and trigger instance */
-	ZBUF, ZBI,	/* buffer and buffer instance */
+	ZIO_NONE = 0,	/* reserved for non zio object */
+	ZIO_DEV, ZIO_CSET, ZIO_CHAN,
+	ZIO_TRG, ZIO_TI, /* trigger and trigger instance */
+	ZIO_BUF, ZIO_BI, /* buffer and buffer instance */
 };
 
 /* zio_obj_head is for internal use only, as explained above */
@@ -77,28 +77,28 @@ struct zio_obj_head {
  * _zhead: zio_obj_header pointer
  * member: which member return from the correspondent zio_object
  */
-#define __get_from_zobj(_head, member) ({				\
+#define zio_get_from_obj(_head, member) ({				\
 	typeof(to_zio_dev(&_head->dev)->member) (*el) = NULL;		\
 	switch (_head->zobj_type) {					\
-	case ZDEV:							\
+	case ZIO_DEV:							\
 		el = &to_zio_dev(&_head->dev)->member;			\
 		break;							\
-	case ZCSET:							\
+	case ZIO_CSET:							\
 		el = &to_zio_cset(&_head->dev)->member;			\
 		break;							\
-	case ZCHAN:							\
+	case ZIO_CHAN:							\
 		el = &to_zio_chan(&_head->dev)->member;			\
 		break;							\
-	case ZBUF:							\
+	case ZIO_BUF:							\
 		el = &to_zio_buf(&_head->dev)->member;			\
 		break;							\
-	case ZTRIG:							\
+	case ZIO_TRG:							\
 		el = &to_zio_trig(&_head->dev)->member;			\
 		break;							\
-	case ZTI:							\
+	case ZIO_TI:							\
 		el = &to_zio_ti(&_head->dev)->member;			\
 		break;							\
-	case ZBI:							\
+	case ZIO_BI:							\
 		el = &to_zio_bi(&_head->dev)->member;			\
 		break;							\
 	default:							\
@@ -106,13 +106,13 @@ struct zio_obj_head {
 	} el;								\
 })
 
-static inline enum zio_object_type __zio_get_object_type(struct device *dev)
+static inline enum zio_object_type zio_get_object_type(struct device *dev)
 {
 	return to_zio_head(dev)->zobj_type;
 }
 
 /* Bits 0..3 are reserved for use in all objects. By now only bit 1 is used */
-enum zobj_flags {
+enum zio_obj_flags {
 	ZIO_STATUS		= 0x1,	/* 0 (default) is enabled */
 	ZIO_ENABLED		= 0x0,
 	ZIO_DISABLED		= 0x1,
@@ -204,12 +204,12 @@ struct zio_cset {
 };
 
 /* first 4bit are reserved for zio object universal flags */
-enum zcset_flags {
-	ZCSET_TYPE		= 0x70,	/* digital, analog, time, TBD... */
-	ZCSET_TYPE_DIGITAL	= 0x00,
-	ZCSET_TYPE_ANALOG	= 0x10,
-	ZCSET_TYPE_TIME		= 0x20,
-	ZCSET_CHAN_TEMPLATE	= 0x80, /* 1 if channels from template */
+enum zio_cset_flags {
+	ZIO_CSET_TYPE		= 0x70,	/* digital, analog, time, TBD... */
+	ZIO_CSET_TYPE_DIGITAL	= 0x00,
+	ZIO_CSET_TYPE_ANALOG	= 0x10,
+	ZIO_CSET_TYPE_TIME     	= 0x20,
+	ZIO_CSET_CHAN_TEMPLATE	= 0x80, /* 1 if channels from template */
 
 };
 
@@ -238,14 +238,14 @@ struct zio_channel {
 };
 
 /* first 4bit are reserved for zio object universal flags */
-enum zchan_flag_mask {
-	ZCHAN_POLAR		= 0x10,	/* 0 is positive - 1 is negative*/
-	ZCHAN_POLAR_POSITIVE	= 0x00,
-	ZCHAN_POLAR_NEGATIVE	= 0x10,
+enum zio_chan_flags {
+	ZIO_CHAN_POLAR		= 0x10,	/* 0 is positive - 1 is negative*/
+	ZIO_CHAN_POLAR_POSITIVE	= 0x00,
+	ZIO_CHAN_POLAR_NEGATIVE	= 0x10,
 };
 
 /* get each channel from cset */
-static inline struct zio_channel *__first_enabled_chan(struct zio_cset *cset,
+static inline struct zio_channel *zio_first_enabled_chan(struct zio_cset *cset,
 						struct zio_channel *chan)
 {
 	if (unlikely(chan - cset->chan >= cset->n_chan))
@@ -258,24 +258,24 @@ static inline struct zio_channel *__first_enabled_chan(struct zio_cset *cset,
 		chan++;
 	}
 }
-#define cset_for_each(cset, cptr)				\
+#define chan_for_each(cptr, cset)				\
 		for (cptr = cset->chan;				\
-		     (cptr = __first_enabled_chan(cset, cptr));	\
+		     (cptr = zio_first_enabled_chan(cset, cptr));	\
 		     cptr++)
 
 /* Use this in defining csets */
-#define SET_OBJECT_NAME(_name) .head = {.name = _name}
+#define ZIO_SET_OBJ_NAME(_name) .head = {.name = _name}
 
 /*
  * Return the number of enabled channel on a cset. Be careful: device
  * spinlock must be taken before invoke this function and it can be released
  * after the complete consumption of the information provided by this function
  */
-static inline unsigned int __get_n_chan_enabled(struct zio_cset *cset) {
+static inline unsigned int zio_get_n_chan_enabled(struct zio_cset *cset) {
 	struct zio_channel *chan;
 	unsigned int n_chan = 0;
 
-	cset_for_each(cset, chan)
+	chan_for_each(chan, cset)
 		++n_chan;
 	return n_chan;
 }

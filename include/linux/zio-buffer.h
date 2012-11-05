@@ -33,7 +33,7 @@ struct zio_buffer_type {
 	const struct zio_buffer_operations	*b_op;
 	/*
 	 * file operations (read/write etc) are buffer-specific too, but
-	 * you are strongly suggested to use zio_generic_file_operations. 
+	 * you are strongly suggested to use zio_generic_file_operations.
 	 * If the field is NULL, you'll get ENODEV when opening the cdev.
 	 */
 	const struct file_operations		*f_op;
@@ -45,7 +45,7 @@ struct zio_buffer_type {
 #define to_zio_buf(ptr) container_of(ptr, struct zio_buffer_type, head.dev)
 
 /* buffer_type->flags */
-#define ZIO_BFLAG_ALLOC_FOPS	0x00000001 /* set by zio-core */
+#define ZIO_BUF_FLAG_ALLOC_FOPS	0x00000001 /* set by zio-core */
 
 extern const struct file_operations zio_generic_file_operations;
 
@@ -81,8 +81,8 @@ struct zio_bi {
 #define to_zio_bi(obj) container_of(obj, struct zio_bi, head.dev)
 
 /* first 4bit are reserved for zio object universal flags */
-enum zbi_flag_mask {
-	ZBI_PUSHING = 0x10,	/* a push is being performed */
+enum zio_bi_flag_mask {
+	ZIO_BI_PUSHING = 0x10,	/* a push is being performed */
 };
 
 

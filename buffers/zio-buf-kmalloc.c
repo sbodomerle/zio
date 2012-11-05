@@ -41,8 +41,8 @@ struct zbk_item {
 };
 #define to_item(block) container_of(block, struct zbk_item, block);
 
-static DEFINE_ZATTR_STD(ZBUF, zbk_std_zattr) = {
-	ZATTR_REG(zbuf, ZATTR_ZBUF_MAXLEN, S_IRUGO | S_IWUGO, 0x0, 16),
+static ZIO_ATTR_DEFINE_STD(ZIO_BUF, zbk_std_zattr) = {
+	ZIO_ATTR(zbuf, ZIO_ATTR_ZBUF_MAXLEN, S_IRUGO | S_IWUGO, 0x0, 16),
 };
 
 static int zbk_conf_set(struct device *dev, struct zio_attribute *zattr,
@@ -121,11 +121,11 @@ static inline int __try_push(struct zio_bi *bi, struct zio_channel *chan,
 	 * the trigger may call retr_block right now.  So
 	 * release the lock but also say we can't retrieve now.
 	 */
-	bi->flags |= ZBI_PUSHING;
+	bi->flags |= ZIO_BI_PUSHING;
 	spin_unlock(&bi->lock);
 	pushed = (ti->t_op->push_block(ti, chan, block) == 0);
 	spin_lock(&bi->lock);
-	bi->flags &=  ~ZBI_PUSHING;
+	bi->flags &=  ~ZIO_BI_PUSHING;
 	return pushed;
 }
 
@@ -149,7 +149,7 @@ static int zbk_store_block(struct zio_bi *bi, struct zio_block *block)
 
 	/* add to the buffer instance or push to the trigger */
 	spin_lock(&bi->lock);
-	if (zbki->nitem >= bi->zattr_set.std_zattr[ZATTR_ZBUF_MAXLEN].value)
+	if (zbki->nitem >= bi->zattr_set.std_zattr[ZIO_ATTR_ZBUF_MAXLEN].value)
 		goto out_unlock;
 	list_add_tail(&item->list, &zbki->list);
 	if (!zbki->nitem) {
@@ -185,12 +185,12 @@ static struct zio_block *zbk_retr_block(struct zio_bi *bi)
 	zbki = to_zbki(bi);
 
 	spin_lock(&bi->lock);
-	if (!zbki->nitem || bi->flags & ZBI_PUSHING)
+	if (!zbki->nitem || bi->flags & ZIO_BI_PUSHING)
 		goto out_unlock;
 	first = zbki->list.next;
 	item = list_entry(first, struct zbk_item, list);
 	list_del(&item->list);
-	if (zbki->nitem == bi->zattr_set.std_zattr[ZATTR_ZBUF_MAXLEN].value)
+	if (zbki->nitem == bi->zattr_set.std_zattr[ZIO_ATTR_ZBUF_MAXLEN].value)
 		awake = 1;
 	zbki->nitem--;
 	spin_unlock(&bi->lock);
@@ -204,7 +204,7 @@ out_unlock:
 	spin_unlock(&bi->lock);
 	/* There is no data in buffer, and we may pull to have data soon */
 	ti = bi->cset->ti;
-	if ((bi->flags & ZIO_DIR) == ZIO_DIR_INPUT && ti->t_op->pull_block){
+	if ((bi->flags & ZIO_DIR) == ZIO_DIR_INPUT && ti->t_op->pull_block) {
 		/* chek if trigger is disabled */
 		if (unlikely((ti->flags & ZIO_STATUS) == ZIO_DISABLED))
 			return NULL;
@@ -290,5 +290,5 @@ static void __exit zbk_exit(void)
 }
 
 /* This is the default buffer, and is part of zio-core: no module init/exit */
-int __init  __attribute__((alias("zbk_init"))) zio_default_buffer_init(void);
+int __init __attribute__((alias("zbk_init"))) zio_default_buffer_init(void);
 void __exit __attribute__((alias("zbk_exit"))) zio_default_buffer_exit(void);

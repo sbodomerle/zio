@@ -53,7 +53,7 @@ struct zio_ctrl_attr {
  * call it sockaddr_zio, which will be defined elsewhere with correct types.
  * This block of information uniquely identifies the channel.
  */
-struct addr_zio {
+struct zio_addr {
 	uint16_t sa_family;
 	uint8_t host_type;	/* 0 == local, 1 == MAC, ... */
 	uint8_t filler;
@@ -87,7 +87,7 @@ struct zio_control {
 	uint16_t nbits;		/* sample-bits: number of valid bits */
 
 	/* byte 16 */
-	struct addr_zio addr;
+	struct zio_addr addr;
 
 	/* byte 48 */
 	struct zio_timestamp tstamp;

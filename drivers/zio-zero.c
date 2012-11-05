@@ -18,18 +18,20 @@
 ZIO_PARAM_TRIGGER(zzero_trigger);
 ZIO_PARAM_BUFFER(zzero_buffer);
 
-DEFINE_ZATTR_STD(ZDEV, zzero_zattr_cset8) = {
-	ZATTR_REG(zdev, ZATTR_NBITS, S_IRUGO, 0, 8), /* 8 bit -> ssize = 1 */
+ZIO_ATTR_DEFINE_STD(ZIO_DEV, zzero_zattr_cset8) = {
+	/* 8 bit -> ssize = 1 */
+	ZIO_ATTR(zdev, ZIO_ATTR_NBITS, S_IRUGO, 0, 8),
 };
-DEFINE_ZATTR_STD(ZDEV, zzero_zattr_cset32) = {
-	ZATTR_REG(zdev, ZATTR_NBITS, S_IRUGO, 0, 32), /* 32 bit -> ssize = 4 */
+ZIO_ATTR_DEFINE_STD(ZIO_DEV, zzero_zattr_cset32) = {
+	/* 32 bit -> ssize = 4 */
+	ZIO_ATTR(zdev, ZIO_ATTR_NBITS, S_IRUGO, 0, 32),
 };
 /* This attribute is the sequence point for input channel number 0 of cset 2 */
-enum zzero_ext{
+enum zzero_ext {
 	ZZERO_SEQ,
 };
 static struct zio_attribute zzero_cset1_ext[] = {
-	ZATTR_EXT_REG("sequence", S_IRUGO | S_IWUGO, ZZERO_SEQ, 0),
+	ZIO_ATTR_EXT("sequence", S_IRUGO | S_IWUGO, ZZERO_SEQ, 0),
 };
 /*
  * This generates a sequence of 32-bit little-endian numbers.
@@ -58,7 +60,7 @@ static int zzero_input_8(struct zio_cset *cset)
 	int i;
 
 	/* Return immediately: just fill the blocks */
-	cset_for_each(cset, chan) {
+	chan_for_each(chan, cset) {
 		block = chan->active_block;
 		if (!block)
 			continue;
@@ -114,31 +116,31 @@ static const struct zio_sysfs_operations zzero_sysfs_ops = {
 
 static struct zio_cset zzero_cset[] = {
 	{
-		SET_OBJECT_NAME("zero-input-8"),
+		ZIO_SET_OBJ_NAME("zero-input-8"),
 		.raw_io =	zzero_input_8,
 		.n_chan =	3,
 		.ssize =	1,
-		.flags =	ZIO_DIR_INPUT | ZCSET_TYPE_ANALOG,
+		.flags =	ZIO_DIR_INPUT | ZIO_CSET_TYPE_ANALOG,
 		.zattr_set = {
 			.std_zattr = zzero_zattr_cset8,
 		},
 	},
 	{
-		SET_OBJECT_NAME("zero-output-8"),
+		ZIO_SET_OBJ_NAME("zero-output-8"),
 		.raw_io =	zzero_output,
 		.n_chan =	1,
 		.ssize =	1,
-		.flags =	ZIO_DIR_OUTPUT | ZCSET_TYPE_ANALOG,
+		.flags =	ZIO_DIR_OUTPUT | ZIO_CSET_TYPE_ANALOG,
 		.zattr_set = {
 			.std_zattr = zzero_zattr_cset8,
 		},
 	},
 	{
-		SET_OBJECT_NAME("zero-input-32"),
+		ZIO_SET_OBJ_NAME("zero-input-32"),
 		.raw_io =	zzero_input_32,
 		.n_chan =	1,
 		.ssize =	4,
-		.flags =	ZIO_DIR_INPUT | ZCSET_TYPE_ANALOG,
+		.flags =	ZIO_DIR_INPUT | ZIO_CSET_TYPE_ANALOG,
 		.zattr_set = {
 			.std_zattr = zzero_zattr_cset32,
 			.ext_zattr = zzero_cset1_ext,

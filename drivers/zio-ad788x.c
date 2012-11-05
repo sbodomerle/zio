@@ -55,35 +55,37 @@ struct ad788x {
  * register to set but only a value. Address is used as mask in the tx_buf.
  */
 /* Standard attributes for AD7887*/
-static DEFINE_ZATTR_STD(ZDEV, zattr_dev_ad7887) = {
-	ZATTR_REG(zdev, ZATTR_NBITS, S_IRUGO, 0, 12),
+static ZIO_ATTR_DEFINE_STD(ZIO_DEV, zattr_dev_ad7887) = {
+	ZIO_ATTR(zdev, ZIO_ATTR_NBITS, S_IRUGO, 0, 12),
 	/* vref_src can be internal (0) or external (1)*/
-	ZATTR_REG(zdev, ZATTR_VREFTYPE, S_IRUGO | S_IWUGO, AD7887_VREF_ADDR, 1),
+	ZIO_ATTR(zdev, ZIO_ATTR_VREFTYPE, S_IRUGO | S_IWUGO,
+		 AD7887_VREF_ADDR, 1),
 };
 /* Standard attributes for AD7888*/
-static DEFINE_ZATTR_STD(ZDEV, zattr_dev_ad7888) = {
-	ZATTR_REG(zdev, ZATTR_NBITS, S_IRUGO, 0, 12),
+static ZIO_ATTR_DEFINE_STD(ZIO_DEV, zattr_dev_ad7888) = {
+	ZIO_ATTR(zdev, ZIO_ATTR_NBITS, S_IRUGO, 0, 12),
 	/* vref_src can be internal (0) or external (1)*/
-	ZATTR_REG(zdev, ZATTR_VREFTYPE, S_IRUGO | S_IWUGO, AD7888_VREF_ADDR, 0),
+	ZIO_ATTR(zdev, ZIO_ATTR_VREFTYPE, S_IRUGO | S_IWUGO,
+		 AD7888_VREF_ADDR, 0),
 };
 /* Extended attributes for AD7887 */
 static struct zio_attribute zattr_dev_ext_ad7887[] = {
-		ZATTR_EXT_REG(AD788x_PM_NAME, S_IRUGO | S_IWUGO,
-			      AD788x_PM_ADDR, 0x0),
+		ZIO_ATTR_EXT(AD788x_PM_NAME, S_IRUGO | S_IWUGO,
+			     AD788x_PM_ADDR, 0x0),
 		/* 0 single channel, 1 dual channel*/
-		ZATTR_EXT_REG(AD7887_DUAL_NAME, S_IRUGO | S_IWUGO,
-			      AD7887_SINDUAL_ADDR, 1),
+		ZIO_ATTR_EXT(AD7887_DUAL_NAME, S_IRUGO | S_IWUGO,
+			     AD7887_SINDUAL_ADDR, 1),
 };
 /* Extended attributes for AD7888 */
 static struct zio_attribute zattr_dev_ext_ad7888[] = {
-		ZATTR_EXT_REG(AD788x_PM_NAME, S_IRUGO | S_IWUGO,
-			      AD788x_PM_ADDR, 0x0),
+		ZIO_ATTR_EXT(AD788x_PM_NAME, S_IRUGO | S_IWUGO,
+			     AD788x_PM_ADDR, 0x0),
 };
 
 static int ad788x_conf_set(struct device *dev, struct zio_attribute *zattr,
 		uint32_t  usr_val)
 {
-	unsigned long mask = zattr->priv.addr;
+	unsigned long mask = zattr->id;
 	struct ad788x *ad788x;
 
 	ad788x = to_zio_dev(dev)->priv_d;
@@ -118,7 +120,7 @@ static void ad788x_complete(void *cont)
 	data = (uint16_t *) context->transfer.rx_buf;
 	data = &data[1];
 	/* demux data */
-	cset_for_each(cset, chan) {
+	chan_for_each(chan, cset) {
 			buf = (uint16_t *)chan->active_block->data;
 			for (i = 0; i < context->nsamples; ++i)
 				buf[i] = data[i * context->chan_enable + j];
@@ -146,7 +148,7 @@ static int ad788x_input_cset(struct zio_cset *cset)
 		return -ENOMEM;
 
 	ad788x = cset->zdev->priv_d;
-	context->chan_enable = __get_n_chan_enabled(cset);
+	context->chan_enable = zio_get_n_chan_enabled(cset);
 
 	/* prepare SPI message and transfer */
 	nsamples = cset->chan->current_ctrl->nsamples;
@@ -165,7 +167,7 @@ static int ad788x_input_cset(struct zio_cset *cset)
 	command = (uint16_t *)context->transfer.tx_buf;
 	/* configure transfer buffer*/
 	for (i = 0,  k = 0; i < nsamples; ++i)
-		cset_for_each(cset, chan)
+		chan_for_each(chan, cset)
 			command[k++] = (chan->index << AD788x_ADDR_SHIFT) |
 							ad788x->cmd;
 	command[k] = ad788x->cmd;
@@ -197,7 +199,7 @@ static struct zio_cset ad7887_ain_cset[] = { /* ad7887 cset */
 		.raw_io = ad788x_input_cset,
 		.ssize = 2,
 		.n_chan = 2,
-		.flags = ZCSET_TYPE_ANALOG |	/* is analog */
+		.flags = ZIO_CSET_TYPE_ANALOG |	/* is analog */
 			 ZIO_DIR_INPUT		/* is input */,
 	},
 };
@@ -206,7 +208,7 @@ static struct zio_cset ad7888_ain_cset[] = { /* ad7888 cset */
 		.raw_io = ad788x_input_cset,
 		.ssize = 2,
 		.n_chan = 8,
-		.flags = ZCSET_TYPE_ANALOG |	/* is analog */
+		.flags = ZIO_CSET_TYPE_ANALOG |	/* is analog */
 			 ZIO_DIR_INPUT		/* is input */,
 	},
 };
@@ -251,7 +253,7 @@ static int ad788x_zio_probe(struct zio_device *zdev)
 	/* Setting up the default value for the SPI command */
 	vshift = (ad788x->type == ID_AD7887 ? AD7887_VREF_SHIFT :
 					      AD7888_VREF_SHIFT);
-	ad788x->cmd = zattr_set->std_zattr[ZATTR_VREFTYPE].value << vshift;
+	ad788x->cmd = zattr_set->std_zattr[ZIO_ATTR_VREFTYPE].value << vshift;
 	ad788x->cmd |= zattr_set->ext_zattr[0].value << AD788x_PM_SHIFT;
 	if (ad788x->type == ID_AD7887)
 		ad788x->cmd |= zattr_set->ext_zattr[1].value <<
@@ -305,7 +307,7 @@ static int __devinit ad788x_spi_probe(struct spi_device *spi)
 	dev_id = spi->chip_select | (spi->master->bus_num << 8);
 
 	/* Register a ZIO device */
-	err= zio_register_device(zdev, spi_id->name, dev_id);
+	err = zio_register_device(zdev, spi_id->name, dev_id);
 	if (err)
 		kfree(ad788x);
 	return err;

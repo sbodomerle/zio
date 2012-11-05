@@ -106,7 +106,7 @@ doesn't change the software flow).
 Hardware-driven triggers will need to make their own work by themselves,
 but ZIO offers this helper macro to loop over all non-disabled channels:
 
-	cset_for_each(struct zio_cset *cset, struct zio_channel *ch)
+	chan_for_each(struct zio_channel *ch, struct zio_cset *cset)
 
 The macro works like "task_for_each" or "list_for_each" in the kernel
 headers.
