@@ -693,8 +693,7 @@ static int __zattr_chan_init_ctrl(struct zio_channel *chan, unsigned int start)
 	}
 
 	__zattr_trig_init_ctrl(cset->ti, chan->current_ctrl);
-
-	/* Copy channel attributes */
+	/* Copy standard attributes into the control */
 	for (i = 0; i < chan->zattr_set.n_std_attr; ++i)
 		__zattr_valcpy(ctrl_attr_chan, &chan->zattr_set.std_zattr[i]);
 	for (i = 0; i < cset->zattr_set.n_std_attr; ++i)
@@ -702,6 +701,7 @@ static int __zattr_chan_init_ctrl(struct zio_channel *chan, unsigned int start)
 	for (i = 0; i < zdev->zattr_set.n_std_attr; ++i)
 		__zattr_valcpy(ctrl_attr_chan, &zdev->zattr_set.std_zattr[i]);
 
+	/* Fix and copy attributes within channel */
 	zattr = chan->zattr_set.ext_zattr;
 	for (i = 0; i < chan->zattr_set.n_ext_attr; ++i) {
 		if (zattr[i].flags & ZIO_ATTR_CONTROL) {
@@ -712,15 +712,16 @@ static int __zattr_chan_init_ctrl(struct zio_channel *chan, unsigned int start)
 			zattr[i].index = ZIO_ATTR_INDEX_NONE;
 		}
 	}
-
+	/* Copying attributes from cset */
 	zattr = cset->zattr_set.ext_zattr;
 	for (i = 0; i < cset->zattr_set.n_ext_attr; ++i)
 		if (zattr[i].flags & ZIO_ATTR_CONTROL)
 			__zattr_valcpy(ctrl_attr_chan, &zattr[i]);
+	/* Copying attributes from zdev */
+	zattr = zdev->zattr_set.ext_zattr;
 	for (i = 0; i < zdev->zattr_set.n_ext_attr; ++i)
 		if (zattr[i].flags & ZIO_ATTR_CONTROL)
 			__zattr_valcpy(ctrl_attr_chan, &zattr[i]);
-
 	return 0;
 }
 static int __zattr_cset_init_ctrl(struct zio_cset *cset, unsigned int start)
