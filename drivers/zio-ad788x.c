@@ -26,8 +26,8 @@ static const struct spi_device_id ad788x_id[] = {
 #define AD788x_PM_NAME		"power-management"
 #define AD7887_DUAL_NAME	"dual-channel"
 #define AD788x_ADDR_SHIFT	11
-#define AD788x_PM_ADDR	0x0300
-#define AD788x_PM_SHIFT	8
+#define AD788x_PM_ADDR		0x0300
+#define AD788x_PM_SHIFT		8
 #define AD7888_VREF_ADDR	0x0400
 #define AD7888_VREF_SHIFT	10
 #define AD7887_VREF_ADDR	0x2000
@@ -70,16 +70,14 @@ static ZIO_ATTR_DEFINE_STD(ZIO_DEV, zattr_dev_ad7888) = {
 };
 /* Extended attributes for AD7887 */
 static struct zio_attribute zattr_dev_ext_ad7887[] = {
-		ZIO_ATTR_EXT(AD788x_PM_NAME, S_IRUGO | S_IWUGO,
-			     AD788x_PM_ADDR, 0x0),
-		/* 0 single channel, 1 dual channel*/
-		ZIO_ATTR_EXT(AD7887_DUAL_NAME, S_IRUGO | S_IWUGO,
-			     AD7887_SINDUAL_ADDR, 1),
+	ZIO_ATTR_EXT(AD788x_PM_NAME, S_IRUGO | S_IWUGO, AD788x_PM_ADDR, 0x0),
+	/* 0 single channel, 1 dual channel*/
+	ZIO_ATTR_EXT(AD7887_DUAL_NAME, S_IRUGO | S_IWUGO,
+		     AD7887_SINDUAL_ADDR, 1),
 };
 /* Extended attributes for AD7888 */
 static struct zio_attribute zattr_dev_ext_ad7888[] = {
-		ZIO_ATTR_EXT(AD788x_PM_NAME, S_IRUGO | S_IWUGO,
-			     AD788x_PM_ADDR, 0x0),
+	ZIO_ATTR_EXT(AD788x_PM_NAME, S_IRUGO | S_IWUGO, AD788x_PM_ADDR, 0x0),
 };
 
 static int ad788x_conf_set(struct device *dev, struct zio_attribute *zattr,
