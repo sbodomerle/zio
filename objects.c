@@ -713,11 +713,17 @@ static int chan_register(struct zio_channel *chan, struct zio_channel *chan_t)
 	strncpy(ctrl->addr.devname, chan->cset->zdev->head.name,
 		sizeof(ctrl->addr.devname));
 	ctrl->ssize = chan->cset->ssize;
+	if (chan->flags & ZIO_CSET_CHAN_INTERLEAVE)
+		ctrl->flags |= ZIO_CONTROL_INTERLEAVE_DATA;
 	chan->current_ctrl = ctrl;
 
 	/* Initialize and register channel device */
-	if (strlen(chan->head.name) == 0)
-		snprintf(chan->head.name, ZIO_NAME_LEN, "chan%i", chan->index);
+	if (strlen(chan->head.name) == 0) {
+		char *mask;
+		mask = chan->flags & ZIO_CSET_CHAN_INTERLEAVE ? "chani" :
+								"chan%i";
+		snprintf(chan->head.name, ZIO_NAME_LEN, mask, chan->index);
+	}
 	dev_set_name(&chan->head.dev, chan->head.name);
 	chan->head.dev.type = &chan_device_type;
 	chan->head.dev.parent = &chan->cset->head.dev;
@@ -786,6 +792,74 @@ static void chan_unregister(struct zio_channel *chan)
 	device_unregister(&chan->head.dev);
 }
 
+
+/*
+ * chan_get_template
+ *
+ * @cset_t: the cset template
+ * @i: channel index
+ *
+ * return the correct template for the i-th channels
+ */
+static struct zio_channel *chan_get_template(struct zio_cset *cset_t,
+					      unsigned int i)
+{
+	if ((i == cset_t->n_chan) && (cset_t->flags & ZIO_CSET_CHAN_INTERLEAVE))
+		return cset_t->interleave; /* can be NULL, is not a problem */
+
+	if (cset_t->chan)
+		return &cset_t->chan[i];
+
+	if (cset_t->chan_template)
+		return cset_t->chan_template;
+
+	return NULL;
+}
+
+/**
+ * The function assigns (if exist) an interleaved channel to a channel set.
+ *
+ * @param cset is the channel set where live the interleaved channel
+ * @return a pointer to the interleaved channel. NULL on error
+ */
+static struct zio_channel *zio_assign_interleave_channel(struct zio_cset *cset)
+{
+	/* Setup interleaved channel if it exists */
+	if (cset->flags & ZIO_CSET_CHAN_INTERLEAVE) {
+		cset->interleave = &cset->chan[cset->n_chan - 1];
+		/* Enable interleave if interleave only */
+		if (cset->flags & ZIO_CSET_INTERLEAVE_ONLY)
+			cset->interleave->flags &= ~ZIO_DISABLED;
+		else
+			cset->interleave->flags |= ZIO_DISABLED;
+		cset->interleave->flags |= ZIO_CSET_CHAN_INTERLEAVE;
+	} else {
+		cset->interleave = NULL;
+	}
+
+	return cset->interleave;
+}
+
+
+/**
+ * The function assigns flags from a template to the real cset
+ *
+ * @param cset
+ * @param cset_t
+ */
+static void zio_cset_assign_flags(struct zio_cset *cset,
+				  struct zio_cset *cset_t)
+{
+	if (cset_t->flags & ZIO_CSET_INTERLEAVE_ONLY) {
+		/* Force interleave capabilities */
+		cset_t->flags |= ZIO_CSET_CHAN_INTERLEAVE;
+		cset->flags |= ZIO_CSET_CHAN_INTERLEAVE;
+	}
+	if (cset->chan_template || cset_t->chan)
+		cset->flags |= ZIO_CSET_CHAN_TEMPLATE;
+}
+
+
 /*
  * cset_registration
  *
@@ -807,6 +881,9 @@ static int cset_register(struct zio_cset *cset, struct zio_cset *cset_t)
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
 	cset->head.zobj_type = ZIO_CSET;
+	zio_cset_assign_flags(cset, cset_t);
+	if (cset->flags & ZIO_CSET_CHAN_INTERLEAVE)
+		cset->n_chan++;	/* add a channel during allocation */
 
 	/* Get an available minor base */
 	err = zio_minorbase_get(cset);
@@ -862,13 +939,15 @@ static int cset_register(struct zio_cset *cset, struct zio_cset *cset_t)
 	}
 	cset->ti = ti;
 	pr_debug("%s:%d\n", __func__, __LINE__);
+
 	/* Allocate a new vector of channel for the new zio cset instance */
 	size = sizeof(struct zio_channel) * cset->n_chan;
 	cset->chan = kzalloc(size, GFP_KERNEL);
 	if (!cset->chan)
 		goto out_n_chan;
-	if (cset->chan_template || cset_t->chan)
-		cset->flags |= ZIO_CSET_CHAN_TEMPLATE;
+
+	/* Setup interleaved channel if it exists */
+	cset->interleave = zio_assign_interleave_channel(cset);
 
 	/* Register all child channels */
 	for (i = 0; i < cset->n_chan; i++) {
@@ -877,14 +956,15 @@ static int cset_register(struct zio_cset *cset, struct zio_cset *cset_t)
 		cset->chan[i].ti = cset->ti;
 		mutex_init(&cset->chan[i].user_lock);
 		cset->chan[i].flags |= cset->flags & ZIO_DIR;
-		chan_tmp = NULL;
-		if (cset->chan_template)
-			chan_tmp = cset->chan_template;
-		else if (cset_t->chan)
-			chan_tmp = &cset->chan[i];
+
+		chan_tmp = chan_get_template(cset_t, i);
 		err = chan_register(&cset->chan[i], chan_tmp);
 		if (err)
 			goto out_reg;
+
+		/* if interleave only, normal channels are disabled */
+		if (cset->flags & ZIO_CSET_INTERLEAVE_ONLY)
+			cset->chan[i].flags |= ZIO_DISABLED;
 	}
 
 	spin_lock(&zstat->lock);

@@ -53,6 +53,8 @@ const char zio_zbuf_attr_names[_ZIO_BUF_ATTR_STD_NUM][ZIO_NAME_LEN] = {
 };
 EXPORT_SYMBOL(zio_zbuf_attr_names);
 
+static void __zobj_enable(struct device *dev, unsigned int enable);
+
 static struct zio_attribute *__zattr_clone(const struct zio_attribute *src,
 		unsigned int n)
 {
@@ -146,8 +148,21 @@ static inline void __zattr_valcpy(struct zio_ctrl_attr *ctrl,
 
 void __ctrl_update_nsamples(struct zio_ti *ti)
 {
+	struct zio_cset *cset = ti->cset;
+
 	ti->nsamples = ti->zattr_set.std_zattr[ZIO_ATTR_TRIG_PRE_SAMP].value +
 		       ti->zattr_set.std_zattr[ZIO_ATTR_TRIG_POST_SAMP].value;
+
+	/*
+	 * If a cset is interleaved only or the interleaved channel is enabled,
+	 * then, it acquires all channels samples in a single buffer. Because
+	 * of interleaving, count only the physical channel (n_chan - 1)
+	 */
+	if (cset->interleave) {
+		if ((cset->flags & ZIO_CSET_INTERLEAVE_ONLY) ||
+				!(cset->interleave->flags & ZIO_STATUS))
+			ti->nsamples *= (cset->n_chan - 1);
+	}
 }
 static void __zattr_propagate_value(struct zio_obj_head *head,
 			       struct zio_attribute *zattr)
@@ -329,6 +344,51 @@ int __zattr_dev_init_ctrl(struct zio_device *zdev)
 	return 0;
 }
 
+/**
+ * The function perform a post processing of the enable status of a channel
+ * when it change. This implements the enable/disable policies when there is
+ * an interleaved channel
+ *
+ * @param chan channel to enable/disable
+ * @param enable enable status
+ */
+static void __chan_enable_interleave(struct zio_channel *chan,
+				     unsigned int enable) {
+	struct zio_cset *cset = chan->cset;
+	int i;
+
+	/*
+	 * If the cset is interleave only, then only the interleaved
+	 * channel can be enabled/disabled. All the other channels are
+	 * always disabled.
+	 */
+	if (cset->flags & ZIO_CSET_INTERLEAVE_ONLY) {
+		/* Normal channel, force disable */
+		if (!(chan->flags & ZIO_CSET_CHAN_INTERLEAVE))
+			chan->flags |= ZIO_DISABLED;
+		return;
+	}
+
+	/*
+	 * If the cset is not interleave only, then when the
+	 * interleaved channel change its status, all the other channel
+	 * must be set to the opposite status.
+	 */
+	if (chan->flags & ZIO_CSET_CHAN_INTERLEAVE) { /* Interleaved channel */
+		for (i = 0; i < cset->n_chan - 1; ++i)
+			__zobj_enable(&cset->chan[i].head.dev, !enable);
+	} else { /* Normal channel */
+		if (!(cset->interleave->flags & ZIO_DISABLED)) {
+			/*
+			 *  Interleave channel is enabled, then normal channel
+			 * cannot be enabled
+			 */
+			chan->flags |= ZIO_DISABLED;
+		}
+	}
+}
+
+
 /*
  * enable/disable a zio object
  * must be called while holding the zio_device spinlock
@@ -338,6 +398,7 @@ static void __zobj_enable(struct device *dev, unsigned int enable)
 	unsigned long *zf, flags;
 	int i, status;
 	struct zio_obj_head *head;
+	struct zio_channel *chan;
 	struct zio_device *zdev;
 	struct zio_cset *cset;
 	struct zio_ti *ti;
@@ -375,6 +436,13 @@ static void __zobj_enable(struct device *dev, unsigned int enable)
 		break;
 	case ZIO_CHAN:
 		dev_dbg(dev, "(chan)\n");
+
+		chan = to_zio_chan(dev);
+
+		if (chan->cset->flags & ZIO_CSET_CHAN_INTERLEAVE) {
+			__ctrl_update_nsamples(chan->cset->ti);
+			__chan_enable_interleave(chan, enable);
+		}
 
 		/* channel callback */
 		break;
@@ -590,6 +658,7 @@ static ssize_t zobj_show_devname(struct device *dev,
 	struct zio_obj_head *head = to_zio_head(dev);
 	struct zio_channel *chan;
 	struct zio_cset *cset;
+	char *mask;
 
 	switch (head->zobj_type) {
 	case ZIO_DEV:
@@ -600,8 +669,9 @@ static ssize_t zobj_show_devname(struct device *dev,
 			       dev_name(&cset->zdev->head.dev), cset->index);
 	case ZIO_CHAN:
 		chan = to_zio_chan(dev);
-		return sprintf(buf, "%s-%i-%i\n",
-			       dev_name(&chan->cset->zdev->head.dev),
+		mask = chan->flags & ZIO_CSET_CHAN_INTERLEAVE ? "%s-%i-i\n" :
+								"%s-%i-%i\n";
+		return sprintf(buf, mask, dev_name(&chan->cset->zdev->head.dev),
 			       chan->cset->index, chan->index);
 	default:
 		WARN(1, "ZIO: unknown zio object %i for address\n",

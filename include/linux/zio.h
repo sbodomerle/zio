@@ -184,6 +184,8 @@ struct zio_cset {
 	struct zio_attribute_set zattr_set;
 
 	struct zio_channel	*chan_template;
+	/* Interleaved channel template */
+	struct zio_channel	*interleave;
 	/* The cset is an array of channels */
 	struct zio_channel	*chan;
 	unsigned int		n_chan;
@@ -206,6 +208,8 @@ enum zio_cset_flags {
 	ZIO_CSET_TYPE_TIME	=  0x20,
 	ZIO_CSET_CHAN_TEMPLATE	=  0x80, /* 1 if channels from template */
 	ZIO_CSET_SELF_TIMED	= 0x100, /* for trigger use (see docs) */
+	ZIO_CSET_CHAN_INTERLEAVE= 0x200, /* 1 if cset can interleave */
+	ZIO_CSET_INTERLEAVE_ONLY= 0x400, /* 1 if interleave only */
 };
 
 /* Check the flags so we know whether to arm immediately or not */

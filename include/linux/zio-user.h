@@ -138,6 +138,8 @@ struct zio_control {
 #define ZIO_CONTROL_MSB_ALIGN		0x00000004 /* for analog data */
 #define ZIO_CONTROL_LSB_ALIGN		0x00000008 /* for analog data */
 
+#define ZIO_CONTROL_INTERLEAVE_DATA	0x00000040 /* for interleaved data */
+
 #ifdef __KERNEL__
 /*
  * Compile-time check that the control structure is the right size.

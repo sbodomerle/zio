@@ -167,7 +167,9 @@ int zio_minorbase_get(struct zio_cset *zcset)
 }
 void zio_minorbase_put(struct zio_cset *zcset)
 {
-	zio_ffa_free_s(zstat->minors, zcset->minor, zcset->n_chan * 2);
+	int nminors = zcset->n_chan * 2;
+
+	zio_ffa_free_s(zstat->minors, zcset->minor, nminors);
 }
 
 /*
@@ -178,15 +180,25 @@ int zio_create_chan_devices(struct zio_channel *chan)
 {
 	int err;
 	dev_t devt_c, devt_d;
+	char *mask;
 
+	/*
+	 * if the cset is interleave only and this is not the interleaved
+	 * channel, return immediately and don't create char devices
+	 */
+	if ((chan->cset->flags & ZIO_CSET_INTERLEAVE_ONLY) &&
+	    !(chan->flags & ZIO_CSET_CHAN_INTERLEAVE))
+		return 0;
 
 	devt_c = zstat->basedev + chan->cset->minor + chan->index * 2;
 	pr_debug("%s:%d dev_t=0x%x\n", __func__, __LINE__, devt_c);
+	mask = chan->flags & ZIO_CSET_CHAN_INTERLEAVE ? "%s-%i-i-ctrl" :
+							"%s-%i-%i-ctrl";
 	chan->ctrl_dev = device_create(&zio_cdev_class, &chan->head.dev, devt_c,
-			&chan->flags, "%s-%i-%i-ctrl",
+			&chan->flags, mask,
 			dev_name(&chan->cset->zdev->head.dev),
 			chan->cset->index,
-			chan->index);
+			chan->index); /* ignored on interleave */
 	if (IS_ERR(&chan->ctrl_dev)) {
 		err = PTR_ERR(&chan->ctrl_dev);
 		goto out;
@@ -194,11 +206,13 @@ int zio_create_chan_devices(struct zio_channel *chan)
 
 	devt_d = devt_c + 1;
 	pr_debug("%s:%d dev_t=0x%x\n", __func__, __LINE__, devt_d);
+	mask = chan->flags & ZIO_CSET_CHAN_INTERLEAVE ? "%s-%i-i-data" :
+							"%s-%i-%i-data";
 	chan->data_dev = device_create(&zio_cdev_class, &chan->head.dev, devt_d,
-			&chan->flags, "%s-%i-%i-data",
+			&chan->flags, mask,
 			dev_name(&chan->cset->zdev->head.dev),
 			chan->cset->index,
-			chan->index);
+			chan->index); /* ignored on interleave */
 	if (IS_ERR(&chan->data_dev)) {
 		err = PTR_ERR(&chan->data_dev);
 		goto out_data;
@@ -215,6 +229,10 @@ out:
 void zio_destroy_chan_devices(struct zio_channel *chan)
 {
 	pr_debug("%s\n", __func__);
+	if ((chan->cset->flags & ZIO_CSET_INTERLEAVE_ONLY) &&
+	    !(chan->flags & ZIO_CSET_CHAN_INTERLEAVE))
+		return ;
+
 	device_destroy(&zio_cdev_class, chan->data_dev->devt);
 	device_destroy(&zio_cdev_class, chan->ctrl_dev->devt);
 }
