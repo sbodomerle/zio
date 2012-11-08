@@ -90,8 +90,6 @@ struct zio_trigger_operations {
 	void			(*pull_block)(struct zio_ti *ti,
 					      struct zio_channel *chan);
 
-	int			(*data_done)(struct zio_cset *cset);
-
 	int			(*config)(struct zio_ti *ti,
 					  struct zio_control *ctrl);
 
@@ -102,7 +100,14 @@ struct zio_trigger_operations {
 	void			(*destroy)(struct zio_ti *ti);
 	void			(*change_status)(struct zio_ti *ti,
 						 unsigned int status);
+
+	/*
+	 * Only ZIO core can use the following functions. The user must use
+	 * the helper
+	 */
 	void			(*abort)(struct zio_ti *ti);
+	int			(*arm)(struct zio_ti *ti);
+	int			(*data_done)(struct zio_cset *cset);
 };
 
 int zio_trigger_data_done(struct zio_cset *cset);
