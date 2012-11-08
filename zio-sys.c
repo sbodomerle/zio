@@ -290,19 +290,15 @@ static void __zio_fire_input_trigger(struct zio_ti *ti)
 	/* Allocate the buffer for the incoming sample, in active channels */
 	chan_for_each(chan, cset) {
 		ch_ctrl = chan->current_ctrl;
+		ch_ctrl->seq_num++;
 		ctrl = zio_alloc_control(GFP_ATOMIC);
 		if (!ctrl) {
 			if (!errdone++)
 				pr_err("%s: can't alloc control\n", __func__);
 			continue;
 		}
-		/*
-		 * Update sequence number too (first returned seq is 1).
-		 * Sequence number is always increased to identify un-stored
-		 * blocks or other errors in trigger activation.
-		 */
-		ch_ctrl->seq_num++;
-		datalen = ch_ctrl->ssize * ch_ctrl->nsamples;
+		ch_ctrl->nsamples = ti->nsamples;
+		datalen = ch_ctrl->ssize * ti->nsamples;
 		block = zbuf->b_op->alloc_block(chan->bi, ctrl, datalen,
 						GFP_ATOMIC);
 		if (IS_ERR(block)) {
@@ -615,10 +611,10 @@ static inline void __zattr_valcpy(struct zio_ctrl_attr *ctrl,
 	}
 }
 
-static void __ctrl_update_nsamples(struct zio_ti *ti, struct zio_control *ctrl)
+static void __ctrl_update_nsamples(struct zio_ti *ti)
 {
-	ctrl->nsamples = ti->zattr_set.std_zattr[ZIO_ATTR_TRIG_PRE_SAMP].value +
-			 ti->zattr_set.std_zattr[ZIO_ATTR_TRIG_POST_SAMP].value;
+	ti->nsamples = ti->zattr_set.std_zattr[ZIO_ATTR_TRIG_PRE_SAMP].value +
+		       ti->zattr_set.std_zattr[ZIO_ATTR_TRIG_POST_SAMP].value;
 }
 static void __zattr_propagate_value(struct zio_obj_head *head,
 			       struct zio_attribute *zattr)
@@ -658,18 +654,14 @@ static void __zattr_propagate_value(struct zio_obj_head *head,
 		break;
 	case ZIO_TI:
 		ti = to_zio_ti(&head->dev);
-		/* Update all channel current control */
+		__ctrl_update_nsamples(ti);
+		/* Update attributes in all "current_ctrl" struct */
 		for (i = 0; i < ti->cset->n_chan; ++i) {
 			chan = &ti->cset->chan[i];
 			ctrl = chan->current_ctrl;
 			__zattr_valcpy(&ctrl->attr_trigger, zattr);
 			if ((zattr->flags & ZIO_ATTR_TYPE) == ZIO_ATTR_TYPE_EXT)
 				continue; /* continue to the next channel */
-
-			/* Only standard attributes */
-			if (zattr->index == ZIO_ATTR_TRIG_PRE_SAMP ||
-					zattr->index == ZIO_ATTR_TRIG_POST_SAMP)
-				__ctrl_update_nsamples(ti, ctrl);
 		}
 		break;
 	default:
@@ -1571,6 +1563,8 @@ static struct zio_ti *__ti_create_and_init(struct zio_trigger_type *trig,
 		trig->t_op->destroy(ti);
 		return ERR_PTR(err);
 	}
+	/* Special case: nsamples */
+	__ctrl_update_nsamples(ti);
 
 out:
 	return ti;
@@ -1710,8 +1704,6 @@ static int chan_register(struct zio_channel *chan, struct zio_channel *chan_t)
 	strncpy(ctrl->addr.devname, chan->cset->zdev->head.name,
 		sizeof(ctrl->addr.devname));
 	ctrl->ssize = chan->cset->ssize;
-	/* Trigger instance is already assigned so */
-	__ctrl_update_nsamples(chan->cset->ti, ctrl);
 	chan->current_ctrl = ctrl;
 
 	/* Initialize and register channel device */
