@@ -135,7 +135,7 @@ static struct zio_block *zbk_alloc_block(struct zio_bi *bi,
 	item->block.datalen = datalen;
 	item->instance = zbki;
 
-	ctrl->mem_offset = offset;
+	bi->chan->current_ctrl->mem_offset = offset;
 	zio_set_ctrl(&item->block, ctrl);
 
 	return &item->block;
