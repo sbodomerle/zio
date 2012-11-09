@@ -283,6 +283,7 @@ void zio_unregister_cdev()
 	cdev_del(&zstat->chrdev);
 	unregister_chrdev_region(zstat->basedev, ZIO_NR_MINORS);
 	class_unregister(&zio_class);
+	zio_ffa_destroy(zstat->minors);
 }
 
 
