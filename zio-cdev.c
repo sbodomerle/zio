@@ -77,28 +77,12 @@ static struct zio_channel *zio_minor_to_chan(int minor)
 	return zcset->chan + chindex;
 }
 
-static inline int zio_device_get(dev_t devt)
+static inline int zio_channel_get(struct zio_channel *chan)
 {
-	struct zio_channel *chan;
-
-	/*
-	 * FIXME there is a little concurrency; to resolve this, get the owner
-	 * from device list by searching by minor
-	 */
-	chan = zio_minor_to_chan(MINOR(devt));
-	if (!chan) {
-		pr_err("ZIO: can't retrieve channel for minor %i\n",
-		       MINOR(devt));
-		return -EBUSY;
-	}
 	return try_module_get(chan->cset->zdev->owner);
 }
-static inline void zio_device_put(dev_t devt)
+static inline void zio_channel_put(struct zio_channel *chan)
 {
-	struct zio_channel *chan;
-
-	chan = zio_minor_to_chan(MINOR(devt));
-	/* chan can't be NULL because __zio_device_get() found it */
 	module_put(chan->cset->zdev->owner);
 }
 
@@ -111,16 +95,13 @@ static int zio_f_open(struct inode *ino, struct file *f)
 	int err, minor;
 
 	pr_debug("%s:%i\n", __func__, __LINE__);
-	if (!zio_device_get(ino->i_rdev))
-		return -ENODEV;
 
 	minor = iminor(ino);
-	chan = zio_minor_to_chan(MINOR(ino->i_rdev));
-	if (!chan) {
-		pr_err("%s: can't retrieve channel for minor %i\n",
+	chan = zio_minor_to_chan(minor);
+	if (!chan || !zio_channel_get(chan)) {
+		pr_err("%s: no channel for minor %i\n",
 			__func__, minor);
-		err = -EBUSY;
-		goto out;
+		return -ENODEV;
 	}
 	zbuf = chan->cset->zbuf;
 	if (!zbuf->f_op) {
@@ -169,7 +150,7 @@ static int zio_f_open(struct inode *ino, struct file *f)
 
 out:
 	kfree(priv);
-	zio_device_put(ino->i_rdev);
+	zio_channel_put(chan);
 	return err;
 }
 
@@ -501,9 +482,9 @@ static int zio_generic_release(struct inode *inode, struct file *f)
 {
 	struct zio_f_priv *priv = f->private_data;
 
+	zio_channel_put(priv->chan);
 	/* priv is allocated by zio_f_open, must be freed */
 	kfree(priv);
-	zio_device_put(inode->i_rdev);
 	return 0;
 }
 
