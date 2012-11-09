@@ -278,8 +278,8 @@ static void __zio_fire_input_trigger(struct zio_ti *ti)
 	struct zio_device *zdev;
 	struct zio_cset *cset;
 	struct zio_channel *chan;
-	struct zio_control *ch_ctrl, *ctrl;
-	int datalen, errdone = 0;
+	struct zio_control *ctrl;
+	int datalen;
 
 	cset = ti->cset;
 	zdev = cset->zdev;
@@ -289,26 +289,14 @@ static void __zio_fire_input_trigger(struct zio_ti *ti)
 
 	/* Allocate the buffer for the incoming sample, in active channels */
 	chan_for_each(chan, cset) {
-		ch_ctrl = chan->current_ctrl;
-		ch_ctrl->seq_num++;
-		ctrl = zio_alloc_control(GFP_ATOMIC);
-		if (!ctrl) {
-			if (!errdone++)
-				pr_err("%s: can't alloc control\n", __func__);
-			continue;
-		}
-		ch_ctrl->nsamples = ti->nsamples;
-		datalen = ch_ctrl->ssize * ti->nsamples;
-		block = zbuf->b_op->alloc_block(chan->bi, ctrl, datalen,
+		ctrl = chan->current_ctrl;
+		ctrl->seq_num++;
+
+		ctrl->nsamples = ti->nsamples;
+		datalen = ctrl->ssize * ti->nsamples;
+		block = zbuf->b_op->alloc_block(chan->bi, datalen,
 						GFP_ATOMIC);
-		if (IS_ERR(block)) {
-			/* Remove the following print, it's common */
-			if (0 && !errdone++)
-				pr_err("%s: can't alloc block\n", __func__);
-			zio_free_control(ctrl);
-			chan->active_block = NULL;
-			continue;
-		}
+		/* on error it returns NULL so we are all happy */
 		chan->active_block = block;
 	}
 	if (!cset->raw_io(cset)) {

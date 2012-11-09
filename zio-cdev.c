@@ -320,21 +320,13 @@ static int __zio_read_allowed(struct zio_f_priv *priv)
 }
 
 /* Write is more tricky: we need control, so we may ask it to the trigger */
-static struct zio_block *__zio_write_allocblock(struct zio_bi *bi,
-						 struct zio_control *ctrl)
+static struct zio_block *__zio_write_allocblock(struct zio_bi *bi)
 {
-	struct zio_block *block;
+	struct zio_cset *cset = bi->chan->cset;
 	size_t datalen;
 
-	if (!ctrl) {
-		ctrl = zio_alloc_control(GFP_KERNEL);
-		if (!ctrl)
-			return NULL;
-		memcpy(ctrl, bi->chan->current_ctrl, ZIO_CONTROL_SIZE);
-	}
-	datalen = ctrl->ssize * ctrl->nsamples;
-	block = bi->b_op->alloc_block(bi, ctrl, datalen, GFP_KERNEL);
-	return block;
+	datalen = cset->ssize * cset->ti->nsamples;
+	return bi->b_op->alloc_block(bi, datalen, GFP_KERNEL);
 }
 
 static int __zio_write_allowed(struct zio_f_priv *priv)
@@ -351,7 +343,7 @@ static int __zio_write_allowed(struct zio_f_priv *priv)
 
 	/* We want to write data. If we have no control, retrieve one */
 	if (!chan->user_block)
-		chan->user_block = __zio_write_allocblock(bi, NULL);
+		chan->user_block = __zio_write_allocblock(bi);
 	block = chan->user_block;
 	if (!block)
 		return 0;
@@ -365,7 +357,7 @@ static int __zio_write_allowed(struct zio_f_priv *priv)
 		return 0;
 
 	/* We sent it: get a new one for this new data */
-	chan->user_block = __zio_write_allocblock(bi, NULL);
+	chan->user_block = __zio_write_allocblock(bi);
 	return chan->user_block ? can_write : 0;
 }
 

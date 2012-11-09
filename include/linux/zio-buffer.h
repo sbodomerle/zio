@@ -120,18 +120,21 @@ struct zio_block {
  * is usually inside a custom structure, reached by container_of().
  * Thus, all blocks for a buffer type must be allocated and freed using
  * the methods of that specific buffer type.
+ *
  */
 struct zio_buffer_operations {
+	/* Alloc returns NULL on error */
 	struct zio_block *	(*alloc_block)(struct zio_bi *bi,
-					       struct zio_control *ctrl,
 					       size_t datalen, gfp_t gfp);
 	void			(*free_block)(struct zio_bi *bi,
 					      struct zio_block *block);
 
+	/* Retr return NULL when empty */
+	struct zio_block *	(*retr_block) (struct zio_bi *bi);
 	int			(*store_block)(struct zio_bi *bi,
 					       struct zio_block *block);
-	struct zio_block *	(*retr_block) (struct zio_bi *bi);
 
+	/* Create returns ERR_PTR on error */
 	struct zio_bi *		(*create)(struct zio_buffer_type *zbuf,
 					  struct zio_channel *chan);
 	void			(*destroy)(struct zio_bi *bi);

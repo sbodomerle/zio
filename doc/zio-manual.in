@@ -1198,7 +1198,6 @@ The buffer operations are defined as follows:
 @smallexample
 struct zio_buffer_operations {
 	struct zio_block *	(*alloc_block)(struct zio_bi *bi,
-					       struct zio_control *ctrl,
 					       size_t datalen, gfp_t gfp);
 	void			(*free_block)(struct zio_bi *bi,
 					      struct zio_block *block);
@@ -1226,7 +1225,8 @@ This is the specific role of each method in the structure:
         @code{create} operation. The returned @code{zio_bi} structure
         will usually be part of a bigger structure used internally
         by the buffer implementation, using the @code{container_of}
-        macro to access it from the @code{zio_bi} pointer.
+        macro to access it from the @code{zio_bi} pointer. If creation
+        fails, the method must return an @t{ERR_PTR} value, not NULL.
 
 @cindex alloc_block
 @cindex free_block
@@ -1236,7 +1236,10 @@ This is the specific role of each method in the structure:
 	The buffer is concerned with memory management, so whenever
         the trigger or the @i{write} system call need a new block,
         they ask it to the buffer type. Similarly, the buffer type
-        is asked to release blocks.
+        is asked to release blocks. The function must also allocate
+        the control, likely with @t{zio_alloc_control}. Such control
+        will be filled with the current values for the channel in due time.
+        (For input this copy happens late). On error it return NULL.
 
 @cindex store_block
 @cindex retr_block

@@ -53,7 +53,8 @@ only zio_bi, so complex buffer structures must contain the zio_bi
 structure and use container_of() to access the private enclosing
 structure. create() can use default attributes of its buffer type at
 creation time; a copy for this specific instance is created by
-zio-core after the function returns.
+zio-core after the function returns. A failed creation must return
+ERR_PTR(-ENOMEM) or similar.
 
 destroy() deallocates a buffer instance. ZIO calls destroy() when the
 channel is unregistered from ZIO or when the user assigns a different
@@ -66,7 +67,6 @@ handled by ZIO, so it couldn't call destroy on close even if it wanted
 to.
 
 	struct zio_block *(*alloc_block)(struct zio_bi *bi,
-					 struct zio_control *ctrl,
 					 size_t datalen, gfp_t gfp);
 	void (*free_block)(struct zio_bi *bi, struct zio_block *block);
 
@@ -79,7 +79,8 @@ structure hosting a block is zio_block which contain both data
 (samples) and control information.  If needed, buffers may use a more
 complex structure, which will include zio_block, which is the only
 structure that ZIO handles; by using container_of you can retrieve the
-enclosing complex structure used in your buffer
+enclosing complex structure used in your buffer. A failed
+allocation returns NULL.
 
 	int (*store_block)(struct zio_bi *bi, struct zio_block *block);
 	struct zio_block (*retr_block) (struct zio_bi *bi);

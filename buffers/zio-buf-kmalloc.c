@@ -62,11 +62,11 @@ struct zio_sysfs_operations zbk_sysfs_ops = {
 
 /* Alloc is called by the trigger (for input) or by f->write (for output) */
 static struct zio_block *zbk_alloc_block(struct zio_bi *bi,
-					 struct zio_control *ctrl,
 					 size_t datalen, gfp_t gfp)
 {
 	struct zbk_instance *zbki = to_zbki(bi);
 	struct zbk_item *item;
+	struct zio_control *ctrl;
 	void *data;
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
@@ -74,21 +74,21 @@ static struct zio_block *zbk_alloc_block(struct zio_bi *bi,
 	/* alloc item and data. Control remains null at this point */
 	item = kmem_cache_alloc(zbk_slab, gfp);
 	data = kmalloc(datalen, gfp);
-	if (!item || !data)
+	ctrl = zio_alloc_control(gfp);
+	if (!item || !data || !ctrl)
 		goto out_free;
 	memset(item, 0, sizeof(*item));
 	item->block.data = data;
 	item->block.datalen = datalen;
 	item->instance = zbki;
-
 	zio_set_ctrl(&item->block, ctrl);
-
 	return &item->block;
 
 out_free:
 	kfree(data);
 	kmem_cache_free(zbk_slab, item);
-	return ERR_PTR(-ENOMEM);
+	zio_free_control(ctrl);
+	return NULL;
 }
 
 /* Free is called by f->read (for input) or by the trigger (for output) */

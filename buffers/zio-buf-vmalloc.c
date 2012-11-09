@@ -71,11 +71,11 @@ struct zio_sysfs_operations zbk_sysfs_ops = {
 
 /* Alloc is called by the trigger (for input) or by f->write (for output) */
 static struct zio_block *zbk_alloc_block(struct zio_bi *bi,
-					 struct zio_control *ctrl,
 					 size_t datalen, gfp_t gfp)
 {
 	struct zbk_instance *zbki = to_zbki(bi);
 	struct zbk_item *item;
+	struct zio_control *ctrl;
 	unsigned long offset;
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
@@ -83,7 +83,8 @@ static struct zio_block *zbk_alloc_block(struct zio_bi *bi,
 	/* alloc item and data. Control remains null at this point */
 	item = kmem_cache_alloc(zbk_slab, gfp);
 	offset = zio_ffa_alloc(zbki->ffa, datalen, gfp);
-	if (!item || offset == ZIO_FFA_NOSPACE)
+	ctrl = zio_alloc_control(gfp);
+	if (!item || !ctrl || offset == ZIO_FFA_NOSPACE)
 		goto out_free;
 	memset(item, 0, sizeof(*item));
 	item->begin = offset;
@@ -91,7 +92,7 @@ static struct zio_block *zbk_alloc_block(struct zio_bi *bi,
 	item->block.data = zbki->data + offset;
 	item->block.datalen = datalen;
 	item->instance = zbki;
-
+	/* mem_offset in current_ctrl is the last allocated */
 	bi->chan->current_ctrl->mem_offset = offset;
 	zio_set_ctrl(&item->block, ctrl);
 	return &item->block;
@@ -99,9 +100,9 @@ static struct zio_block *zbk_alloc_block(struct zio_bi *bi,
 out_free:
 	if (offset != ZIO_FFA_NOSPACE)
 		zio_ffa_free_s(zbki->ffa, offset, datalen);
-	if (item)
-		kmem_cache_free(zbk_slab, item);
-	return ERR_PTR(-ENOMEM);
+	kmem_cache_free(zbk_slab, item);
+	zio_free_control(ctrl);
+	return NULL;
 }
 
 /* Free is called by f->read (for input) or by the trigger (for output) */
@@ -153,12 +154,9 @@ static int zbk_store_block(struct zio_bi *bi, struct zio_block *block)
 
 	pr_debug("%s:%d (%p, %p)\n", __func__, __LINE__, bi, block);
 
-	if (unlikely(!zio_get_ctrl(block))) {
-		WARN_ON(1);
-		return -EINVAL;
-	}
-
 	item = to_item(block);
+	zio_get_ctrl(block)->mem_offset = item->begin;
+
 	output = (bi->flags & ZIO_DIR) == ZIO_DIR_OUTPUT;
 
 	/* add to the buffer instance or push to the trigger */
