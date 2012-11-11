@@ -79,6 +79,12 @@ struct zio_tlv {
 };
 
 /*
+ * We have at most 8 zio alarms and at most 8 driver alarm. The former
+ * group is defined here, the latter group is driver-specific.
+ */
+#define ZIO_ALARM_LOST_BLOCK	(1 << 0)	/* It happened */
+
+/*
  * The following data item is the control structure that is being exchanged
  * on the control device associated to each data device. The size of each
  * fields is fixed to ease portability of binary dumps (esp i386/x86-64).
@@ -89,8 +95,8 @@ struct zio_control {
 	/* byte 0 */
 	uint8_t major_version;
 	uint8_t minor_version;
-	uint8_t more_ctrl;	/* number of further ctrl, for interleaved */
-	uint8_t alarms;		/* set by channel, persistent, write 1 to clr */
+	uint8_t zio_alarms;	/* alarms are persistent, until somebody */
+	uint8_t drv_alarms;	/* clears them writing to a sysfs attribute */
 
 	/* byte 4*/
 	uint32_t seq_num;	/* block sequence number */
