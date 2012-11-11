@@ -177,25 +177,28 @@ void help(char *name)
 		"Use:    \"%s [<opts>] <ctrl-file> <data-file> [...]\"\n"
 		"    or  \"%s -c <combined-file>\"\n",
 		name, name, name);
-	fprintf(stderr, "       -a   dump attributes too\n");
-	fprintf(stderr, "       -A   dump all attributes\n");
-	fprintf(stderr, "       -c   combined file (control+data)\n");
+	fprintf(stderr, "       -a           dump attributes too\n");
+	fprintf(stderr, "       -A           dump all attributes\n");
+	fprintf(stderr, "       -c           combined file (control+data)\n");
+	fprintf(stderr, "       -n <number>  stop after that many blocks\n");
 	exit(1);
 }
 
 int main(int argc, char **argv)
 {
 	FILE *f;
+	char *rest;
 	char *outfname;
 	int *cfd; /* control file descriptors */
 	int *dfd; /* data file descriptors */
 	fd_set control_set, ready_set;
 	int c, i, j, maxfd, ndev;
 	int combined = 0;
+	unsigned long nblocks = -1; /* forever by default */
 
 	prgname = argv[0];
 
-        while ((c = getopt (argc, argv, "aAcm")) != -1) {
+	while ((c = getopt (argc, argv, "aAcmn:")) != -1) {
 		switch(c) {
 		case 'a':
 			opt_print_attr = 1;
@@ -208,6 +211,14 @@ int main(int argc, char **argv)
 			break;
 		case 'm':
 			opt_print_memaddr = 1;
+			break;
+		case 'n':
+			nblocks = strtoul(optarg, &rest, 0);
+			if (rest && *rest) {
+				fprintf(stderr, "%s: not a number \"%s\"\n",
+				       argv[0], optarg);
+				help(prgname);
+			}
 			break;
 		default:
 			help(prgname);
@@ -266,25 +277,29 @@ int main(int argc, char **argv)
 	setlinebuf(stdout);
 	setbuf(f, NULL);
 
-	/* now read control and then data, forever (unless "combined") */
-	while (!combined) {
-		ready_set = control_set;
-		i = select(maxfd + 1, &ready_set, NULL, NULL, NULL);
-		if (i < 0 && errno == EINTR)
-			continue;
-		if (i < 0) {
-			fprintf(stderr, "%s: select(): %s\n", prgname,
-				strerror(errno));
-			exit(1);
+	if (!combined) {
+		/* Read control and then data. Forever or nblocks if > 0 */
+		while (nblocks) {
+			if (nblocks > 0)
+				nblocks--;
+			ready_set = control_set;
+			i = select(maxfd + 1, &ready_set, NULL, NULL, NULL);
+			if (i < 0 && errno == EINTR)
+				continue;
+			if (i < 0) {
+				fprintf(stderr, "%s: select(): %s\n", prgname,
+					strerror(errno));
+				exit(1);
+			}
+			for (j = 0; j < ndev; j++)
+				if (FD_ISSET(cfd[j], &ready_set))
+					read_channel(cfd[j], dfd[j], f);
 		}
-		for (j = 0; j < ndev; j++)
-			if (FD_ISSET(cfd[j], &ready_set))
-				read_channel(cfd[j], dfd[j], f);
+		exit(0);
 	}
-
 	/*
 	 * So, we are reading one combined file. Just open it and
-	 * read it forever (the function read_channel() will block)
+	 * read it forever or nblocks if > 0; read_channel() is blocking.
 	 */
 	cfd[0] = open(argv[1], O_RDONLY);
 	if (cfd[0] < 0) {
@@ -292,6 +307,10 @@ int main(int argc, char **argv)
 			strerror(errno));
 		exit(1);
 	}
-	while (1)
+	while (nblocks) {
 		read_channel(cfd[0], cfd[0], f);
+		if (nblocks > 0)
+			nblocks--;
+	}
+	return 0;
 }
