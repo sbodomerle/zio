@@ -54,6 +54,22 @@ void print_attributes(struct zio_control *ctrl)
 		       ctrl->attr_trigger.ext_val);
 }
 
+static void ziodump_dataeof(int cfd, int dfd)
+{
+	struct stat stbuf;
+
+	/*
+	 * If ctrl == data and this is a regular file, EOF is expected
+	 * (it is likely the current-ctrl in sysfs). If not a regular file
+	 * is is likely a network strema, so EOF generates a warning.
+	 */
+	fstat(dfd, &stbuf);
+	if (cfd == dfd && S_ISREG(stbuf.st_mode))
+		exit(0);
+	fprintf(stderr, "%s: data read: unexpected EOF\n", prgname);
+}
+
+
 void read_channel(int cfd, int dfd, FILE *log)
 {
 	int err = 0;
@@ -129,7 +145,7 @@ void read_channel(int cfd, int dfd, FILE *log)
 		/* different files, we expect _only_ this data */
 		i = read(dfd, buf, sizeof(buf));
 	} else {
-		/* combined mode: only read the size we expect */
+		/* combined mode or control-only: read the size we expect */
 		if (ctrl.nsamples * ctrl.ssize > sizeof(buf)) {
 			fprintf(stderr, "%s: buffer too small: "
 				"please fix me and recompile\n", prgname);
@@ -142,8 +158,8 @@ void read_channel(int cfd, int dfd, FILE *log)
 			prgname, strerror(errno));
 		return; /* next ctrl, let's see... */
 	}
-	if (!i) {
-		fprintf(stderr, "%s: data read: unexpected EOF\n", prgname);
+	if (!i) { /* EOF: handle the various cases */
+		ziodump_dataeof(cfd, dfd);
 		return;
 	}
 	if (i != ctrl.nsamples * ctrl.ssize) {
@@ -153,7 +169,7 @@ void read_channel(int cfd, int dfd, FILE *log)
 			/* FIXME: empty the data channel */
 		} else {
 			fprintf(stderr, "%s: ctrl: read %i bytes "
-				"(exp %i)\n", prgname, i,
+				"(expected %i)\n", prgname, i,
 				ctrl.nsamples * ctrl.ssize);
 		}
 		/* continue anyways */
@@ -175,12 +191,13 @@ void help(char *name)
 {
 	fprintf(stderr, "%s: Wrong number of arguments\n"
 		"Use:    \"%s [<opts>] <ctrl-file> <data-file> [...]\"\n"
-		"    or  \"%s -c <combined-file>\"\n",
+		"    or  \"%s -c <control-only-or-combined-file>\"\n",
 		name, name, name);
-	fprintf(stderr, "       -a           dump attributes too\n");
-	fprintf(stderr, "       -A           dump all attributes\n");
-	fprintf(stderr, "       -c           combined file (control+data)\n");
-	fprintf(stderr, "       -n <number>  stop after that many blocks\n");
+	fprintf(stderr,
+		"       -a           dump attributes too\n"
+		"       -A           dump all attributes\n"
+		"       -c           control-only or combined (ctrl+data)\n"
+		"       -n <number>  stop after that many blocks\n");
 	exit(1);
 }
 
