@@ -61,6 +61,23 @@ void zio_slab_exit(void) /* not __exit: called from zio_init on failures */
 	return;
 }
 
+struct zio_device *zio_find_device(char *name, uint32_t dev_id)
+{
+	struct zio_object_list_item *cur;
+	struct zio_device *zdev;
+
+	if (!name)
+		return NULL;
+	list_for_each_entry(cur, &zstat->all_devices.list, list) {
+		pr_debug("%s:%d %s=%s\n", __func__, __LINE__, cur->name, name);
+		zdev = to_zio_dev(&cur->obj_head->dev);
+		if (strcmp(cur->name, name) == 0 && zdev->dev_id == dev_id)
+			return zdev; /* found */
+	}
+	return NULL;
+}
+EXPORT_SYMBOL(zio_find_device);
+
 static int __init zio_init(void)
 {
 	int err;

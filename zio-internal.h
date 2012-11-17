@@ -59,8 +59,6 @@ extern int zio_default_buffer_init(void);
 extern void zio_default_buffer_exit(void);
 extern int zio_default_trigger_init(void);
 extern void zio_default_trigger_exit(void);
-extern struct zio_device *zio_find_device(char *name, uint32_t dev_id);
-
 
 /* Defined in zio-sys.c */
 extern int __zdev_register(struct zio_device *parent,

@@ -1,7 +1,7 @@
 LINUX ?= /lib/modules/$(shell uname -r)/build
 
 zio-objs := zio-core.o zio-cdev.o zio-sys.o zio-misc.o
-zio-objs += bus.o objects.o
+zio-objs += bus.o objects.o helpers.o
 zio-objs += buffers/zio-buf-kmalloc.o triggers/zio-trig-user.o
 
 obj-m = zio.o
