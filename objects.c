@@ -66,7 +66,7 @@ static struct zio_buffer_type *zio_buffer_get(struct zio_cset *cset,
 		return ERR_PTR(-ENODEV);
 	return container_of(list_item->obj_head, struct zio_buffer_type, head);
 }
-void zio_buffer_put(struct zio_buffer_type *zbuf, struct module *dev_owner)
+static void zio_buffer_put(struct zio_buffer_type *zbuf, struct module *dev_owner)
 {
 	if (zbuf->owner != dev_owner)
 		module_put(zbuf->owner);
@@ -84,15 +84,15 @@ static struct zio_trigger_type *zio_trigger_get(struct zio_cset *cset,
 		return ERR_PTR(-ENODEV);
 	return container_of(list_item->obj_head, struct zio_trigger_type, head);
 }
-void zio_trigger_put(struct zio_trigger_type *trig, struct module *dev_owner)
+static void zio_trigger_put(struct zio_trigger_type *trig, struct module *dev_owner)
 {
 	if (trig->owner != dev_owner)
 		module_put(trig->owner);
 }
 
 /* create and initialize a new buffer instance */
-struct zio_bi *__bi_create_and_init(struct zio_buffer_type *zbuf,
-				    struct zio_channel *chan)
+static struct zio_bi *__bi_create_and_init(struct zio_buffer_type *zbuf,
+					   struct zio_channel *chan)
 {
 	struct zio_bi *bi;
 	int err;
@@ -130,14 +130,14 @@ struct zio_bi *__bi_create_and_init(struct zio_buffer_type *zbuf,
 out:
 	return bi;
 }
-void __bi_destroy(struct zio_buffer_type *zbuf, struct zio_bi *bi)
+static void __bi_destroy(struct zio_buffer_type *zbuf, struct zio_bi *bi)
 {
 	pr_debug("%s\n", __func__);
 	zbuf->b_op->destroy(bi);
 	__zattr_set_free(&bi->zattr_set);
 }
-int __bi_register(struct zio_buffer_type *zbuf, struct zio_channel *chan,
-		  struct zio_bi *bi, const char *name)
+static int __bi_register(struct zio_buffer_type *zbuf, struct zio_channel *chan,
+			 struct zio_bi *bi, const char *name)
 {
 	int err;
 
@@ -167,7 +167,7 @@ out_reg:
 out:
 	return err;
 }
-void __bi_unregister(struct zio_buffer_type *zbuf, struct zio_bi *bi)
+static void __bi_unregister(struct zio_buffer_type *zbuf, struct zio_bi *bi)
 {
 	pr_debug("%s\n", __func__);
 	/* Remove from buffer instance list */
@@ -180,8 +180,8 @@ void __bi_unregister(struct zio_buffer_type *zbuf, struct zio_bi *bi)
 }
 
 /* create and initialize a new trigger instance */
-struct zio_ti *__ti_create_and_init(struct zio_trigger_type *trig,
-				    struct zio_cset *cset)
+static struct zio_ti *__ti_create_and_init(struct zio_trigger_type *trig,
+					   struct zio_cset *cset)
 {
 	int err;
 	struct zio_ti *ti;
@@ -219,14 +219,14 @@ out:
 	return ti;
 
 }
-void __ti_destroy(struct zio_trigger_type *trig, struct zio_ti *ti)
+static void __ti_destroy(struct zio_trigger_type *trig, struct zio_ti *ti)
 {
 	pr_debug("%s\n", __func__);
 	trig->t_op->destroy(ti);
 	__zattr_set_free(&ti->zattr_set);
 }
-int __ti_register(struct zio_trigger_type *trig, struct zio_cset *cset,
-		  struct zio_ti *ti, const char *name)
+static int __ti_register(struct zio_trigger_type *trig, struct zio_cset *cset,
+			 struct zio_ti *ti, const char *name)
 {
 	int err;
 
@@ -254,7 +254,7 @@ out_reg:
 out:
 	return err;
 }
-void __ti_unregister(struct zio_trigger_type *trig, struct zio_ti *ti)
+static void __ti_unregister(struct zio_trigger_type *trig, struct zio_ti *ti)
 {
 	pr_debug("%s\n", __func__);
 	/* Remove from trigger instance list */
@@ -398,7 +398,7 @@ out:
 	return err;
 }
 
-int cset_set_trigger(struct zio_cset *cset)
+static int cset_set_trigger(struct zio_cset *cset)
 {
 	struct zio_trigger_type *trig;
 	char *name = NULL;
@@ -423,7 +423,7 @@ int cset_set_trigger(struct zio_cset *cset)
 	cset->trig = trig;
 	return 0;
 }
-int cset_set_buffer(struct zio_cset *cset)
+static int cset_set_buffer(struct zio_cset *cset)
 {
 	struct zio_buffer_type *zbuf;
 	char *name = NULL;
