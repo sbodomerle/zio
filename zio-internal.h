@@ -4,7 +4,9 @@
 /* Defined in zio-sys.c */
 extern struct device_type zdev_generic_type;
 extern struct device_type zobj_device_type;
+extern struct device_type cset_device_type;
 extern struct device_type bi_device_type;
+extern struct bin_attribute zio_attr_cur_ctrl;
 
 /* This list is used in the core to keep track of registered objects */
 struct zio_object_list {
@@ -71,6 +73,9 @@ extern int zattr_set_create(struct zio_obj_head *head,
 extern void zattr_set_remove(struct zio_obj_head *head);
 extern void __ctrl_update_nsamples(struct zio_ti *ti);
 extern void __zattr_trig_init_ctrl(struct zio_ti *ti, struct zio_control *ctrl);
+extern int __check_dev_zattr(struct zio_attribute_set *parent,
+		      struct zio_attribute_set *this);
+extern int __zattr_dev_init_ctrl(struct zio_device *zdev);
 
 /* Defined in objects.c */
 extern int zio_change_current_trigger(struct zio_cset *cset, char *name);
