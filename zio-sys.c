@@ -15,6 +15,8 @@
 #include <linux/zio-sysfs.h>
 #include <linux/zio-buffer.h>
 #include <linux/zio-trigger.h>
+#include "zio-internal.h"
+
 
 #define ZOBJ_SYSFS_NAME "name"
 #define ZOBJ_SYSFS_ENABLE "enable"
@@ -46,8 +48,6 @@ EXPORT_SYMBOL(zio_zbuf_attr_names);
 /* device instance prototypes */
 static int cset_register(struct zio_cset *cset, struct zio_cset *cset_t);
 static void cset_unregister(struct zio_cset *cset);
-static int __zdev_register(struct zio_device *parent,
-			   const struct zio_device_id *id);
 /* buffer instance prototypes */
 static struct zio_bi *__bi_create_and_init(struct zio_buffer_type *zbuf,
 					   struct zio_channel *chan);
@@ -1093,7 +1093,7 @@ void __zio_generic_device_release(struct device *dev)
 	pr_debug("RELEASE %s\n", dev_name(dev));
 	return;
 }
-static struct device_type zdev_generic_type = {
+struct device_type zdev_generic_type = {
 	.name = "zio generic device type",
 	.release = __zio_generic_device_release,
 };
@@ -1112,197 +1112,6 @@ struct device_type bi_device_type = {
 	.release = zio_device_release,
 	.groups = def_bi_groups_ptr,
 };
-
-
-/*
- * Bus
- */
-static ssize_t zio_show_version(struct bus_type *bus, char *buf)
-{
-	return sprintf(buf, "%d.%d\n", ZIO_MAJOR_VERSION, ZIO_MINOR_VERSION);
-}
-static ssize_t zio_show_buffers(struct bus_type *bus, char *buf)
-{
-	struct zio_object_list_item *cur;
-	ssize_t len = 0;
-
-	spin_lock(&zstat->lock);
-	list_for_each_entry(cur, &zstat->all_buffer_types.list, list)
-		len = sprintf(buf, "%s%s\n", buf, cur->name);
-	spin_unlock(&zstat->lock);
-
-	return len;
-}
-static ssize_t zio_show_triggers(struct bus_type *bus, char *buf)
-{
-	struct zio_object_list_item *cur;
-	ssize_t len = 0;
-
-	spin_lock(&zstat->lock);
-	list_for_each_entry(cur, &zstat->all_trigger_types.list, list)
-		len = sprintf(buf, "%s%s\n", buf, cur->name);
-	spin_unlock(&zstat->lock);
-
-	return len;
-}
-static struct bus_attribute def_bus_attrs[] = {
-	__ATTR(version, 0444, zio_show_version, NULL),
-	__ATTR(available_buffers, 0444, zio_show_buffers, NULL),
-	__ATTR(available_triggers, 0444, zio_show_triggers, NULL),
-	__ATTR_NULL,
-};
-
-static const struct zio_device_id *zio_match_id(const struct zio_device_id *id,
-						const struct zio_obj_head *head)
-{
-	while (id->name[0]) {
-		dev_dbg(&head->dev, "%s comparing  %s == %s\n", __func__,
-			 id->name, head->name);
-		if (!strcmp(head->name, id->name))
-			return id;
-		++id;
-	}
-	dev_dbg(&head->dev, "%s fail\n", __func__);
-	return NULL;
-}
-const struct zio_device_id *zio_get_device_id(const struct zio_device *zdev)
-{
-	const struct zio_driver *zdrv = to_zio_drv(zdev->head.dev.driver);
-
-	return zio_match_id(zdrv->id_table, &zdev->head);
-}
-EXPORT_SYMBOL(zio_get_device_id);
-static int zio_match_device(struct device *dev, struct device_driver *drv)
-{
-	const struct zio_driver *zdrv = to_zio_drv(drv);
-	const struct zio_device_id *id;
-
-	pr_debug("%s:%d\n", __func__, __LINE__);
-	if (!zdrv->id_table)
-		return 0;
-	id = zio_match_id(zdrv->id_table, to_zio_head(dev));
-	if (!id)
-		return 0;
-	pr_debug("%s:%d\n", __func__, __LINE__);
-	/* device and driver match */
-	if (dev->type == &zdev_generic_type) {
-		/* Register the real zio device */
-		pr_debug("%s:%d\n", __func__, __LINE__);
-		__zdev_register(to_zio_dev(dev), id);
-		return 0;
-	} else if (dev->type == &zobj_device_type) {
-		pr_debug("%s:%d\n", __func__, __LINE__);
-		return 1; /* real device always match*/
-	}
-	return 0;
-}
-struct bus_type zio_bus_type = {
-	.name = "zio",
-	.bus_attrs = def_bus_attrs,
-	.match = zio_match_device,
-};
-
-/*
- * zio_drv_probe
- */
-static int zio_drv_probe(struct device *dev)
-{
-	struct zio_driver *zdrv = to_zio_drv(dev->driver);
-	struct zio_device *zdev = to_zio_dev(dev);
-
-	pr_debug("%s:%d %p %p\n", __func__, __LINE__, zdrv, zdrv->probe);
-	if (zdrv->probe)
-		return zdrv->probe(zdev);
-	pr_debug("%s:%d\n", __func__, __LINE__);
-	return 0;
-}
-static int zio_drv_remove(struct device *dev)
-{
-	struct zio_driver *zdrv = to_zio_drv(dev->driver);
-	struct zio_device *zdev = to_zio_dev(dev);
-
-	if (zdrv->remove)
-		return zdrv->remove(zdev);
-	return 0;
-}
-
-/*
- * _zdev_template_check_and_init
- *
- * zio_register_driver() invokes this function to perform a preliminar test and
- * initialization on templates registered within the driver.
- *
- * NOTE: this not performa a complete test and initialization, during
- * driver->probe ZIO can rise new error and performa other initlization stuff
- *
- * FIXME try to move all the validations here
- */
-static int _zdev_template_check_and_init(struct zio_device *zdev,
-					 const char *name)
-{
-	struct zio_cset *cset;
-	int i;
-
-	pr_debug("%s:%d\n", __func__, __LINE__);
-	if (!zdev->owner) {
-		/* FIXME I can use driver->owner */
-		dev_err(&zdev->head.dev, "device template %s has no owner\n",
-			name);
-		return -EINVAL;
-	}
-	if (!zdev->cset || !zdev->n_cset) {
-		dev_err(&zdev->head.dev, "no cset in device template %s",
-			name);
-		return -EINVAL;
-	}
-
-	for (i = 0; i < zdev->n_cset; ++i) {
-		cset = &zdev->cset[i];
-		if (!cset->n_chan) {
-			dev_err(&zdev->head.dev,
-				"no channels in %s cset%i\n",
-				name, cset->index);
-			return -EINVAL;
-		}
-		if (!cset->ssize) {
-			dev_err(&zdev->head.dev,
-				"ssize can not be 0 in %s cset%i\n",
-				name, cset->index);
-			return -EINVAL;
-		}
-	}
-	return 0;
-}
-
-int zio_register_driver(struct zio_driver *zdrv)
-{
-	int i, err;
-
-	pr_debug("%s:%d\n", __func__, __LINE__);
-	if (!zdrv->id_table) {
-		pr_err("ZIO: id_table is mandatory for a zio driver\n");
-		return -EINVAL;
-	}
-	for (i = 0; zdrv->id_table[i].name[0]; ++i) {
-		err = _zdev_template_check_and_init(zdrv->id_table[i].template,
-						    zdrv->id_table[i].name);
-		if (err)
-			return err;
-	}
-
-	zdrv->driver.bus = &zio_bus_type;
-	zdrv->driver.probe = zio_drv_probe;
-	zdrv->driver.remove = zio_drv_remove;
-
-	return driver_register(&zdrv->driver);
-}
-EXPORT_SYMBOL(zio_register_driver);
-void zio_unregister_driver(struct zio_driver *zdrv)
-{
-	driver_unregister(&zdrv->driver);
-}
-EXPORT_SYMBOL(zio_unregister_driver);
-
 
 static int __check_dev_zattr(struct zio_attribute_set *parent,
 			     struct zio_attribute_set *this)
@@ -2070,8 +1879,8 @@ static void zobj_unregister(struct zio_object_list *zlist,
  * instance is child of a generic zio_device registered before to make the
  * bus work correctly.
  */
-static int __zdev_register(struct zio_device *parent,
-			   const struct zio_device_id *id)
+int __zdev_register(struct zio_device *parent,
+		    const struct zio_device_id *id)
 {
 	struct zio_device *zdev, *tmpl;
 	const char *pname;
