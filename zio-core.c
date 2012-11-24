@@ -6,6 +6,9 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/types.h>
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/zio.h>
@@ -13,6 +16,7 @@
 #include "zio-internal.h"
 
 struct zio_status zio_global_status;
+static struct zio_status *zstat = &zio_global_status; /* Always use ptr */
 /*
  * We use a local slab for control structures.
  */
@@ -56,3 +60,71 @@ void zio_slab_exit(void) /* not __exit: called from zio_init on failures */
 		kmem_cache_destroy(zio_ctrl_slab);
 	return;
 }
+
+static int __init zio_init(void)
+{
+	int err;
+
+	/* Some compile-time checks, so developers are free to hack around */
+	BUILD_BUG_ON(_ZIO_DEV_ATTR_STD_NUM != ARRAY_SIZE(zio_zdev_attr_names));
+	BUILD_BUG_ON(_ZIO_BUF_ATTR_STD_NUM != ARRAY_SIZE(zio_zbuf_attr_names));
+	BUILD_BUG_ON(_ZIO_TRG_ATTR_STD_NUM != ARRAY_SIZE(zio_trig_attr_names));
+	BUILD_BUG_ON(ZIO_NR_MINORS > MINORMASK + 1);
+
+	err = zio_slab_init();
+	if (err)
+		return err;
+	/* Register ZIO bus */
+	err = bus_register(&zio_bus_type);
+	if (err)
+		goto out;
+	/* Initialize char device */
+	err = zio_register_cdev();
+	if (err)
+		goto out_cdev;
+
+	spin_lock_init(&zstat->lock);
+	INIT_LIST_HEAD(&zstat->all_devices.list);
+	zstat->all_devices.zobj_type = ZIO_DEV;
+	INIT_LIST_HEAD(&zstat->all_trigger_types.list);
+	zstat->all_trigger_types.zobj_type = ZIO_TRG;
+	INIT_LIST_HEAD(&zstat->all_buffer_types.list);
+	zstat->all_buffer_types.zobj_type = ZIO_BUF;
+
+	err = zio_default_buffer_init();
+	if (err)
+		pr_warn("%s: cannot register default buffer\n", __func__);
+	err = zio_default_trigger_init();
+	if (err)
+		pr_warn("%s: cannot register default trigger\n", __func__);
+	pr_info("zio-core had been loaded\n");
+	return 0;
+
+out_cdev:
+	bus_unregister(&zio_bus_type);
+out:
+	zio_slab_exit();
+	return err;
+}
+
+static void __exit zio_exit(void)
+{
+	zio_default_trigger_exit();
+	zio_default_buffer_exit();
+
+	/* Remove char device */
+	zio_unregister_cdev();
+	/* Remove ZIO bus */
+	bus_unregister(&zio_bus_type);
+	zio_slab_exit();
+	pr_info("zio-core had been unloaded\n");
+	return;
+}
+
+subsys_initcall(zio_init);
+module_exit(zio_exit);
+
+MODULE_AUTHOR("Federico Vaga and Alessandro Rubini");
+/* Federico wrote the core, Alessandro wrote default trigger and buffer */
+MODULE_DESCRIPTION("ZIO - ZIO Input Output");
+MODULE_LICENSE("GPL");
