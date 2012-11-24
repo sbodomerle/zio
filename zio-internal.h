@@ -1,6 +1,15 @@
 #ifndef ZIO_INTERNAL_H_
 #define ZIO_INTERNAL_H_
 
+#include <linux/version.h>
+
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,34)
+#define ZIO_HAS_BINARY_CONTROL 1
+#else
+#define ZIO_HAS_BINARY_CONTROL 0
+#endif
+
+
 /* Defined in zio-sys.c */
 extern struct device_type zdev_generic_type;
 extern struct device_type zobj_device_type;

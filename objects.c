@@ -547,10 +547,13 @@ static int chan_register(struct zio_channel *chan, struct zio_channel *chan_t)
 	err = device_register(&chan->head.dev);
 	if (err)
 		goto out_ctrl_bits;
-	/* Create the sysfs binary file for the current control */
-	err = sysfs_create_bin_file(&chan->head.dev.kobj, &zio_attr_cur_ctrl);
-	if (err)
-		goto out_bin_attr;
+	if (ZIO_HAS_BINARY_CONTROL) {
+		/* Create the sysfs binary file for the current control */
+		err = sysfs_create_bin_file(&chan->head.dev.kobj,
+					    &zio_attr_cur_ctrl);
+		if (err)
+			goto out_bin_attr;
+	}
 	/* Create buffer */
 	bi = __bi_create_and_init(chan->cset->zbuf, chan);
 	if (IS_ERR(bi)) {
@@ -574,7 +577,8 @@ out_cdev_create:
 out_buf_reg:
 	__bi_destroy(chan->cset->zbuf, bi);
 out_buf_create:
-	sysfs_remove_bin_file(&chan->head.dev.kobj, &zio_attr_cur_ctrl);
+	if (ZIO_HAS_BINARY_CONTROL)
+		sysfs_remove_bin_file(&chan->head.dev.kobj, &zio_attr_cur_ctrl);
 out_bin_attr:
 	device_unregister(&chan->head.dev);
 out_ctrl_bits:
@@ -597,7 +601,8 @@ static void chan_unregister(struct zio_channel *chan)
 	/* destroy buffer instance */
 	__bi_unregister(chan->cset->zbuf, chan->bi);
 	__bi_destroy(chan->cset->zbuf, chan->bi);
-	sysfs_remove_bin_file(&chan->head.dev.kobj, &zio_attr_cur_ctrl);
+	if (ZIO_HAS_BINARY_CONTROL)
+		sysfs_remove_bin_file(&chan->head.dev.kobj, &zio_attr_cur_ctrl);
 	device_unregister(&chan->head.dev);
 	zio_free_control(chan->current_ctrl);
 	zattr_set_remove(&chan->head);

@@ -14,6 +14,7 @@
 #include <linux/device.h>
 #include <linux/spinlock.h>
 #include <linux/sysfs.h>
+#include <linux/version.h>
 
 #include <linux/zio.h>
 #include <linux/zio-sysfs.h>
@@ -535,6 +536,7 @@ static ssize_t zattr_store(struct device *dev, struct device_attribute *attr,
 	return count;
 }
 
+#if ZIO_HAS_BINARY_CONTROL
 /*
  * zobj_read_cur_ctrl
  * it returns the current control to userspace through binary sysfs file
@@ -567,6 +569,7 @@ struct bin_attribute zio_attr_cur_ctrl = {
 	.size = ZIO_CONTROL_SIZE, /* Will be modified for TLV support */
 	.read = zobj_read_cur_ctrl,
 };
+#endif /* ZIO_HAS_BINARY_CONTROL */
 
 /* default zio attributes */
 static struct device_attribute zio_default_attributes[] = {
