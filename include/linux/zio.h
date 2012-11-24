@@ -300,67 +300,6 @@ void zio_ffa_free_s(struct zio_ffa *ffa, unsigned long addr, size_t size);
 void zio_ffa_dump(struct zio_ffa *ffa); /* diagnostics */
 void zio_ffa_reset(struct zio_ffa *ffa);
 
-/*
- * Internal code is for the core, it should not be needed by triggers etc
- */
-#ifdef __ZIO_INTERNAL__
-
-/* This list is used in the core to keep track of registered objects */
-struct zio_object_list {
-	enum zio_object_type	zobj_type;
-	struct list_head	list;
-};
-struct zio_object_list_item {
-	struct list_head	list;
-	char			name[ZIO_OBJ_NAME_LEN]; /* object name copy*/
-	struct module		*owner;
-	struct zio_obj_head	*obj_head;
-};
-
-/* Global framework status (i.e., globals in zio-core) */
-struct zio_status {
-	/* a pointer to set up standard ktype with create */
-	struct kobject		*kobj;
-	/* The minor numbers are allocated with the first-fit allocator. */
-	struct zio_ffa		*minors;
-	struct cdev		chrdev;
-	dev_t			basedev;
-	spinlock_t		lock;
-
-	/* List of cset, used to retrieve a cset from a minor base*/
-	struct list_head	list_cset;
-
-	/* The three lists of registered devices, with owner module */
-	struct zio_object_list	all_devices;
-	struct zio_object_list	all_trigger_types;
-	struct zio_object_list	all_buffer_types;
-};
-
-extern struct zio_status zio_global_status;
-
-/* Functions in zio-cdev.c */
-int zio_minorbase_get(struct zio_cset *zcset);
-void zio_minorbase_put(struct zio_cset *zcset);
-
-int zio_register_cdev(void);
-void zio_unregister_cdev(void);
-
-int zio_create_chan_devices(struct zio_channel *zchan);
-void zio_destroy_chan_devices(struct zio_channel *zchan);
-
-int zio_init_buffer_fops(struct zio_buffer_type *zbuf);
-int zio_fini_buffer_fops(struct zio_buffer_type *zbuf);
-
-/* Exported but those that know to be the default */
-int zio_default_buffer_init(void);
-void zio_default_buffer_exit(void);
-int zio_default_trigger_init(void);
-void zio_default_trigger_exit(void);
-
-
-struct zio_device *zio_find_device(char *name, uint32_t dev_id);
-
-#endif /* __ZIO_INTERNAL__ */
 
 #endif /* __KERNEL__ */
 #endif /* __ZIO_H__ */

@@ -1,4 +1,9 @@
-/* Alessandro Rubini for CERN, 2012, GNU GPLv2 or later */
+/*
+ * Copyright 2011 CERN
+ * Author: Alessandro Rubini <rubini@gnudd.com>
+ *
+ * GNU GPLv2 or later
+ */
 
 /*
  * This file includes misc functionality, which is not actually ZIO-specific,

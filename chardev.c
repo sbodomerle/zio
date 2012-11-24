@@ -1,4 +1,10 @@
-/* Federico Vaga and Alessandro Rubini for CERN, 2011, GNU GPLv2 or later */
+/*
+ * Copyright 2011 CERN
+ * Author: Federico Vaga <federico.vaga@gmail.com>
+ * Author: Alessandro Rubini <rubini@gnudd.com>
+ *
+ * GNU GPLv2 or later
+ */
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/slab.h>
@@ -10,13 +16,12 @@
 #include <linux/sched.h>
 #include <linux/uaccess.h>
 
-#define __ZIO_INTERNAL__
 #include <linux/zio.h>
 #include <linux/zio-buffer.h>
 #include <linux/zio-trigger.h>
+#include "zio-internal.h"
 
 static DEFINE_MUTEX(zmutex);
-struct zio_status zio_global_status;
 static struct zio_status *zstat = &zio_global_status; /* Always use ptr */
 
 static ssize_t zio_show_version(struct class *class,
