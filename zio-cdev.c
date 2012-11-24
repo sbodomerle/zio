@@ -10,13 +10,12 @@
 #include <linux/sched.h>
 #include <linux/uaccess.h>
 
-#define __ZIO_INTERNAL__
 #include <linux/zio.h>
 #include <linux/zio-buffer.h>
 #include <linux/zio-trigger.h>
+#include "zio-internal.h"
 
 static DEFINE_MUTEX(zmutex);
-struct zio_status zio_global_status;
 static struct zio_status *zstat = &zio_global_status; /* Always use ptr */
 
 static ssize_t zio_show_version(struct class *class,

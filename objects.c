@@ -9,7 +9,6 @@
 #include <linux/init.h>
 #include <linux/types.h>
 
-#define __ZIO_INTERNAL__
 #include <linux/zio.h>
 #include <linux/zio-sysfs.h>
 #include <linux/zio-buffer.h>

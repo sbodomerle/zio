@@ -10,7 +10,9 @@
 #include <linux/string.h>
 #include <linux/zio.h>
 #include <linux/zio-buffer.h>
+#include "zio-internal.h"
 
+struct zio_status zio_global_status;
 /*
  * We use a local slab for control structures.
  */

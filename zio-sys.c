@@ -10,7 +10,6 @@
 #include <linux/spinlock.h>
 #include <linux/sysfs.h>
 
-#define __ZIO_INTERNAL__
 #include <linux/zio.h>
 #include <linux/zio-sysfs.h>
 #include <linux/zio-buffer.h>
