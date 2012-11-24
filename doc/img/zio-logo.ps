@@ -1,0 +1,255 @@
+%!PS-Adobe-2.0 EPSF-1.2
+%%Creator: Alessandro Rubini
+%%Title: zio logo
+%%BoundingBox: 140 140 300 400
+%%EndComments
+
+5 5 scale
+
+%%% my standard procedures from ../zio
+
+/S {dup ==} def
+/S2 {2 copy == ==} def
+/S3 {3 copy == == ==} def
+/S4 {4 copy == == == ==} def
+
+/grid {  % xmin xmax ymin ymax step
+        gsave
+	/step exch def
+	/maxy exch def
+	/miny exch def
+	/maxx exch def
+	/minx exch def
+        .8 .8 .8 setrgbcolor
+        .2 setlinewidth
+        % vertical lines
+        minx step maxx {
+                dup
+                miny moveto maxy lineto stroke
+        } for
+        % horizontal lines
+        miny step maxy {
+                dup
+                minx exch moveto maxx exch lineto stroke
+        } for
+} def
+
+/centerstring { % fontname width string -- fontsize
+    gsave
+    3 2 roll findfont setfont          % width string
+    dup 3 1 roll                       % string width string
+    stringwidth pop div dup 3 1 roll   % scale string scale
+    dup neg 0 exch rmoveto             % scale string scale
+    currentfont exch scalefont setfont % scale string
+    show
+    grestore
+} def
+
+/centeratsize { % x y string --
+        gsave
+        3 1 roll moveto
+        dup stringwidth pop 2 div neg 0 rmoveto show
+        grestore
+} def
+
+/wohs { % x y string --
+        gsave
+        dup stringwidth pop neg 0 rmoveto show
+        grestore
+} def
+
+
+/crect { % x y wid hei incolor outcolor --
+    /xxoutco exch def
+    /xxinco exch def
+    4 copy
+    xxinco rgb rectfill
+    xxoutco rgb
+    /hei exch def
+    /wid exch def
+    moveto
+    wid 0 rlineto 0 hei rlineto
+    wid neg 0 rlineto closepath
+    stroke
+} def
+
+/zrect { % x y wid hei incolor outcolor letter --
+    /xxname exch def
+    /xxoutco exch def
+    /xxinco exch def
+    4 copy
+    xxinco rgb rectfill
+    xxoutco rgb
+    /hei exch def
+    /wid exch def
+    gsave
+	translate
+	0 0 moveto
+        wid 0 rlineto 0 hei rlineto
+	wid neg 0 rlineto closepath
+	stroke
+	/Helvetica-Bold findfont 8 scalefont setfont
+	wid 10 sub 3 moveto xxname show
+    grestore
+} def
+
+
+/zzrect { % x y wid hei name
+    aload pop zrect
+} def
+
+
+/arrow { % x y len angle --
+    /xxangle exch def
+    /xxlen exch def
+    gsave
+    translate
+    xxangle rotate
+    0 0 moveto
+    xxlen 0 lineto stroke
+    xxlen 0 moveto
+    -10 5 rlineto
+    0 -10 rlineto
+    closepath fill
+    grestore
+} def
+
+/carrow { % x y len angle color --
+    rgb
+    arrow
+} def
+
+/tan {dup sin exch cos div} def
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%0 100 0 150 10 grid
+
+40 40 translate 10 10 scale
+
+%%% the origin is in the bottom pit of the zed, and the width of it is 1.
+
+% parameters are the length of the horizontal line (starting from the pit)
+% and the angle: el is the length, al = akpha is the the length
+/el 2 def
+/al 55 def
+
+% other less important parameters: tail width, line width, saturation (.5-1)
+/tw .4 def
+/lw .1 def
+/sat .7 def
+% "is reduced" alignes the corner of the base of the tip, else the center
+/isred true def
+% bg is the gray for bg. 1 == white
+/bg .9 def
+
+%%%%%%%%%%%%%%%%%%%%%%% the rest is calculated
+/rsat 1 sat sub def
+
+% diagonal width must be 1, so the leftmost point is -1/sin(al)
+/elong 1 al sin div def
+
+/centerx el elong add 2 div elong sub def
+/centery el al tan mul 2 div def
+
+/flip {
+    centerx centery translate
+    180 rotate
+    0 centerx sub 0 centery sub translate
+} def
+
+/dot {
+    moveto -0.05 -0.05 rmoveto
+    0 0 0 setrgbcolor
+    0.1 0 rlineto 0 0.1 rlineto -0.1 0 rlineto closepath fill
+} def
+
+/showcenter {
+    centerx centery dot
+} def
+
+% the arrow tip:
+/tip {
+    0 0 moveto
+    el 0 lineto
+    al cos el mul
+	al sin el mul
+	lineto
+    closepath
+    fill
+} def
+
+% the arrow tail
+/tail {
+    gsave
+    % move to the middle of the tail:
+    % x = (el + (el * cos(al))) / 2
+    % y = (el * sin(al)) / 2
+    /mx el el al cos mul add 2 div def
+    /my el al sin mul 2 div def
+    % length of the half-base segment
+    /tmp el mx sub def
+    /mlen tmp tmp mul my my mul add sqrt def
+    % reduce mlen by half width
+    /mred mlen tw 2 div sub def
+    mx my translate
+    al 2 div rotate
+    0 0 moveto
+    % here below: mlen aligns the center, mred the lower bound
+    /tlen isred { mred } { mlen } ifelse       al 2 div tan mul def
+    0 tw 2 div neg moveto
+    tlen 0 rlineto 0 tw rlineto tlen neg 0 rlineto closepath fill
+    %0 0  dot
+    grestore
+} def
+
+% base line
+/base {
+    gsave
+    0 0 0 setrgbcolor
+    lw setlinewidth
+    0 lw 2 div neg translate
+    elong neg -1 moveto el -1 lineto stroke
+    grestore
+} def
+
+/bgrect {
+    bg bg bg setrgbcolor
+    elong neg -1 moveto
+    el -1 lineto
+    el centery 2 mul 1 add lineto
+    elong el add neg 0 rlineto fill
+} def
+
+/whitezed {
+    gsave
+	1 setlinewidth 1 1 1 setrgbcolor
+	% the two horizontal lines
+	1 1 2 {
+	    pop
+	    elong 1 add neg -0.5 moveto
+	    elong el add 2 add 0 rlineto stroke
+	    flip
+	} for
+	centerx centery translate al rotate
+	-10 0 moveto 20 0 rlineto stroke
+    grestore	
+} def
+
+%%%%%%%%%%%%%% what follows is the drawing itself
+
+bgrect
+whitezed
+
+
+% base and arrow
+sat rsat rsat setrgbcolor
+tip tail base flip
+
+rsat sat rsat setrgbcolor
+tip tail base flip
+
+
+showpage

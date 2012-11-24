@@ -1,7 +1,7 @@
 %!PS-Adobe-2.0 EPSF-1.2
 %%Creator: Alessandro Rubini
-%%Title: zio control internals
-%%BoundingBox: 0 0 600 600
+%%Title: zio block control and data
+%%BoundingBox: 0 0 220 190
 %%EndComments
 /S {dup ==} def
 /S2 {2 copy == ==} def
@@ -48,6 +48,7 @@
         dup stringwidth pop neg 0 rmoveto show
         grestore
 } def
+
 /crect { % x y wid hei incolor outcolor --
     /xxoutco exch def
     /xxinco exch def
@@ -61,6 +62,7 @@
     wid neg 0 rlineto closepath
     stroke
 } def
+
 /zrect { % x y wid hei incolor outcolor letter --
     /xxname exch def
     /xxoutco exch def
@@ -80,9 +82,13 @@
  wid 10 sub 3 moveto xxname show
     grestore
 } def
+
+
 /zzrect { % x y wid hei name
     aload pop zrect
 } def
+
+
 /arrow { % x y len angle --
     /xxangle exch def
     /xxlen exch def
@@ -97,6 +103,7 @@
     closepath fill
     grestore
 } def
+
 /carrow { % x y len angle color --
     rgb
     arrow
@@ -161,110 +168,18 @@
 /Ninner [ 220 220 220 ] def
 /Nouter [ 128 128 128] def
 /N [ Ninner Nouter (N) ] def
-% was 400x400
-1.5 1.5 scale
-%0 400 0 400 20 grid
-gsave
-%60 20 320 360 Cinner Couter () zrect
-60 380 translate
-1 -1 scale
-20 20 scale
-.05 setlinewidth
-0 0 16 18 Cinner Couter () zrect
-/cfield { % x y wid str --
-    /xxstr exch def
-    /xxwid exch def
-    2 copy
-    xxwid 1 Cinner Couter () zrect
-    gsave
- 0 0 0 setrgbcolor
- /Helvetica-Bold findfont 0.7 scalefont setfont
- 1 add translate
- 1 -1 scale
- xxwid 2 div 0.3 xxstr centeratsize
- %wid 2 div .1 rmoveto xxstr centerstring
-    grestore
-} def
-/afield { % x y wid str --
-    /xxstr exch def
-    /xxwid exch def
-    2 copy
-    xxwid 1 [ 220 220 220 ] Couter () zrect
-    gsave
- 0 0 0 setrgbcolor
- /Helvetica-Bold findfont 0.7 scalefont setfont
- 1 add translate
- 1 -1 scale
- xxwid 2 div 0.3 xxstr centeratsize
- %wid 2 div .1 rmoveto xxstr centerstring
-    grestore
-} def
-/tfield { % x y wid str --
-    /xxstr exch def
-    /xxwid exch def
-    2 copy
-    xxwid 1 [ 177 255 216 ] Couter () zrect
-    gsave
- 0 0 0 setrgbcolor
- /Helvetica-Bold findfont 0.7 scalefont setfont
- 1 add translate
- 1 -1 scale
- xxwid 2 div 0.3 xxstr centeratsize
- %wid 2 div .1 rmoveto xxstr centerstring
-    grestore
-} def
- 0 0 1 (V) cfield
- 1 0 1 (v) cfield
- 2 0 1 (A) cfield
- 3 0 1 (a) cfield
- 4 0 4 (sequence) cfield
- 8 0 4 (nsamples) cfield
-12 0 2 (ssize) cfield
-14 0 2 (nbits) cfield
-0 1 2 (fam) afield
- 2 1 2 (type) afield
- 4 1 8 (host-identification) afield
-12 1 4 (device-id) afield
- 0 2 2 (cset) afield
- 2 2 2 (chan) afield
- 4 2 12 (device name) afield
- 0 3 8 (tstamp: secs) tfield
- 8 3 8 (tstamp: ticks) tfield
- 0 4 8 (tstamp: bins) tfield
- 8 4 4 (mem-addr) cfield
-12 4 4 (reserved) cfield
- 0 5 4 (flags) cfield
- 4 5 12 (trigger name) cfield
- 0 17 16 (TLV record for optional extra information) cfield
- gsave
- 0 15 translate 1 -1 scale
- /Helvetica-Bold findfont 0.7 scalefont setfont
- 8 7 (This area hosts attributes for the device) centeratsize
- 8 6 (and for the currently active trigger.) centeratsize
- 8 4 (Device and trigger are each characterized by) centeratsize
- 8 3 (16 "standard" attrs and 32 "extended" attrs.) centeratsize
- 8 2 (A bit-mask states which attrs are active.) centeratsize
- 8 0 (Each attribute is a 32-bit word) centeratsize
- grestore
- gsave
- /Helvetica-Bold findfont 0.8 scalefont setfont
- 0 0 0 setrgbcolor
- -2 6.8 translate 1 -1 scale
- 0 6 moveto (0x00) show
- 0 5 moveto (0x10) show
- 0 4 moveto (0x20) show
- 0 3 moveto (0x30) show
- 0 2 moveto (0x40) show
- 0 1 moveto (0x50) show
- 0 0 moveto (0x60) show
- grestore
- /Helvetica-Bold findfont 0.8 scalefont setfont
- 0 0 0 setrgbcolor
- -2.5 17.8 translate 1 -1 scale
- 0 0 moveto (0x1F0) show
-%80 85 moveto gsave (Block) show grestore 70 0 rmoveto (Blue) show
-%80 55 moveto gsave (Control) show grestore 70 0 rmoveto (Cyan) show
-%80 25 moveto gsave (Data) show grestore 70 0 rmoveto (Darker) show
-grestore
-%0 400 0 400 20 grid
+%0 220 0 190 10 grid
+1.5 setlinewidth
+30 130 170 40 BL zzrect
+35 145 20 20 C zzrect
+55 145 140 20 D zzrect
+20 80 50 20 BL zzrect
+20 50 50 20 C zzrect
+20 20 50 20 D zzrect
+0 0 0 setrgbcolor
+/Helvetica-Bold findfont 11 scalefont setfont
+80 85 moveto gsave (The block is overall blue) show
+/Helvetica-Bold findfont 16 scalefont setfont
+80 55 moveto gsave (Control) show grestore 70 0 rmoveto (Cyan) show
+80 25 moveto gsave (Data) show grestore 70 0 rmoveto (Darker) show
 showpage
