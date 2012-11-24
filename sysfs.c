@@ -1,4 +1,9 @@
-/* Federico Vaga for CERN, 2011, GNU GPLv2 or later */
+/*
+ * Copyright 2011 CERN
+ * Author: Federico Vaga <federico.vaga@gmail.com>
+ *
+ * GNU GPLv2 or later
+ */
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/init.h>

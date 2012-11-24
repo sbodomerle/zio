@@ -1,8 +1,9 @@
-/* Alessandro Rubini, Federico Vaga for CERN, 2011, GNU GPLv2 or later */
-
 /*
- * This file includes functions that build up the zio core, but are not
- * strictly related to sysfs and configuration. Those are in zio-sysfs.c
+ * Copyright 2011 CERN
+ * Author: Federico Vaga <federico.vaga@gmail.com>
+ * Author: Alessandro Rubini <rubini@gnudd.com>
+ *
+ * GNU GPLv2 or later
  */
 
 #include <linux/kernel.h>

@@ -1,4 +1,10 @@
-/* Federico Vaga and Alessandro Rubini for CERN, 2011, GNU GPLv2 or later */
+/*
+ * Copyright 2011 CERN
+ * Author: Federico Vaga <federico.vaga@gmail.com>
+ * Author: Alessandro Rubini <rubini@gnudd.com>
+ *
+ * GNU GPLv2 or later
+ */
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/slab.h>
