@@ -51,7 +51,7 @@ enum FFA_STATUS {
 };
 
 struct zio_ffa {
-	struct spinlock lock;
+	spinlock_t lock;
 	struct ffa_cell *cell;
 };
 
