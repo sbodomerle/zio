@@ -978,7 +978,7 @@ static int zobj_unique_name(struct zio_object_list *zobj_list, const char *name)
 		return -EINVAL;
 	}
 	if (strlen(name) > ZIO_OBJ_NAME_LEN)
-		pr_warn("ZIO: name too long, cut to %d characters\n",
+		pr_warning("ZIO: name too long, cut to %d characters\n",
 			ZIO_OBJ_NAME_LEN);
 
 	pr_debug("%s\n", __func__);

@@ -111,10 +111,10 @@ static int __init zio_init(void)
 
 	err = zio_default_buffer_init();
 	if (err)
-		pr_warn("%s: cannot register default buffer\n", __func__);
+		pr_warning("%s: cannot register default buffer\n", __func__);
 	err = zio_default_trigger_init();
 	if (err)
-		pr_warn("%s: cannot register default trigger\n", __func__);
+		pr_warning("%s: cannot register default trigger\n", __func__);
 	pr_info("zio-core had been loaded\n");
 	return 0;
 
