@@ -126,7 +126,7 @@ struct zio_control {
 	struct zio_ctrl_attr attr_trigger;
 
 	/* byte 496 */
-	struct zio_tlv tvl[1];
+	struct zio_tlv tlv[1];
 	/* byte 512: we are done */
 };
 
