@@ -163,6 +163,7 @@ void zio_free_device(struct zio_device *dev);
 int __must_check zio_register_device(struct zio_device *zdev, const char *name,
 				    uint32_t dev_id);
 void zio_unregister_device(struct zio_device *zdev);
+struct zio_device *zio_find_device(char *name, uint32_t dev_id);
 
 /*
  * zio_cset -- channel set: a group of channels with the same features
