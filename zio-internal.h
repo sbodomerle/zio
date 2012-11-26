@@ -55,7 +55,7 @@ struct zio_status {
 
 extern struct zio_status zio_global_status;
 
-/* Defined in zio-cdev.c */
+/* Defined in chardev.c */
 extern int zio_minorbase_get(struct zio_cset *zcset);
 extern void zio_minorbase_put(struct zio_cset *zcset);
 
@@ -74,7 +74,7 @@ extern void zio_default_buffer_exit(void);
 extern int zio_default_trigger_init(void);
 extern void zio_default_trigger_exit(void);
 
-/* Defined in zio-sys.c */
+/* Defined in sysfs.c */
 extern int __zdev_register(struct zio_device *parent,
 			   const struct zio_device_id *id);
 extern int __zattr_set_copy(struct zio_attribute_set *dest,
