@@ -6,16 +6,6 @@
 *.order
 *.symvers
 *.mod.c
-*.pdf
-*.toc
-*.aux
-*.log
-*.lof
-*.bib
-*.bbl
-*.blg
-*.dvi
-*.out
 \#*\#
 *.sh
 # eclipse files

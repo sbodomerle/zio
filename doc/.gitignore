@@ -7,7 +7,7 @@
 *.info
 *.ky
 *.log
-*.pdf
+/*.pdf
 *.pg
 *.texi
 *.toc
