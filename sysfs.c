@@ -624,72 +624,104 @@ struct bin_attribute zio_attr_cur_ctrl = {
 };
 #endif /* ZIO_HAS_BINARY_CONTROL */
 
+/* This is only for internal use (DAN == default attribute name) */
+enum zio_default_attribute_numeration {
+	ZIO_DAN_NAME = 0,	/* name */
+	ZIO_DAN_ENAB,	/* enable */
+	ZIO_DAN_CTRI,	/* current_trigger */
+	ZIO_DAN_CBUF,	/* current_buffer */
+	ZIO_DAN_DNAM,	/* devname */
+	ZIO_DAN_TYPE,	/* devtype */
+	ZIO_DAN_FLUS,	/* flush */
+};
+
 /* default zio attributes */
 static struct device_attribute zio_default_attributes[] = {
-	__ATTR(name, ZIO_RO_PERM,
-	       zobj_show_name, NULL),
-	__ATTR(enable, ZIO_RW_PERM,
-	       zobj_show_enable, zobj_store_enable),
-	__ATTR(current_trigger, ZIO_RW_PERM,
-	       zobj_show_cur_trig, zobj_store_cur_trig),
-	__ATTR(current_buffer, ZIO_RW_PERM,
-	       zobj_show_cur_zbuf, zobj_store_cur_zbuf),
-	__ATTR(devname, ZIO_RO_PERM,
-	       zobj_show_devname, NULL),
+	[ZIO_DAN_NAME] = __ATTR(name, ZIO_RO_PERM,
+				zobj_show_name, NULL),
+	[ZIO_DAN_ENAB] = __ATTR(enable, ZIO_RW_PERM,
+				zobj_show_enable, zobj_store_enable),
+	[ZIO_DAN_CTRI] = __ATTR(current_trigger, ZIO_RW_PERM,
+				zobj_show_cur_trig, zobj_store_cur_trig),
+	[ZIO_DAN_CBUF] = __ATTR(current_buffer, ZIO_RW_PERM,
+				zobj_show_cur_zbuf, zobj_store_cur_zbuf),
+	[ZIO_DAN_DNAM] = __ATTR(devname, ZIO_RO_PERM,
+				zobj_show_devname, NULL),
 	__ATTR_NULL,
 };
 /* default attributes for most of the zio objects */
-static struct attribute *def_device_attrs_ptr[] = {
-	&zio_default_attributes[0].attr,	/* name */
-	&zio_default_attributes[1].attr,	/* enable */
+static struct attribute *def_obj_attrs_ptr[] = {
+	&zio_default_attributes[ZIO_DAN_NAME].attr,
+	&zio_default_attributes[ZIO_DAN_ENAB].attr,
 	NULL,
 };
-/* default attributes for the hierarchy of device/cset/channel */
-static struct attribute *def_hier_attrs_ptr[] = {
-	&zio_default_attributes[4].attr,	/* devname */
+/* default attributes for hierachy components (dev/cset/chan) */
+static struct attribute *def_hie_attrs_ptr[] = {
+	&zio_default_attributes[ZIO_DAN_DNAM].attr,
 	NULL,
 };
 /* default attributes for channel set */
 static struct attribute *def_cset_attrs_ptr[] = {
-	&zio_default_attributes[2].attr,	/* current_trigger */
-	&zio_default_attributes[3].attr,	/* current_buffer */
+	&zio_default_attributes[ZIO_DAN_CTRI].attr,
+	&zio_default_attributes[ZIO_DAN_CBUF].attr,
 	NULL,
 };
-/* default attributes for buffer instance*/
+/* default attributes for buffer instance */
 static struct attribute *def_bi_attrs_ptr[] = {
-	&zio_default_attributes[0].attr,	/* name */
+	&zio_default_attributes[ZIO_DAN_NAME].attr,
 	NULL,
 };
+
+/* This is only for internal use (DAG = default attribute group) */
+enum zio_default_attribute_group_enumeration {
+	ZIO_DAG_ALL = 0,	/* Group valid for any ZIO object*/
+	ZIO_DAG_CSET,	/* Only for cset */
+	ZIO_DAG_BI,	/* Only for buffer instance */
+	ZIO_DAG_HIE,	/* Only within device hierarchy (dev, cset, chan) */
+};
+
 /* default zio groups */
 static const struct attribute_group zio_groups[] = {
-	{	/* group for all zio object*/
-		.attrs = def_device_attrs_ptr,
+	[ZIO_DAG_ALL] = {	/* group for all zio object*/
+		.attrs = def_obj_attrs_ptr,
 	},
-	{	/* cset only group */
+	[ZIO_DAG_CSET] = {	/* cset only group */
 		.attrs = def_cset_attrs_ptr,
 	},
-	{	/* bi only group */
+	[ZIO_DAG_BI] = {	/* bi only group */
 		.attrs = def_bi_attrs_ptr,
 	},
-	{	/* all hiearchy members */
-		.attrs = def_hier_attrs_ptr,
+	[ZIO_DAG_HIE] = {	/* group for all device hierarchy objects */
+		.attrs = def_hie_attrs_ptr,
 	},
 };
-/* default groups for most of the zio object */
-static const struct attribute_group *def_device_groups_ptr[] = {
-	&zio_groups[0],	/* group for all zio object*/
-	&zio_groups[3],	/* group for all zio hierarchy members*/
+/* default groups for whole-device */
+static const struct attribute_group *def_zdev_groups_ptr[] = {
+	&zio_groups[ZIO_DAG_ALL],
+	&zio_groups[ZIO_DAG_HIE],
 	NULL,
 };
 /* default groups for channel set */
 static const struct attribute_group *def_cset_groups_ptr[] = {
-	&zio_groups[0],	/* group for all zio object*/
-	&zio_groups[1],	/* cset only group */
-	&zio_groups[3],	/* group for all zio hierarchy members*/
+	&zio_groups[ZIO_DAG_ALL],
+	&zio_groups[ZIO_DAG_CSET],
+	&zio_groups[ZIO_DAG_HIE],
 	NULL,
 };
+/* default groups for channel */
+static const struct attribute_group *def_chan_groups_ptr[] = {
+	&zio_groups[ZIO_DAG_ALL],
+	&zio_groups[ZIO_DAG_HIE],
+	NULL,
+};
+/* default groups for trigger instance */
+static const struct attribute_group *def_ti_groups_ptr[] = {
+	&zio_groups[ZIO_DAG_ALL],
+ 	NULL,
+ };
+/* default groups for buffer instance */
 static const struct attribute_group *def_bi_groups_ptr[] = {
-	&zio_groups[2],	/* bi only group */
+	&zio_groups[ZIO_DAG_BI],
 	NULL,
 };
 
@@ -711,27 +743,27 @@ struct device_type zdevhw_device_type = {
 struct device_type zdev_device_type = {
 	.name = zdev_device_type_name,
 	.release = zio_device_release,
-	.groups = def_device_groups_ptr,
+	.groups = def_zdev_groups_ptr,
 };
 struct device_type cset_device_type = {
 	.name = cset_device_type_name,
 	.release = zio_device_release,
 	.groups = def_cset_groups_ptr,
 };
+struct device_type chan_device_type = {
+	.name = chan_device_type_name,
+	.release = zio_device_release,
+	.groups = def_chan_groups_ptr,
+};
 struct device_type ti_device_type = {
 	.name = ti_device_type_name,
 	.release = zio_device_release,
-	.groups = def_device_groups_ptr,
+	.groups = def_ti_groups_ptr,
 };
 struct device_type bi_device_type = {
 	.name = bi_device_type_name,
 	.release = zio_device_release,
 	.groups = def_bi_groups_ptr,
-};
-struct device_type chan_device_type = {
-	.name = chan_device_type_name,
-	.release = zio_device_release,
-	.groups = def_device_groups_ptr,
 };
 
 int __check_dev_zattr(struct zio_attribute_set *parent,
