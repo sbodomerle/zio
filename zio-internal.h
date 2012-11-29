@@ -8,14 +8,8 @@
 #else
 #define ZIO_HAS_BINARY_CONTROL 0
 #endif
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,33)
-#define ZIO_HAS_SYSFS_VERSION 1
-#else
-#define ZIO_HAS_SYSFS_VERSION 0
-#endif
 
-
-/* Defined in zio-sys.c */
+/* Defined in sysfs.c */
 extern struct device_type zdev_generic_type;
 extern struct device_type zobj_device_type;
 extern struct device_type cset_device_type;

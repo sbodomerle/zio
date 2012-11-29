@@ -24,21 +24,6 @@
 static DEFINE_MUTEX(zmutex);
 static struct zio_status *zstat = &zio_global_status; /* Always use ptr */
 
-#if ZIO_HAS_SYSFS_VERSION
-static ssize_t zio_show_version(struct class *class,
-			struct class_attribute *attr,
-			char *buf)
-{
-	return sprintf(buf, "%d.%d\n", ZIO_MAJOR_VERSION, ZIO_MINOR_VERSION);
-}
-
-static struct class_attribute zclass_attrs[] = {
-	__ATTR(version, S_IRUGO, zio_show_version, NULL),
-	__ATTR_NULL,
-};
-#endif /* ZIO_HAS_SYSFS_VERSION */
-
-
 static int zio_dev_uevent(struct device *dev, struct kobj_uevent_env *env)
 {
 	unsigned long *flags ;
@@ -61,9 +46,6 @@ static char *zio_devnode(struct device *dev, mode_t *mode)
 static struct class zio_class = {
 	.name		= "zio-char-devices",
 	.owner		= THIS_MODULE,
-#if ZIO_HAS_SYSFS_VERSION
-	.class_attrs	= zclass_attrs,
-#endif
 	.dev_uevent	= zio_dev_uevent,
 	.devnode	= zio_devnode,
 };
