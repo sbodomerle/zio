@@ -159,11 +159,12 @@ all of them must feature the same set, like gain and offset).
 
 @cindex channel
 The channel is the basic I/O entity, usually associated with a single
-electrical connection on some backplane.
+electrical connection on some backplane. The layers are displayed
+in @ref{fig:layers}
 
-The next figure depicts the layered strcture of ZIO.
-@sp 1
-@center @image{img/zio-layers, 8cm, , the three layers of ZIO, gif}
+@float Figure,fig:layers
+@image{img/zio-layers, 8cm, , the three layers of ZIO, gif}
+@end float
 @sp 1
 
 @cindex cset
@@ -177,12 +178,14 @@ the trigger. Each cset has a @i{current_buffer} attribute as well. ZIO creates
 a buffer instance for each channel in the cset.  Thus, each channel
 owns a buffer instance, but of the same type across the cset.
 
-The figure below shows a cset, the trigger and buffer types it refers
-to an the instances it is using. A cset has one trigger instance
-overall and one buffer instance for each channel.
+Figure @ref{fig:cset} shows a cset, the trigger and buffer types it
+refers to an the instances it is using. A cset has one trigger
+instance overall and one buffer instance for each channel.
 
-@sp 1
-@center @image{img/zio-cset, 8cm, , A cset with trigger and buffers, gif}
+@float Figure,fig:cset
+@image{img/zio-cset, 8cm, , A cset with trigger and buffers, gif}
+@caption{Figure 2: The cset}
+@end float
 @sp 1
 
 @c ==========================================================================
@@ -350,6 +353,253 @@ in @i{beta} stage, available from @i{git} branches in our @t{ohwr} repository.
 @end itemize
 
 @c ##########################################################################
+@node The ZIO Pipeline
+@chapter The ZIO Pipeline
+
+@cindex pipeline of zio data transfers
+During input and output operations, ZIO blocks travel across a
+pipeline of software modules. Hoping to make the representation
+clearer, we chose to stick to a consistent mnemonic color model for
+our figures. Unfortunately, some older figures still need to be
+converted to this color model, and we apologize for this.
+@c FIXME: new color model for all figures
+
+The color model for all of our objects is shown in @ref{fig:color}.
+
+@float Figure,fig:color
+@center @image{img/zio-define-block, 5cm, , color model for blocks, gif} @image{img/zio-defines, 6cm, , color model for ZIO objects, gif}
+@end float
+@sp 1
+
+@cindex pipeline
+@cindex input pipeline
+@cindex output pipeline
+The ZIO pipeline connects user space with the peripheral device,
+and the main objects involved are the file operations in the
+character device, the buffer where blocks are stored, the trigger that
+sequences the actual data transfers and the peripheral driver that
+is concerned with hardware operations when the trigger fires.
+
+The whole pipeline is depicted in the @ref{fig:pipeline},
+where the path of the blue blocks is shown for both input and output.
+The black arrows represent function calls.
+
+@float Figure,fig:pipeline
+@center @image{img/zio-pipeline, 14cm, , the input and output pipeline, gif}
+@end float
+@sp 1
+
+@cindex system calls
+User space makes system calls, which are implemented by the
+@code{file_operations} in the current buffer. Generic functions are
+implemented in @code{chardev.c} and exported as
+@code{zio_generic_fops} (currently all buffers included in the
+distribution are using these operations).  This may slightly change in the
+future if we introduce the @i{interface} concept, but the change
+will not affect buffers which simply won't declare their file operations
+any more). See @ref{Future Developments} about the @i{interface} idea.
+
+@findex store_block
+@findex retr_block
+The file operations code calls @code{store_block} and
+@code{retr_block} in the proper buffer instance, the buffer in turn
+communicates with the trigger, and the trigger refers to the device
+for the raw data transfer.
+
+
+@c ==========================================================================
+@node All the Steps in the Pipeline
+@section All the Steps in the Pipeline
+
+This sections details all the steps a block takes from user space
+to the device and back.  You should get acquainted to the various
+step when writing a ZIO module or debugging some module by your mates.
+
+When you load the device driver, each of its cset wil receive an
+instance of a trigger, and each channel in the cset an instance of a
+buffer; the preferred trigger type and the preferred buffer type are
+selected by the device, or the default ones are used.  When the user
+changes the trigger or buffer type for a cset, the operation is
+atomic: it either succeeds or it fails.  This design ensures that all
+steps of the pipeline are always present, and we'll use @t{bi} as name
+for the pointer to the current @i{buffer instance}, and @t{ti} as name
+for the pointer to the current @i{trigger instance}.
+
+When the data is flowing, operation of the pipeline is quite
+straightforward, but there are always some corner cases to be dealt
+with, so the description below is sometimes longer than expected, but
+it covers all cases.
+
+Let's start with the input direction:
+
+@itemize @bullet
+
+@item When a user program calls @i{read}, @i{poll} or @i{select} on
+a ZIO character device, it means it is interested in data. The code in
+the ZIO file operation calls @t{bi->retr_block}, which may succeed or
+fail. If it fails, the device is reported as not readable; the process
+may be added to a wait queue or not, according to standard Unix
+semantics.  If @t{retr_block} succeeds, the block just retrieved is
+managed by the @i{file operations} code until it is exhausted and
+eventually freed calling @t{bi->free_block}.
+
+@item The @t{retr_block} method lives in the buffer.
+If the buffer is already hosting at least one block, it returns the
+first block in its FIFO structures, and the loop closes. If not, it
+checks @t{ti->pull_block}.  If the pointer is NULL, the buffer can
+only wait for the trigger to autonomously produce a block; otherwise
+it calls @t{ti->pull_block}.
+
+@item Most trigger types do not implement @t{pull_block}: a time-driven
+trigger or an event-driven trigger will fire by itself, whether or not
+the user is reading.  But if the trigger implements
+the method, then it means it wants to know when the user is asking
+for input data: such a trigger may return
+an incomplete block, or just use @i{that} event to fire acquisition.
+In any case, @t{pull_block} does not return anything, it just
+informs the trigger about the request.
+
+@item The trigger is involved with driving actual input events, in any
+way it wants. At some time, or at some event, it knows it wants input
+to happen, so we say it is @i{armed}. When the trigger is armed, all
+active channels in the cset have a valid @i{current block}, allocated
+by the trigger. Then, the trigger notifies the event to the relevant
+cset by calling @t{device->raw_io(cset)}.  A @i{transparent} trigger
+will arm the device at @t{pull_block} time, and each other trigger in
+its own specific way.
+
+@item After the trigger is @i{armed}, the device is in charge. If
+the device is self-timed (like a TDC or another data-driven device),
+the trigger can remain armed for a while.  If the device has no
+internal timing, actual input begins immediately; it may complete
+synchronously or asynchronously, for example reading GPIO pins is
+synchronous, but if the device starts DMA an interrupt will signal its
+completion at a later time.  The @t{raw_io} device method returns 0 if
+input completed synchronously, and it returns @t{-EAGAIN} to report
+that data will be ready at a later time. In the former case the system
+knows the trigger has fired, in the latter case ZIO knows the trigger
+is still armed for this cset.
+
+@item At some time in the future, the device that reported @t{-EAGAIN}
+is done with the input operation. It thus calls @i{ti->data_done}.
+When this happens (or if @t{raw_io} completed synchronously), the
+respective trigger changes its status to @i{idle}; the active block
+for each channel in the cset is stored to the respective buffer
+instance, by calling @i{bi->store_block}.  According to its own
+semantics, the trigger can re-arm the trigger immediately, or it may
+not.
+
+@item The buffer, in its @t{store_block} method, enqueues the block.
+If there are already other blocks in the buffer, the loop is over.
+If, instead, this is the first block, the buffer must awake the wait
+queue, because there may be a user-space program waiting for that
+data.
+
+@end itemize
+
+The sequence of events for output is similar, but not in all
+details:
+
+@itemize
+
+@item When a user program calls @i{write} on
+a ZIO character device, the data build up into a block, that the file
+operation allocated by calling @t{bi->alloc_block}.  The details of
+how the control and the data are filled are not described here (see
+@ref{Details of Char Device Policies}).  When the block is full, the
+code calls @t{bi->store_block}.  If the buffer reports failure, the
+file is reported as not writable, and the process may be put to sleep,
+according to Unix semantics. @i{poll} and @i{select} are supported in
+the same way.
+
+@item The buffer method @t{store_block} take hold of
+the new block. If there already are blocks in its FIFO structure, the
+new block is enqueued and nothing more is done. If it is the first
+block, the buffer calls @t{ti->push_block}. If the push succeeds, the
+buffer remains empty (and will try @i{push} again next time).
+If the push fails, the block is enqueued.
+
+@item The trigger, in its @t{push_block}, may accept or
+refuse the push. In general, it should refuse the push if it
+already has a block for the current channel, and it should accept
+the push if no block is pending. A double-buffering trigger can
+be implemented by properly writing @i{push}.
+
+@item After accepting the push, the trigger may, or may not, arm
+the trigger, according to its own trigger policies -- which may
+include cset-wide conditions or whatever else.
+
+@item When the trigger module wants output to be performed, it
+turns in to @i{armed} state, and calls @t{device->raw_io(cset)}.
+Similarly to the input case described earlier, this method
+can perform I/O synchronously and return 0 to mean ``success'',
+or ti can perform I/O asynchronously and return @code{-EAGAIN}.
+In the latter case the trigger remains in @i{armed} state.
+
+@item At some time in the future, the device that reported @t{-EAGAIN}
+is done with hardware output, and calls @i{ti->data_done}.
+When this happens (or if @t{raw_io} completed synchronously), the
+trigger instance bcomes @i{idle} again, and it frees the blocks
+for the cset by calling @t{bi->free_block}.  In general,
+the trigger will then call @t{bi->retr_block} in order to be
+ready to re-arm the trigger.
+
+@item If the buffer is not able to satisfy the @t{retr_block}
+request, this means it is empty. As a consequence, the next time a
+block is stored to the buffer, the buffer calls @t{ti->push} to
+restart a loop that has been broken.  If the buffer was completely
+full, this @t{retr_block} makes some space available, and the buffer
+awakes the associated wait queue.
+
+@end itemize
+
+We think the overall is pretty simple: we offer @i{pull} and @i{push}
+to initiate a new data flow or restart one that stopped for lack of
+data, but the normal flow involves just @i{store_block} and
+@i{retr_block}, @i{raw_io} and @i{data_done}.
+
+The output design, in particular, resembles what happens with network
+devices. A network card will accept pushes by the kernel (the method
+is called @i{hard_start_xmit} until its internal buffers are full; at
+thi point it calls @i{netif_stop_queue}, and when space is available
+again it calls @i{netif_start_queue}.
+
+ZIO output is similar to network transmission, but the ZIO core knows
+that the trigger can accept only one or two blocks at most; so we
+chose to not require the trigger to call @i{stop} and @i{start} in the
+buffer, in favour for a clean failure mode for the push,
+and reuse of the same @i{retr_block} that is used for the input flow.
+
+@c ==========================================================================
+@node Lifetime of a Data Block
+@section Lifetime of a Data Block
+
+@cindex block allocation
+@cindex allocation of blocks
+@cindex input pipeline
+@ref{fig:inpath} and  @ref{fig:outpath} show
+when blocks are allocated and freed in the
+input and output data paths. Time in both figures is flowing downwards.
+
+@cindex output pipeline
+The pipeline for output is similar to the input one,
+but the block is allocated by
+the implementation of the @i{write} system call. Note in particular
+how the buffer works in exactly the same way as in the input case:
+it just servers @code{store_block} and @code{retr_block} requests.
+
+
+@float Figure,fig:inpath
+@center @image{img/zio-input, 12cm, , input block path, gif}
+@end float
+@sp 1
+
+@float Figure,fig:outpath
+@center @image{img/zio-output, 12cm, , output block path, gif}
+@end float
+@sp 1
+
+@c ##########################################################################
 @node The Bus Abstraction
 @chapter The Bus Abstraction
 
@@ -440,7 +690,7 @@ to agree about what the actual payload is. More on this later.
 The block is made up of two main parts: the data itself, called simply @i{data}
 throughout the ZIO framework (including this manual) and the meta-data,
 called @i{control} or @i{ctrl} from now on.  The block can be depicted
-as shown in the next figure.
+like this:
 
 @center @image{img/zio-block, 3cm, , simple drawing of a block, gif}
 
@@ -518,77 +768,6 @@ A typical user of this is the @i{read}
 file operation.  See @ref{Accessing ZIO from User Space}.
 
 @c ==========================================================================
-@node The ZIO Pipeline
-@section The ZIO Pipeline
-
-@cindex pipeline of zio data transfers
-During input and output operations, ZIO blocks travel across a
-pipeline of software modules. Hoping to make the representation
-clearer, we chose to stick to a consistent mnemonic color model for
-our figures. Unfortunately, some older figures still need to be
-converted to this color model, and we apologize for this.
-@c FIXME: new color model for all figures
-
-This is the color model for all of our objects:
-
-@sp 1
-@center @image{img/zio-define-block, 5cm, , color model for blocks, gif} @image{img/zio-defines, 6cm, , color model for ZIO objects, gif}
-@sp 1
-
-@cindex pipeline
-@cindex input pipeline
-@cindex output pipeline
-The ZIO pipeline connects user space with the peripheral device,
-and the main objects involved are the file operations in the
-character device, the buffer where blocks are stored, the trigger that
-sequences the actual data transfers and the peripheral driver that
-is concerned with hardware operations when the trigger fires.
-
-The whole pipeline is depicted in the following figure, where
-the path of the blue blocks is shown in both the input and output
-directions. The black arrows represent function calls.
-
-@center @image{img/zio-pipeline, 14cm, , the input and output pipeline, gif}
-
-@cindex system calls
-User space makes system calls, which are implemented by the
-@code{file_operations} in the current buffer. Generic functions are
-implemented in @code{chardev.c} and exported as
-@code{zio_generic_fops} (currently all buffers included in the
-distribution are using these operations).  This may slightly change in the
-future if we introduce the @i{interface} concept, but the change
-will not affect buffers which simply won't declare their file operations
-any more). See @ref{Future Developments} about the @i{interface} idea.
-
-@findex store_block
-@findex retr_block
-The file operations code calls @code{store_block} and
-@code{retr_block} in the proper buffer instance, the buffer in turn
-communicates with the trigger, and the trigger refers to the device
-for the raw data transfer.
-
-@cindex block allocation
-@cindex allocation of blocks
-@cindex input pipeline
-The next figures show when blocks are allocated and freed in the
-input and output data flows. Time in the figures is flowing downwards.
-
-@sp 1
-@center @image{img/zio-input, 12cm, , input block path, gif}
-@sp 1
-
-@cindex output pipeline
-The pipeline for output is similar to the input one,
-but the block is allocated by
-the implementation of the @i{write} system call. Note in particular
-how the buffer works in exactly the same ways as in the input case:
-it servers @code{store_block} and @code{retr_block} requests.
-
-@sp 1
-@center @image{img/zio-output, 12cm, , output block path, gif}
-@sp 1
-
-@c ==========================================================================
 @node The Control Structure
 @section The Control Structure
 
@@ -601,10 +780,11 @@ are not used in the current implementation, but they are designed
 to introduce no incompatibilities on ZIO modules developed externally.
 More information about this is in  @ref{TLV in the Control}.
 
-The following figure shows the layout of the control:
+The layout of the control is shown in @ref{fig:control}.
 
-@sp 1
+@float Figure,fig:control
 @center @image{img/zio-control, 7cm, , image of zio control, gif}
+@end float
 @sp 1
 
 
@@ -827,9 +1007,9 @@ We currently define the following flags, in @code{zio-user.h}:
 
 
 
-@c ==========================================================================
+@c --------------------------------------------------------------------------
 @node ZIO Address
-@section ZIO Address
+@subsection ZIO Address
 
 @cindex address of a channel
 The @code{zio_addr} structure is designed to uniquely identity
@@ -912,9 +1092,9 @@ The fields have the following meaning:
 
 @end table
 
-@c ==========================================================================
+@c --------------------------------------------------------------------------
 @node The Time Stamp
-@section The Time Stamp
+@subsection The Time Stamp
 
 @cindex timestamp
 Time stamps in ZIO are represented by @code{struct zio_timestamp},
@@ -979,10 +1159,9 @@ of the information, while our application can combine
 @i{ticks} and @i{bins} to get the full resolution provided by
 the hardware.
 
-
-@c ==========================================================================
+@c --------------------------------------------------------------------------
 @node TLV in the Control
-@section TLV in the control
+@subsection TLV in the control
 
 @cindex tlv structures
 @cindex extended control structure
@@ -1048,7 +1227,7 @@ The consumer of the control
 will be able to read all the trailing data with a single system
 call.
 
-@unnumberedsubsec Effect on device drivers
+@unnumberedsubsubsec Effect on device drivers
 
 When we'll introduce TLV support in ZIO core, we'll simply add a
 @i{controlsize} field to the cset structure. So your driver can state
@@ -1071,7 +1250,7 @@ Generic trigger drivers won't be affected because they only look
 in trigger attributes in the base control.
 
 
-@unnumberedsubsec Effect on user space
+@unnumberedsubsubsec Effect on user space
 
 User space code designed to work with a specific driver won't be
 affected by the change, because the control size is not going to
@@ -1165,20 +1344,194 @@ master branch of the ZIO repository as soon as it is stabilized.
 @node Details of Char Device Policies
 @section Details of Char Device Policies
 
-@c FIXME: document user space access
-Still to be written. Feel free to express your interest in this
-section to the mailing list.
+The default user-space interface of ZIO is based on character devices.
+The framework registers two devices for each channel: one is used
+to exchange the control, and the other to exchange the data. The name
+of the device is automatically generated from the name of the driver,
+it's @i{device_id} field, the cset number and the channel number.
+
+For example, cset 0 of the @i{zzero} device has three channels, and
+they appear as follows:
+
+@smallexample
+   spusa.root# ls -l /dev/zio/zzero-0000-0-*
+   crw------- 1 root root 250, 0 Nov 30 13:12 /dev/zio/zzero-0000-0-0-ctrl
+   crw------- 1 root root 250, 1 Nov 30 13:12 /dev/zio/zzero-0000-0-0-data
+   crw------- 1 root root 250, 2 Nov 30 13:12 /dev/zio/zzero-0000-0-1-ctrl
+   crw------- 1 root root 250, 3 Nov 30 13:12 /dev/zio/zzero-0000-0-1-data
+   crw------- 1 root root 250, 4 Nov 30 13:12 /dev/zio/zzero-0000-0-2-ctrl
+   crw------- 1 root root 250, 5 Nov 30 13:12 /dev/zio/zzero-0000-0-2-data
+@end smallexample
+
+The exact name, unfortunately, depends on the version of @i{udev} you
+are running (older versions did not create the directory @i{/dev/zio}).
+
+The role of the two devices is as represented in figure
+@ref{fig:cdev}.  The meta-data and data are strictly ordered in time,
+but applications can choose to read either one or both.  For input, if
+you only read one device, the other is discarded; the framework makes
+all devices readable when a block is available, and users can choose
+what to read -- after you read some of the data, the next control read
+will wait for the next block.  For output, if you only write data the
+default control is used; if you write the control you replace the
+default control.
+
+@float Figure,fig:cdev
+@image{img/zio-cdev, 15cm, , the two char devices, gif}
+@end float
+@sp 1
+
+This split allows simple programs to just ignore the metadata and
+retrieve unadorned data in the usual way: @i{cat}, @i{dd}, @i{hexdump}
+are all good tools for simple diagnostics of both input and output.
+More refined applications that need to deal with meta-data can afford
+the extra burden of opening a second device. Example tools to access
+ZIO data are described in @ref{User Space Utilities}.
+
+You can think of this approach as what you normally do with industrial
+food items. The envelope describes the specific content (including the
+timestamp, name, quantity and weight of each item), and you can choose
+to read the envelope or not; similarly you can choose to eat the food
+or not, and sometimes you make the choice only after reading the
+envelope.  
+
+Different buffer types can offer different functionalities; for example
+the @i{vnalloc} buffers supports @i{mmap} by means of the @t{mem_offset}
+field in the control. Applications can @i{mmap} the whole buffer, so
+they can read the control and just access the data. This is represented
+in @ref{fig:mmap}.
+
+@float Figure,fig:mmap
+@image{img/zio-buffer-mmap, 15cm, , the vmalloc buffer and char devices, gif}
+@end float
+@sp 1
+
+Another option, offered by a buffer called @i{circ} is sticking
+several data blocks together to immediately release some control
+structures.  The user may choose this buffer if the application knows
+it won't need meta-data for every block: if you know you acquire ad
+1kHz, for example, time-stamping the first sample may be enough,
+whereas further streaming is self-timed.  This buffer doesn't break
+the ZIO data model because whenever a new data block arrives, it is
+stuck to the previous data by releasing the new control and increasing
+the block size of the previous block; when a block enters an empty
+buffer, its own control is preserved (but its @t{nsmaples} field may
+be increased later, before the user reads the block). The @i{control +
+data} abstraction will thus continue working towards user space. This
+buffer is shown in @ref{fig:circ}
+
+@float Figure,fig:circ
+@image{img/zio-buffer-data, 15cm, , the circular buffer and char devices, gif}
+@end float
+@sp 1
+
+
+@c FIXME: merge circular buffer
+This buffer is not yet merged to the official distribution at this point,
+because we need to upgrade it and perform more testing to ensure there are
+no bugs left.
 
 @c ==========================================================================
 @node User Space Utilities
 @section User Space Utilities
 
-@c FIXME: document user space utilities
-Still to be written. Feel free to express your interest in this
-section to the mailing list.
+The distribution includes a few device-independent tools in the
+@i{tools} subdirectory.
 
-The utilities, anyways, are found in the @i{tools} subdirectory of the
-source repository.
+The most important one is @t{zio-dump}: a program that reads pairs of
+ZIO devices and prints to @i{stdout} both the meta-data and the data
+it finds.
+
+The following example shows the output of @i{zio-dump} reading
+three pairs of devices, that refer to the three channels of cset 0
+of @i{zzero}. The first channel returns zeroes, the second is
+random and the third is sequential; the current trigger is the
+timer, with a 2-second period.
+
+@smallexample
+   spusa.root# ./tools/zio-dump /dev/zio/zzero-0000-0*
+   Ctrl: version 1.0, trigger timer, dev zzero-0000, cset 0, chan 0
+   Ctrl: seq 603, n 16, size 1, bits 8, flags 01000001 (little-endian)
+   Ctrl: stamp 1354278753.419850926 (0)
+   Data: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+
+   Ctrl: version 1.0, trigger timer, dev zzero-0000, cset 0, chan 1
+   Ctrl: seq 603, n 16, size 1, bits 8, flags 01000001 (little-endian)
+   Ctrl: stamp 1354278753.419850926 (0)
+   Data: 4b 01 7f a7 a5 69 fa 6a e0 90 b2 53 89 de 2e 46
+
+   Ctrl: version 1.0, trigger timer, dev zzero-0000, cset 0, chan 2
+   Ctrl: seq 603, n 16, size 1, bits 8, flags 01000001 (little-endian)
+   Ctrl: stamp 1354278753.419850926 (0)
+   Data: a0 a1 a2 a3 a4 a5 a6 a7 a8 a9 aa ab ac ad ae af
+
+   Ctrl: version 1.0, trigger timer, dev zzero-0000, cset 0, chan 0
+   Ctrl: seq 604, n 16, size 1, bits 8, flags 01000001 (little-endian)
+   Ctrl: stamp 1354278755.419925778 (0)
+   Data: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+
+   Ctrl: version 1.0, trigger timer, dev zzero-0000, cset 0, chan 1
+   Ctrl: seq 604, n 16, size 1, bits 8, flags 01000001 (little-endian)
+   Ctrl: stamp 1354278755.419925778 (0)
+   Data: 7f 49 eb df 1e 32 94 3b 2f c7 99 cb e4 97 cd 7b
+
+   Ctrl: version 1.0, trigger timer, dev zzero-0000, cset 0, chan 2
+   Ctrl: seq 604, n 16, size 1, bits 8, flags 01000001 (little-endian)
+   Ctrl: stamp 1354278755.419925778 (0)
+   Data: b0 b1 b2 b3 b4 b5 b6 b7 b8 b9 ba bb bc bd be bf
+@end smallexample
+
+The following example shows @i{zio-dump} reading one block only
+(@t{-n 1}) from channel 2, showing the attributes as well (@t{-a}):
+
+@smallexample
+   spusa.root# ./tools/zio-dump -n 1 -a /dev/zio/zzero-0000-0-2*
+   Ctrl: version 1.0, trigger timer, dev zzero-0000, cset 0, chan 2
+   Ctrl: seq 686, n 16, size 1, bits 8, flags 01000001 (little-endian)
+   Ctrl: stamp 1354278919.419898276 (0)
+   Ctrl: device-std-mask: 0x0001
+   Ctrl: device-std-0   0x00000008         8
+   Ctrl: trigger-std-mask: 0x0002
+   Ctrl: trigger-std-1   0x00000010        16
+   Ctrl: trigger-ext-mask: 0x0001
+   Ctrl: trigger-ext-0   0x000007d0      2000
+   Data: d0 d1 d2 d3 d4 d5 d6 d7 d8 d9 da db dc dd de df
+@end smallexample
+
+The attributes above show that the block size is 16 samples and the
+@t{ms-period} attribute of this instance is 2000. Each attribute for
+the device and the trigger appear as a named file in @i{sysfs}:
+
+@smallexample
+   spusa.root# ls /sys/bus/zio/devices/zzero-0000/zero-input-8/trigger/
+   enable  ms-period  name  post-samples  power/  uevent
+@end smallexample
+
+The mapping between names and attribute positions is available by using
+the proper defines in source files. We'll offer a way to see the mapping
+from @i{sysfs} in future versions.
+
+An alternative to @t{zio-dump} is @t{zio-cat-file}: it receives a
+single file name on the command line, and copies it to @i{stdout}
+using @i{mmap} if so supported.   The program works by
+opening the ZIO control file associated with the named data file,
+using the meta-information in there to time data accesses. If your
+buffer is @i{vmalloc} or any other @i{mmap}-capable buffer, the
+tool will memory-map the data device instead of reading it:
+
+@smallexample
+spusa.root# echo vmalloc > \
+     /sys/bus/zio/devices/zzero-0000/zero-input-8/current_buffer
+spusa.root# ./tools/zio-cat-file /dev/zio/zzero-0000-0-2-data  3 | od -t x1z
+./tools/zio-cat-file: trasferred 3 blocks, 48 bytes, 0.000017 secs
+0000000 90 91 92 93 94 95 96 97 98 99 9a 9b 9c 9d 9e 9f  >................<
+0000020 a0 a1 a2 a3 a4 a5 a6 a7 a8 a9 aa ab ac ad ae af  >................<
+0000040 b0 b1 b2 b3 b4 b5 b6 b7 b8 b9 ba bb bc bd be bf  >................<
+0000060
+@end smallexample
+
+By looking at the source code or using @i{strace} you can verify how
+data is retrieved my memory mapping instead of reading.
 
 @c ##########################################################################
 @node Accessing ZIO from Kernel Space
@@ -1198,6 +1551,107 @@ real code part of the ZIO software distribution.
 
 The section about devices includes the description of csets and
 channels.
+
+@c ==========================================================================
+@node Naming Conventions
+@section Naming Conventions
+
+To avoid confusion in the terminology used in ZIO code and
+documentation, we list here the types and data structures used in
+ZIO.  For each item we list the structure name (without @t{struct}), the
+name (english word) we consistently use in all documentation and the
+preferred name for pointers to that data structure, used in the code.
+
+@multitable @columnfractions .25 .2 .1 .45
+@headitem Struct name or C type @tab Name  @tab Var name  @tab Description
+
+@item zio_device
+@tab full-device 
+@tab zdev 
+@tab The overall I/O device, either a board or a  chip.
+
+@item zio_cset
+@tab cset
+@tab cset
+@tab Part of a device; a group of channels with the same physical features. 
+
+@item zio_channel
+@tab channel
+@tab chan
+@tab Part of a cset; it is the single data stream endpoint, input or output. 
+
+@item zio_device_operations
+@tab device operations
+@tab d_op
+@tab Device-specific methods that act on attributes and data blocks. 
+
+@item zio_buffer_type
+@tab buffer type
+@tab zbuf
+@tab Description of a buffer. 
+
+@item zio_bi
+@tab buffer instance
+@tab bi
+@tab Instance of a buffer type associated to a specific channel. 
+
+@item zio_buffer_operations
+@tab buffer operations
+@tab b_op
+@tab Methods of a buffer type: instance creation and destruction, block allocation etc.
+
+@item zio_trigger_type
+@tab trigger type
+@tab trig
+@tab Description of a trigger, i.e. a generator of I/O events according to some rules.
+
+@item zio_ti
+@tab trigger instance
+@tab ti
+@tab Instance of a trigger type associated to a specific cset.
+
+@item zio_trigger_operations
+@tab trigger operations
+@tab t_op
+@tab Methods of a trigger type. See @ref{The Trigger}.
+
+@item void *
+@tab data @i{or} samples
+@tab data
+@tab A memory area hosting actual I/O data.
+
+@item zio_control
+@tab control
+@tab ctrl
+@tab A binary data structure used to exchange meta-data with user space.
+
+@item zio_block
+@tab block
+@tab block
+@tab A container for both data and control. In ZIO, all I/O data is always handled within blocks.
+
+@item zio_obj_head
+@tab head
+@tab head
+@tab All ZIO objects begin with this sub-structure, to ease common management.
+
+@item zio_cdev_type
+@tab -
+@tab -
+@tab An enumeration to identify type of a char device (control or data).
+
+@item zio_f_priv
+@tab -
+@tab -
+@tab Set as private_data in all open files. includes @t{cdev_type} and @t{bi}.
+
+@item zio_attribute_set
+@tab attribute set
+@tab zattr_set
+@tab Attributes of a ZIO object (device, cset, chan, ti, bi)
+
+
+@end multitable
 
 @c ==========================================================================
 @node The Generic Object Head
@@ -1223,8 +1677,7 @@ chapter describes the important fields of those structures. It then
 offers an overview of the registration steps and an example.
 
 Unless you want to know all the details immediately, at a first read
-we suggest to skip the first sections and jump to @ref{The Driver Data
-Structure}.
+we suggest to skip the first sections and jump to @ref{The Driver Structure}.
 
 @c --------------------------------------------------------------------------
 @node The Device Structure
@@ -1399,8 +1852,8 @@ are:
 @end table
 
 @c --------------------------------------------------------------------------
-@node The Driver Data Structure
-@subsection The Driver Data Structure
+@node The Driver Structure
+@subsection The Driver Structure
 
 The top-level structure that devices a device driver is similar to
 what is used with PCI or USB. This is the definition of the @t{zio_driver}:
@@ -1559,11 +2012,15 @@ static struct zio_driver zmini_zdrv = {
 
 With these structures in place, the @i{init} function of the module
 will just need to call ``@t{zio_register_driver(&zmini_zdrv)}''.
+Actually, the data structures above are more than half of the complete
+driver: the only missing bit is the @t{raw_io} cset method, because
+triggering, buffering and everything else is manage automatically by
+the ZIO framework.
 
 This is a very simple case, where the table includes only one entry,
 the device has only one cset and there's no need for @i{probe} and
-@i{remove}.  The apparent extra levels are there in order to be
-able to support more complex cases, including the common situation
+@i{remove}.  The seemingly-unneeded extra levels are there in order to
+be able to support more complex cases, including the common situation
 where more than one device is driven by a single host.
 
 
@@ -1593,7 +2050,7 @@ blocks from the buffer and sends them to the device.
 @cindex trigger type, defining
 When defining a new trigger type, the most important fields of
 @code{struct zio_trigger_type} for the programmer are the following
-ones: 
+ones:
 @c FIXME: full definition of trigger_type
 
 @tindex zio_sysfs_operations
@@ -1727,7 +2184,7 @@ operations structures:
 @item const struct zio_buffer_operations *b_op
 
 	The buffer operations, detailed later, are the function
-        that define the actual behavior of a buffer. 
+        that define the actual behavior of a buffer.
 
 @cindex file operations
 @item const struct file_operations *f_op
