@@ -1,0 +1,191 @@
+%!PS-Adobe-2.0 EPSF-1.2
+%%Creator: Alessandro Rubini
+%%Title: zio char devices
+%%BoundingBox: 0 0 600 190
+%%EndComments
+/S {dup ==} def
+/S2 {2 copy == ==} def
+/S3 {3 copy == == ==} def
+/S4 {4 copy == == == ==} def
+/grid { % xmin xmax ymin ymax step
+        gsave
+ /step exch def
+ /maxy exch def
+ /miny exch def
+ /maxx exch def
+ /minx exch def
+        .8 .8 .8 setrgbcolor
+        .2 setlinewidth
+        % vertical lines
+        minx step maxx {
+                dup
+                miny moveto maxy lineto stroke
+        } for
+        % horizontal lines
+        miny step maxy {
+                dup
+                minx exch moveto maxx exch lineto stroke
+        } for
+} def
+/centerstring { % fontname width string -- fontsize
+    gsave
+    3 2 roll findfont setfont % width string
+    dup 3 1 roll % string width string
+    stringwidth pop div dup 3 1 roll % scale string scale
+    dup neg 0 exch rmoveto % scale string scale
+    currentfont exch scalefont setfont % scale string
+    show
+    grestore
+} def
+/centeratsize { % x y string --
+        gsave
+        3 1 roll moveto
+        dup stringwidth pop 2 div neg 0 rmoveto show
+        grestore
+} def
+/wohs { % x y string --
+        gsave
+        dup stringwidth pop neg 0 rmoveto show
+        grestore
+} def
+
+/crect { % x y wid hei incolor outcolor --
+    /xxoutco exch def
+    /xxinco exch def
+    4 copy
+    xxinco rgb rectfill
+    xxoutco rgb
+    /hei exch def
+    /wid exch def
+    moveto
+    wid 0 rlineto 0 hei rlineto
+    wid neg 0 rlineto closepath
+    stroke
+} def
+
+/zrect { % x y wid hei incolor outcolor letter --
+    /xxname exch def
+    /xxoutco exch def
+    /xxinco exch def
+    4 copy
+    xxinco rgb rectfill
+    xxoutco rgb
+    /hei exch def
+    /wid exch def
+    gsave
+ translate
+ 0 0 moveto
+        wid 0 rlineto 0 hei rlineto
+ wid neg 0 rlineto closepath
+ stroke
+ /Helvetica-Bold findfont 8 scalefont setfont
+ wid 10 sub 3 moveto xxname show
+    grestore
+} def
+
+
+/zzrect { % x y wid hei name
+    aload pop zrect
+} def
+
+
+/arrow { % x y len angle --
+    /xxangle exch def
+    /xxlen exch def
+    gsave
+    translate
+    xxangle rotate
+    0 0 moveto
+    xxlen 0 lineto stroke
+    xxlen 0 moveto
+    -10 5 rlineto
+    0 -10 rlineto
+    closepath fill
+    grestore
+} def
+
+/carrow { % x y len angle color --
+    rgb
+    arrow
+} def
+% inner: S=255, V=193
+% outer: S=255, V=116
+/Linner [191 193 0] def
+/Louter [115 116 0] def
+% rifo V=225
+/Linner [225 225 0] def
+/Finner [105 195 0] def
+/Fouter [63 116 0] def
+% V=225
+/Sinner [225 166 137] def
+/Souter [116 85 71] def
+% rifo: piu` rosa
+/Sinner [255 180 205] def
+/Souter [116 82 100] def
+/Binner [166 124 83] def
+/Bouter [97 72 48] def
+/Tinner [226 73 81] def
+/Touter [116 40 40] def
+/Pinner [225 78 255] def
+/Pouter [116 50 151] def
+/rgb {
+    aload pop
+    255 div 3 1 roll
+    255 div 3 1 roll
+    255 div 3 1 roll
+    setrgbcolor
+} def
+/Cinner [0 220 224] def
+/Couter [0 115 116] def
+/Dinner [0 128 128] def
+/Douter [0 64 64] def
+/BLinner [94 94 225] def
+/BLouter [0 0 116] def
+% fix B (above is too blue
+/BLinner [114 172 216] def
+/BLouter [53 99 135] def
+% again blue: much less saturated
+/BLinner [177 199 216] def
+/BLouter [53 99 135] def
+% try again D
+/Dinner [0 147 232] def
+/Douter [0 64 64] def
+/Dinner [30 115 144] def
+/Dinner [62 146 175] def
+/Douter [0 64 64] def
+% fix C
+/Couter Douter def
+/Cinner [142 220 224] def
+/L [ Linner Louter (L) ] def
+/F [ Finner Fouter (F) ] def
+/S [ Sinner Souter (S) ] def
+/B [ Binner Bouter (B) ] def
+/T [ Tinner Touter (T) ] def
+/P [ Pinner Pouter (P) ] def
+/C [ Cinner Couter (C) ] def
+/D [ Dinner Douter (D) ] def
+/BL [ BLinner BLouter (bl) ] def
+/Ninner [ 220 220 220 ] def
+/Nouter [ 128 128 128] def
+/N [ Ninner Nouter (N) ] def
+%0 600 0 190 10 grid
+1.5 setlinewidth
+%120 70 20 20 C zzrect
+%140 40 50 20 D zzrect
+0 0 0 setrgbcolor
+/Helvetica-Bold findfont 16 scalefont setfont
+20 165 moveto (ch-0-ctrl) show
+20 135 moveto (ch-0-data) show
+20 85 moveto (ch-1-ctrl) show
+20 55 moveto (ch-1-data) show
+/blocks {
+    110 90 510 {
+ dup 80 20 20 C zzrect
+ 20 add 50 50 20 D zzrect
+    } for
+} def
+blocks gsave 0 80 translate blocks grestore
+570 30 470 180 arrow
+/Helvetica-Bold findfont 12 scalefont setfont
+340 15 (Data is flowing in this direction. Within a channel all blobs are strictly ordered) centeratsize
+showpage
