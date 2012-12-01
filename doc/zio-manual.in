@@ -609,7 +609,7 @@ item in Linux.  A @i{bus} is a software abstraction for kernel-related
 software modules; it splits the role of the @i{device} from the role
 of the @i{driver}.  In order to have a new peripheral working in your
 system you thus need both items: the @i{driver} is in charge of any
-@i{device} that appears i the system, while the @i{device} is a data
+@i{device} that appears in the system, while the @i{device} is a data
 structure that describes the parameters of the specific hardware
 instance.  The two structures are bound by calling a @i{match}
 function, that is at the core of the bus abstraction. If the device
@@ -631,7 +631,7 @@ I/O card.  Since PCI is a @i{bus} in Linux, you'll need to register a
 PCI @i{driver} to hook to any card present in the system (in this case
 the associated @i{device} is created by the PCI controller, when it
 scan the physical bus).  The @i{probe} function of your PCI driver,
-then, will register a ZIO @i{device}.  In addition to register s PCI
+then, will register a ZIO @i{device}.  In addition to registering a PCI
 @i{driver}, your kernel module also needs to register a ZIO @i{driver}
 for your hardware, so that Linux calls its @i{probe} function
 for every ZIO @i{device} that matches.
@@ -643,7 +643,7 @@ register the same name string, they match.  This is exactly what
 happens with the @i{platform bus}, a software-only bus implementation
 used in every Linux system to take care of peripherals that are
 directly connected to the computer system, without capabilities for
-auto-discovering.
+auto-discovery.
 
 @cindex registering ZIO devices
 @cindex registering ZIO drivers
@@ -789,7 +789,7 @@ The layout of the control is shown in @ref{fig:control}.
 
 
 @cindex monitoring application
-The control structure is fixed bot to simplify communication with user
+The control structure is fixed both to simplify communication with user
 space and to support generic applications. Such generic tools may
 perform monitoring or other
 operations without the need to know device internals.  A similar
@@ -881,7 +881,6 @@ the fields are not yet being filled by the core.
         but we plan no such change in the foreseeable future -- we had
         enough experience with the 0.x versions already, and we are confident
         we covered all needs already.
-        if the layout of attributes changes for some reason.
 
 @cindex alarms
 @item zio_alarms
@@ -938,7 +937,7 @@ the fields are not yet being filled by the core.
 
 	If the buffer supports @i{mmap}, this is the memory offset of
         the data in the buffer's storage area. Please note that the
-        @i{data} pointer in the block structure still valid: kernel
+        @i{data} pointer in the block structure is still valid: kernel
         users should refer to @t{block->data}, while user space can
         use @t{ctrl->mem_offset} while relying on @i{mmap}.
 
@@ -960,7 +959,7 @@ the fields are not yet being filled by the core.
 
 	Attributes for the channel and the trigger. Each structure
         is 200 bytes long and includes both standard and extended attributes.
-        The attributes are describe in @ref{The Attributes}.
+        The attributes are described in @ref{The Attributes}.
 
 @item tlv
 
@@ -1059,7 +1058,7 @@ The fields have the following meaning:
         the following @t{hostid}. Currently we only support type 0,
         which means @i{local delivery}; though ignored, all other
         bytes are expected to be 0 as well. When @t{PF_ZIO} will route
-        frames over etherned, we'll be able to use @t{hostid} as a MAC
+        frames over ethernet, we'll be able to use @t{hostid} as a MAC
         address. We chose to use one byte only for @t{host_type} to
         avoid endianness problems; if needed, @t{filler} can be used as
         a subclass of the host type.
@@ -1189,7 +1188,7 @@ After serious discussion considering real use cases, we found that the
 best approach is extending the control with a TLV structure.  This
 gives flexibility and generality at the same time: any user who
 ignores some type can just use the length to skip over the data (but
-still carry ever everything to others if the specific user is only one
+still carry everything to others if the specific user is only one
 step in a communication channel).
 
 Thus, the last 16 bytes of the control, which were unused
@@ -1244,7 +1243,7 @@ helpers to allocate the control structure.  If buffer modules
 need to allocate the control in a special way, they should call
 @t{zio_get_control_size(cset)} to be future-proof. This for example
 applies to the @t{PF_ZIO} buffer, which needs to store the control
-in the socket buffer is allocates through the network subsystem.
+in the socket buffer it allocates through the network subsystem.
 
 Generic trigger drivers won't be affected because they only look
 in trigger attributes in the base control.
@@ -1273,7 +1272,7 @@ must work like this:
 
 @item Read 512 bytes (sizeof zio_control);
 @item Check the first TLV lump, which is guaranteed to be type 0 or 1;
-@item If it is 1 (@i{read-mode}, read the trailing part of the control.
+@item If it is 1 (@i{read-mode}), read the trailing part of the control.
 
 @end itemize
 
@@ -1324,7 +1323,6 @@ In practice, only the endpoints of the pipeline need to know what the
 data is (usually relying on the metadata provided in the control
 structure.  Everything else in ZIO works with blocks without knowing
 what is the payload at hand.
-an 
 
 @c ##########################################################################
 @node Accessing ZIO from User Space
@@ -1348,7 +1346,7 @@ The default user-space interface of ZIO is based on character devices.
 The framework registers two devices for each channel: one is used
 to exchange the control, and the other to exchange the data. The name
 of the device is automatically generated from the name of the driver,
-it's @i{device_id} field, the cset number and the channel number.
+its @i{device_id} field, the cset number and the channel number.
 
 For example, cset 0 of the @i{zzero} device has three channels, and
 they appear as follows:
@@ -1409,7 +1407,7 @@ in @ref{fig:mmap}.
 Another option, offered by a buffer called @i{circ} is sticking
 several data blocks together to immediately release some control
 structures.  The user may choose this buffer if the application knows
-it won't need meta-data for every block: if you know you acquire ad
+it won't need meta-data for every block: if you know you acquire at
 1kHz, for example, time-stamping the first sample may be enough,
 whereas further streaming is self-timed.  This buffer doesn't break
 the ZIO data model because whenever a new data block arrives, it is
@@ -1688,7 +1686,7 @@ A @i{device} is the description of a complete I/O peripheral device (or
 board).
 
 
-A device is the @i{probe-unix} of ZIO: it
+A device is the @i{probe-unit} of ZIO: it
 is made up of channel-sets and may represent a PCI
 board or an SPI integrated circuit or whatever it makes sense to
 manage from a single device driver. The device is primarily a container
@@ -1827,7 +1825,7 @@ or used by the developer are:
 The channel is the lowest-level object in the ZIO hierarchy.  It
 represents the individual connector of the device, most likely a
 socket in some backplane of some computer (local or remote, in case
-@i{Etherbone} is being used.  A channel may also be a software
+@i{Etherbone} is being used).  A channel may also be a software
 simulation of a data source/sink of some time.
 
 @tindex zio_channel
@@ -1871,8 +1869,8 @@ struct zio_driver {
 The client module, thus, must specify a table of device types it is
 able to drive. When a match is found, the ZIO core calls the method
 @i{probe}, which can return success (zero) or failure (a negative error
-code).  Similarly, the core calls @i{remove} when the device disa
-ppears or the driver is unloaded. Both methods are optional (if missing,
+code).  Similarly, the core calls @i{remove} when the device disappears 
+or the driver is unloaded. Both methods are optional (if missing,
 success is assumed).
 
 The @t{driver} sub-structure must be filled in its @i{name} and @i{owner}
@@ -1932,7 +1930,7 @@ type, each of them with a different name.
 @cindex registering a device
 @cindex device registration
 In order to register a device, you need to allocate it from the ZIO
-core, amd them register it by passing a name and a unique @t{dev_id}
+core, and then register it by passing a name and a unique @t{dev_id}
 value.  We agree that this is not completely inutuitive, but it is
 retained for backward compatibility.
 
