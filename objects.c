@@ -525,6 +525,7 @@ static int chan_register(struct zio_channel *chan, struct zio_channel *chan_t)
 		err = -ENOMEM;
 		goto out_zattr_check;
 	}
+	ctrl->nsamples = chan->cset->ti->nsamples;
 	ctrl->nbits = __get_nbits(chan);
 	if (!ctrl->nbits) {
 		err = -EINVAL; /* message already printed */
