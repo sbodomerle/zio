@@ -1404,30 +1404,26 @@ in @ref{fig:mmap}.
 @end float
 @sp 1
 
-Another option, offered by a buffer called @i{circ} is sticking
-several data blocks together to immediately release some control
-structures.  The user may choose this buffer if the application knows
+An attribute of the @i{vmalloc} buffer, can turn it into a
+real circular buffer: individual buffer instances can merge
+(sticks together)
+several data blocks, in order to immediately release some control
+structures.  The user may activate the attribute if the application knows
 it won't need meta-data for every block: if you know you acquire at
 1kHz, for example, time-stamping the first sample may be enough,
-whereas further streaming is self-timed.  This buffer doesn't break
-the ZIO data model because whenever a new data block arrives, it is
+whereas further streaming is self-timed.  The attribute doesn't break
+the ZIO data model because whenever a new data block arrives it is
 stuck to the previous data by releasing the new control and increasing
 the block size of the previous block; when a block enters an empty
-buffer, its own control is preserved (but its @t{nsmaples} field may
-be increased later, before the user reads the block). The @i{control +
+buffer, its own control is preserved (but its own @t{nsmaples} field may
+be increased later if another data blob is merged to it). The @i{control +
 data} abstraction will thus continue working towards user space. This
-buffer is shown in @ref{fig:circ}
+situation is shown in @ref{fig:circ}.
 
 @float Figure,fig:circ
 @image{img/zio-buffer-data, 15cm, , the circular buffer and char devices, gif}
 @end float
 @sp 1
-
-
-@c FIXME: merge circular buffer
-This buffer is not yet merged to the official distribution at this point,
-because we need to upgrade it and perform more testing to ensure there are
-no bugs left.
 
 @c ==========================================================================
 @node User Space Utilities

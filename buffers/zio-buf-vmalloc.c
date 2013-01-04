@@ -34,8 +34,11 @@ struct zbk_instance {
 	struct zio_ffa *ffa;
 	void *data;
 	unsigned long size;
+	unsigned long flags;
 };
 #define to_zbki(bi) container_of(bi, struct zbk_instance, bi)
+
+#define ZBK_FLAG_MERGE_DATA	1
 
 static struct kmem_cache *zbk_slab;
 
@@ -50,18 +53,43 @@ struct zbk_item {
 };
 #define to_item(block) container_of(block, struct zbk_item, block);
 
+enum {
+	ZBK_ATTR_MERGE_DATA = ZIO_MAX_STD_ATTR,
+};
+
 static ZIO_ATTR_DEFINE_STD(ZIO_BUF, zbk_std_zattr) = {
 	ZIO_ATTR(zbuf, ZIO_ATTR_ZBUF_MAXKB, S_IRUGO | S_IWUGO, 0x0, 128),
+};
+
+static struct zio_attribute zbk_ext_attr[] = {
+	ZIO_ATTR_EXT("merge-data", S_IRUGO | S_IWUGO,
+		     ZBK_ATTR_MERGE_DATA, 0),
 };
 
 static int zbk_conf_set(struct device *dev, struct zio_attribute *zattr,
 		uint32_t  usr_val)
 {
-	if (0) {
-		zattr->value = usr_val;
-	} else {
-		/* Temporarily, until I keep track of active maps */
-		return -EBUSY;
+	struct zio_bi *bi = to_zio_bi(dev);
+	struct zbk_instance *zbki = to_zbki(bi);
+
+	switch(zattr->id) {
+	case ZIO_ATTR_ZBUF_MAXKB:
+		if (0) {
+			zattr->value = usr_val;
+		} else {
+			/* Temporarily, until I keep track of active maps */
+			return -EBUSY;
+		}
+		break;
+	case ZBK_ATTR_MERGE_DATA:
+		printk("write merge data: %i\n", usr_val);
+		if (usr_val)
+			zbki->flags |= ZBK_FLAG_MERGE_DATA;
+		else
+			zbki->flags &= ~ZBK_FLAG_MERGE_DATA;
+		break;
+	default:
+		return -EINVAL;
 	}
 	return 0;
 }
@@ -121,6 +149,30 @@ static void zbk_free_block(struct zio_bi *bi, struct zio_block *block)
 	kmem_cache_free(zbk_slab, item);
 }
 
+/* An helper for store_block() if we are trying to merge data runs */
+static void zbk_try_merge(struct zbk_instance *zbki, struct zbk_item *item)
+{
+	struct zbk_item *prev;
+	struct zio_control *ctrl, *prevc;
+
+	/* Called while locked and already part of the list */
+	prev = list_entry(item->list.prev, struct zbk_item, list);
+	if (prev->begin + prev->len != item->begin)
+		return; /* no, thanks */
+
+	/* merge: remove from list, fix prev block, remove new control */
+	list_del(&item->list);
+	ctrl = zio_get_ctrl(&item->block);
+	prevc = zio_get_ctrl(&prev->block);
+
+	prev->len += item->len;				/* for the allocator */
+	prev->block.datalen += item->block.datalen;	/* for copying */
+	prevc->nsamples += ctrl->nsamples;		/* meta information */
+
+	zio_free_control(ctrl);
+	kmem_cache_free(zbk_slab, item);
+}
+
 /* When write() stores the first block, we try pushing it */
 static inline int __try_push(struct zio_bi *bi, struct zio_channel *chan,
 			     struct zio_block *block)
@@ -171,6 +223,8 @@ static int zbk_store_block(struct zio_bi *bi, struct zio_block *block)
 	}
 	if (pushed)
 		list_del(&item->list);
+	if (!first && zbki->flags & ZBK_FLAG_MERGE_DATA)
+		zbk_try_merge(zbki, item);
 	spin_unlock(&bi->lock);
 
 	/* if first input, awake user space */
@@ -319,6 +373,8 @@ static struct zio_buffer_type zbk_buffer = {
 	.owner =	THIS_MODULE,
 	.zattr_set = {
 		.std_zattr = zbk_std_zattr,
+		.ext_zattr = zbk_ext_attr,
+		.n_ext_attr = ARRAY_SIZE(zbk_ext_attr),
 	},
 	.s_op = &zbk_sysfs_ops,
 	.b_op = &zbk_buffer_ops,
