@@ -16,6 +16,7 @@
 #include <linux/zio-trigger.h>
 #include "zio-internal.h"
 
+/* The trigger is armed and the cset spin lock is taken */
 static void __zio_internal_data_done(struct zio_cset *cset)
 {
 	struct zio_buffer_type *zbuf;
@@ -63,25 +64,21 @@ static void __zio_internal_data_done(struct zio_cset *cset)
 /*
  * zio_trigger_data_done
  * This is a ZIO helper to invoke the data_done trigger operation when a data
- * transfer is over and we need to complete the operation.
- * It is useless check for pending ZIO_TI_COMPLETING because only one fire at
- * time is allowed so they cannot exist concurrent completation.
+ * transfer is over and we need to complete the operation. The trigger
+ * is in "ARMED" state when this is called, and is not any more when
+ * the function returns. Please note that  we keep the cset lock
+ * for the duration of the whole function, which must be atomic
  */
 void zio_trigger_data_done(struct zio_cset *cset)
 {
 	spin_lock(&cset->lock);
-	cset->ti->flags |= ZIO_TI_COMPLETING; /* transfer is completing*/
-	spin_unlock(&cset->lock);
 
-	/* Call the data_done function */
 	if (cset->ti->t_op->data_done)
 		cset->ti->t_op->data_done(cset);
 	else
 		__zio_internal_data_done(cset);
 
-	/* transfer is over, resetting completing and busy flags */
-	spin_lock(&cset->lock);
-	cset->ti->flags &= (~(ZIO_TI_COMPLETING | ZIO_TI_BUSY));
+	cset->ti->flags &= ~ZIO_TI_ARMED;
 	spin_unlock(&cset->lock);
 }
 EXPORT_SYMBOL(zio_trigger_data_done);
@@ -102,31 +99,37 @@ static void __zio_internal_abort_free(struct zio_cset *cset)
 /*
  * zio_trigger_abort
  * This is a ZIO helper to invoke the abort function. This must be used when
- * something is going wrong during the acquisition.
+ * something is going wrong during the acquisition or an armed trigger
+ * must be modified. If so requested, the trigger is disabled too.
+ * The function returns the previous value of the disabled flags.
  */
-void zio_trigger_abort(struct zio_cset *cset)
+int zio_trigger_abort_disable(struct zio_cset *cset, int disable)
 {
 	struct zio_ti *ti = cset->ti;
+	int ret;
 
 	/*
-	 * If trigger is running (ZIO_TI_BUSY) but it is not
-	 * completing the transfer (ZIO_TI_COMPLETING), then abort it.
-	 * If the trigger is completing its run, don't abort it because
-	 * it finished and the blocks are full of data.
+	 * If the trigger is running (ZIO_TI_ARMED), then abort it.
+	 * Since the whole data_done procedure happens in locked context,
+	 * there is no concurrency with an already-completing trigger event.
 	 */
 	spin_lock(&cset->lock);
-	if ((ti->flags & ZIO_TI_BUSY) && !(ti->flags & ZIO_TI_COMPLETING)) {
+	if (ti->flags & ZIO_TI_ARMED) {
 		if (ti->t_op->abort)
-			ti->t_op->abort(cset);
+			ti->t_op->abort(ti);
 		else
 			__zio_internal_abort_free(cset);
-		ti->flags &= (~ZIO_TI_BUSY); /* when disabled is not busy */
+		ti->flags &= (~ZIO_TI_ARMED);
 	}
+	ret = ti->flags &= ZIO_STATUS;
+	if (disable)
+		ti->flags |= ZIO_DISABLED;
 	spin_unlock(&cset->lock);
+	return ret;
 }
-EXPORT_SYMBOL(zio_trigger_abort);
+EXPORT_SYMBOL(zio_trigger_abort_disable);
 
-static void __zio_fire_input_trigger(struct zio_ti *ti)
+static void __zio_arm_input_trigger(struct zio_ti *ti)
 {
 	struct zio_buffer_type *zbuf;
 	struct zio_block *block;
@@ -160,7 +163,7 @@ static void __zio_fire_input_trigger(struct zio_ti *ti)
 	}
 }
 
-static void __zio_fire_output_trigger(struct zio_ti *ti)
+static void __zio_arm_output_trigger(struct zio_ti *ti)
 {
 	struct zio_cset *cset = ti->cset;
 
@@ -174,25 +177,29 @@ static void __zio_fire_output_trigger(struct zio_ti *ti)
 }
 
 /*
- * When a software trigger fires, it should call this function. Hw ones don't
+ * When a software trigger fires, it should call this function. It
+ * used to be called zio_fire_trigger, but actually it only arms the trigger.
+ * When hardware is self-timed, the actual trigger fires later.
  */
-void zio_fire_trigger(struct zio_ti *ti)
+void zio_arm_trigger(struct zio_ti *ti)
 {
 	/* If the trigger runs too early, ti->cset is still NULL */
 	if (!ti->cset)
 		return;
 
-	/* check if trigger is disabled or previous fire is still running */
-	if (unlikely((ti->flags & ZIO_STATUS) == ZIO_DISABLED ||
-			(ti->flags & ZIO_TI_BUSY)))
-		return;
+	/* check if trigger is disabled or previous instance is pending */
 	spin_lock(&ti->cset->lock);
-	ti->flags |= ZIO_TI_BUSY;
+	if (unlikely((ti->flags & ZIO_STATUS) == ZIO_DISABLED ||
+		     (ti->flags & ZIO_TI_ARMED))) {
+		spin_unlock(&ti->cset->lock);
+		return;
+	}
+	ti->flags |= ZIO_TI_ARMED;
 	spin_unlock(&ti->cset->lock);
 
 	if (likely((ti->flags & ZIO_DIR) == ZIO_DIR_INPUT))
-		__zio_fire_input_trigger(ti);
+		__zio_arm_input_trigger(ti);
 	else
-		__zio_fire_output_trigger(ti);
+		__zio_arm_output_trigger(ti);
 }
-EXPORT_SYMBOL(zio_fire_trigger);
+EXPORT_SYMBOL(zio_arm_trigger);

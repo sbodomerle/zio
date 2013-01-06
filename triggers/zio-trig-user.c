@@ -46,7 +46,7 @@ static int ztu_push_block(struct zio_ti *ti, struct zio_channel *chan,
 		return -EBUSY;
 	chan->active_block = block;
 	getnstimeofday(&ti->tstamp);
-	zio_fire_trigger(ti);
+	zio_arm_trigger(ti);
 	return 0;
 }
 
@@ -55,7 +55,7 @@ static void ztu_pull_block(struct zio_ti *ti, struct zio_channel *chan)
 {
 	pr_debug("%s:%d\n", __func__, __LINE__);
 	getnstimeofday(&ti->tstamp);
-	zio_fire_trigger(ti);
+	zio_arm_trigger(ti);
 }
 
 static int ztu_config(struct zio_ti *ti, struct zio_control *ctrl)

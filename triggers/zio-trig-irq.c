@@ -56,7 +56,7 @@ static irqreturn_t zti_handler(int irq, void *dev_id)
 
 	/* When a trigger fires, we must prepare our control and timestamp */
 	getnstimeofday(&ti->tstamp);
-	zio_fire_trigger(ti);
+	zio_arm_trigger(ti);
 	return IRQ_HANDLED;
 }
 

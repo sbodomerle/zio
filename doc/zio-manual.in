@@ -34,7 +34,7 @@
 @comment %**end of header
 
 @setchapternewpage off
-@set update-month November 2012
+@set update-month January 2013
 @finalout
 @c #################################################################
 @titlepage
@@ -481,7 +481,8 @@ knows the trigger has fired, in the latter case ZIO knows the trigger
 is still armed for this cset.
 
 @item At some time in the future, the device that reported @t{-EAGAIN}
-is done with the input operation. It thus calls @i{ti->data_done}.
+is done with the input operation. It thus calls @t{zio_data_done()}
+(that may rely on @i{ti->data_done}).
 When this happens (or if @t{raw_io} completed synchronously), the
 respective trigger changes its status to @i{idle}; the active block
 for each channel in the cset is stored to the respective buffer
@@ -537,9 +538,10 @@ or ti can perform I/O asynchronously and return @code{-EAGAIN}.
 In the latter case the trigger remains in @i{armed} state.
 
 @item At some time in the future, the device that reported @t{-EAGAIN}
-is done with hardware output, and calls @i{ti->data_done}.
+is done with hardware output, and calls  @t{zio_data_done()}
+(that may rely on @i{ti->data_done}).
 When this happens (or if @t{raw_io} completed synchronously), the
-trigger instance bcomes @i{idle} again, and it frees the blocks
+trigger instance becomes @i{idle} again, and it frees the blocks
 for the cset by calling @t{bi->free_block}.  In general,
 the trigger will then call @t{bi->retr_block} in order to be
 ready to re-arm the trigger.
@@ -1727,7 +1729,7 @@ are:
 @end table
 
 @c --------------------------------------------------------------------------
-@node The Cset Struvture
+@node The Cset Structure
 @subsection The Cset Structure
 
 @cindex cset
@@ -1737,7 +1739,7 @@ characteristics.  This object is the most important in the ZIO device
 hierarchy because all data transfers are cset-wide. Each cset includes
 a pointer to the current trigger and buffer types, because the current
 types are two cset-wide attributes. (We chose to set the preferred type
-at device level because this fits most use cases, whle avoiding
+at device level because this fits most use cases, while avoiding
 the need to repeat the default for each cset).
 
 @tindex zio_cset
@@ -1753,7 +1755,7 @@ or used by the developer are:
         to be performed when the internal trigger fires. If the
         function returns 0, the input or output operation is already
         completed. A return value of @code{-EAGAIN} means that
-        cset code will call @code{trigger->data_done} at a later time.
+        cset code will call @code{zio_data_done()} at a later time.
         Other return values are used to report real errors.
 
 @cindex sample size
@@ -2126,13 +2128,17 @@ The detailed meaning of the operations is as follows:
 @cindex data_done
 @item data_done
 
-	This method is called by the device. I/O in the device is
+	This method, if defined, is called by the device by means of the helper
+        @t{zio_data_done()}. I/O in the device is
         almost always asynchronous, so when asked to transfer a cset,
-        the device will prepare to do it, and will call @code{data_done}
-        later in the current trigger instance. For output csets,
-        @code{data_done} frees the blocks and prepares new blocks
-        for the next trigger event; for input, @code{data_done} pushes
-        material to the buffers.
+        the device will prepare to do it, and will call @code{zio_data_done}
+        later. For output csets,
+        @code{zio_data_done} frees the blocks and prepares new blocks
+        for the next trigger event; for input, @code{zio_data_done} pushes
+        material to the buffers.  This method, if present, is called
+        while holding the @i{cset} spin lock, and the trigger still
+        in @t{ARMED} state (@t{zio_data_done} clears the flag only
+        when everything is over with the current trigger event).
 
 @cindex config for triggers
 @item config
@@ -2142,11 +2148,24 @@ The detailed meaning of the operations is as follows:
         structure, this callback allows the trigger to reconfigure itself.
 @c FIXME: use the config trigger method
 
-@item change_status
-@itemx abort
+@item abort
+	Abort, if defined, is called when an already-armed trigger event
+        must be aborted. This happens, for example, because event
+        parameters changed (e.g., the block size).  The method must
+        dispose the @i{active_block} for each channel, and set the
+        pointer to NULL. The trigger may perform @i{data_done} for
+        partially-filled block. The method
+        is called while holding the cset lock and cannot fail nor sleep.
 
-	To be documented.
-@c FIXME: document change_status and abort for triggers
+@c  The trigger will usually call the @i{stop_io}
+@c        device method and optionally may perform @i{data_done} for
+@c        partially-filled  blocks. The method
+@c        is called while holding the cset lock and cannot fail nor sleep
+
+@item change_status
+        The method, if defined, is called when the trigger is enabled or
+        disabled. On disable, ZIO calls @i{abort} beforehand.
+        The method is called while hoding the cset lock.
 
 @end table
 
@@ -2366,9 +2385,12 @@ The following locks are defined used in ZIO core and data structures:
 @c FIXME: trigger-related  flags and locks
 	The cset structure includes a lock that is used to
         serialize access to the @code{ti->flags} bits (e.g.:
-        @code{ZTI_BUSY}, that signals that a trigger is pending).
-        I/O itself is serialized by trigger code: only one trigger event
-        can be pending for each cset, using the BUSY flag.
+        @code{ZIO_TI_ARMED}, that signals that a trigger is pending).
+        I/O itself is serialized by trigger code in the ZIO core:
+        only one trigger event
+        can be pending for each cset, using the ARMED flag. The cset
+        itself, then,  can use this same lock to serialize other activities
+        and prevent a trigger to be armed during such activities.
 
 @item zio_buffer_type->lock
 @itemx zio_trigger_type->lock
@@ -2389,7 +2411,7 @@ The following locks are defined used in ZIO core and data structures:
 @end table
 
 From the table above, it's clear how the device lock, used for
-configuration, is the most used ZIO spinlock.  Even though
+configuration, is the ZIO spinlock with the widest scope.  Even though
 device, buffer and trigger are registered as different objects, they
 live on the same peripheral device. Thus, you most often need to
 serialize configuration on the device as a whole, because

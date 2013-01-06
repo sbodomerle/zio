@@ -60,6 +60,8 @@ static struct zio_buffer_type *zio_buffer_get(struct zio_cset *cset,
 
 	if (!name)
 		return ERR_PTR(-EINVAL);
+	if (unlikely(strlen(name) > ZIO_OBJ_NAME_LEN))
+		return ERR_PTR(-EINVAL); /* name too long */
 
 	list_item = __zio_object_get(cset, &zstat->all_buffer_types, name);
 	if (!list_item)
@@ -78,6 +80,8 @@ static struct zio_trigger_type *zio_trigger_get(struct zio_cset *cset,
 
 	if (!name)
 		return ERR_PTR(-EINVAL);
+	if (unlikely(strlen(name) > ZIO_OBJ_NAME_LEN))
+		return ERR_PTR(-EINVAL); /* name too long */
 
 	list_item = __zio_object_get(cset, &zstat->all_trigger_types, name);
 	if (!list_item)
@@ -254,9 +258,12 @@ out_reg:
 out:
 	return err;
 }
+
+/* The trigger must not be armed when calling this helper */
 static void __ti_unregister(struct zio_trigger_type *trig, struct zio_ti *ti)
 {
 	pr_debug("%s\n", __func__);
+
 	/* Remove from trigger instance list */
 	spin_lock(&trig->lock);
 	list_del(&ti->list);
@@ -266,65 +273,57 @@ static void __ti_unregister(struct zio_trigger_type *trig, struct zio_ti *ti)
 	zattr_set_remove(&ti->head);
 }
 
-
+/* This is only called in process context (through a sysfs operation) */
 int zio_change_current_trigger(struct zio_cset *cset, char *name)
 {
 	struct zio_trigger_type *trig, *trig_old = cset->trig;
-	struct zio_channel *chan;
 	struct zio_ti *ti, *ti_old = cset->ti;
 	int err, i;
 
 	pr_debug("%s\n", __func__);
-	spin_lock(&cset->lock);
-	if (ti_old->flags & ZIO_TI_BUSY) {
-		spin_unlock(&cset->lock);
-		return -EBUSY;
-	}
-	/* Set ti BUSY, so it cannot fire */
-	ti_old->flags |= ZIO_TI_BUSY;
-	spin_unlock(&cset->lock);
 
-	if (strlen(name) > ZIO_OBJ_NAME_LEN)
-		return -EINVAL; /* name too long */
 	if (unlikely(strcmp(name, trig_old->head.name) == 0))
-		return 0; /* is the current trigger */
+		return 0; /* it is the current trigger */
 
-	/* get the new trigger */
 	trig = zio_trigger_get(cset, name);
 	if (IS_ERR(trig))
 		return PTR_ERR(trig);
+
 	/* Create and register the new trigger instance */
 	ti = __ti_create_and_init(trig, cset);
 	if (IS_ERR(ti)) {
 		err = PTR_ERR(ti);
-		goto out;
+		goto out_put;
 	}
 	err = __ti_register(trig, cset, ti, "trigger-tmp");
 	if (err)
-		goto out_reg;
-	/* New ti successful created, remove the old ti */
+		goto out_destroy;
+
+	/* Ok, we are done. Kill the current trigger to replace it*/
+	zio_trigger_abort_disable(cset, 1);
+	ti_old->cset = NULL;
 	__ti_unregister(trig_old, ti_old);
 	__ti_destroy(trig_old, ti_old);
 	zio_trigger_put(trig_old, cset->zdev->owner);
-	/* Set new trigger*/
-	mb();
+
+	/* Set new trigger and rename "trigger-tmp" to "trigger" */
+	spin_lock(&cset->lock);
 	cset->trig = trig;
 	cset->ti = ti;
-	/* Rename trigger-tmp to trigger */
 	err = device_rename(&ti->head.dev, "trigger");
-	if (err)
-		WARN(1, "%s: cannot rename trigger folder for"
-			" cset%d\n", __func__, cset->index);
-	/* Update channel current controls */
-	for (i = 0; i < cset->n_chan; ++i) {
-		chan = &cset->chan[i];
-		__zattr_trig_init_ctrl(ti, chan->current_ctrl);
-	}
+	spin_unlock(&cset->lock);
+
+	WARN(err, "%s: cannot rename trigger folder for"
+	     " cset%d\n", __func__, cset->index);
+
+	/* Update current control for each channel */
+	for (i = 0; i < cset->n_chan; ++i)
+		__zattr_trig_init_ctrl(ti, cset->chan[i].current_ctrl);
 	return 0;
 
-out_reg:
+out_destroy:
 	__ti_destroy(trig, ti);
-out:
+out_put:
 	zio_trigger_put(trig, cset->zdev->owner);
 	return err;
 }
@@ -336,11 +335,8 @@ int zio_change_current_buffer(struct zio_cset *cset, char *name)
 	int i, j, err;
 
 	pr_debug("%s\n", __func__);
-	if (strlen(name) > ZIO_OBJ_NAME_LEN)
-		return -EINVAL; /* name too long */
 	if (unlikely(strcmp(name, cset->zbuf->head.name) == 0))
-		return 0; /* is the current buffer */
-
+		return 0; /* it is the current buffer */
 	zbuf = zio_buffer_get(cset, name);
 	if (IS_ERR(zbuf))
 		return PTR_ERR(zbuf);
@@ -758,6 +754,8 @@ static void cset_unregister(struct zio_cset *cset)
 	spin_lock(&zstat->lock);
 	list_del(&cset->list_cset);
 	spin_unlock(&zstat->lock);
+	/* Make it idle */
+	zio_trigger_abort_disable(cset, 1);
 	/* Private exit function */
 	if (cset->exit)
 		cset->exit(cset);

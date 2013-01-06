@@ -46,12 +46,11 @@ struct zio_ti {
 
 /* first 4bit are reserved for zio object universal flags */
 enum zio_ti_flag_mask {
-	ZIO_TI_BUSY = 0x10,	/* trigger fire and transfer occurs */
-	ZIO_TI_COMPLETING = 0x20	/* trigger is clompleting transfert */
+	ZIO_TI_ARMED = 0x10,		/* trigger is armed, device rules */
 };
 
 #define to_zio_ti(obj) container_of(obj, struct zio_ti, head.dev)
-void zio_fire_trigger(struct zio_ti *ti);
+void zio_arm_trigger(struct zio_ti *ti);
 
 /*
  * When a buffer has a complete block of data, it can send it to the trigger
@@ -103,9 +102,10 @@ struct zio_trigger_operations {
 	void			(*destroy)(struct zio_ti *ti);
 	void			(*change_status)(struct zio_ti *ti,
 						 unsigned int status);
-	void			(*abort)(struct zio_cset *cset);
+	void			(*abort)(struct zio_ti *ti);
 };
 
-void zio_trigger_abort(struct zio_cset *cset);
+void zio_trigger_data_done(struct zio_cset *cset);
+int zio_trigger_abort_disable(struct zio_cset *cset, int disable);
 
 #endif /* __ZIO_TRIGGER_H__ */

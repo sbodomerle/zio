@@ -364,10 +364,12 @@ static void __zobj_enable(struct device *dev, unsigned int enable)
 		pr_debug("%s: zti\n", __func__);
 
 		ti = to_zio_ti(dev);
-		zio_trigger_abort(ti->cset);
+		spin_lock(&ti->cset->lock);
+		zio_trigger_abort_disable(ti->cset, 0);
 		/* trigger instance callback */
 		if (ti->t_op->change_status)
 			ti->t_op->change_status(ti, status);
+		spin_unlock(&ti->cset->lock);
 		break;
 	/* following objects can't be enabled/disabled */
 	case ZIO_BUF:

@@ -285,9 +285,6 @@ static inline unsigned int zio_get_n_chan_enabled(struct zio_cset *cset) {
 	char *_name; \
 	module_param_named(buffer, _name, charp, 0444)
 
-void zio_trigger_data_done(struct zio_cset *cset);
-void zio_trigger_abort(struct zio_cset *cset);
-
 /*
  * Misc library-like code, from zio-misc.c
  */
