@@ -1,0 +1,215 @@
+/* Alessandro Rubini for CERN, 2013, GNU GPLv2 or later */
+
+/*
+ * This is a simple TDC (time to digital converter). The events it
+ * stamps are interrupts (one interrupt source only) and has two csets:
+ *
+ * cset 0 (1 channel) returns the stamps as timespec, several per block.
+ * cset 1 (1 channel) returns zero-sized blocks with the stamp in the control.
+ *
+ * The driver is used to experiment with self-timed peripherals. cset 0
+ * includes a stop_io function that shows how to return a partial block
+ */
+
+#include <linux/module.h>
+#include <linux/kernel.h>
+#include <linux/init.h>
+#include <linux/slab.h>
+#include <linux/interrupt.h>
+
+#include <linux/zio.h>
+#include <linux/zio-trigger.h>
+
+int ztdc_irq = -1;
+module_param_named(irq, ztdc_irq, int, 0444);
+
+/* The interrupt handler is taking timestamps and filling blocks */
+irqreturn_t ztdc_handler(int irq, void *dev_id)
+{
+	struct timespec ts, *tsp;
+	struct zio_device *dev = dev_id;
+	struct zio_cset *cset;
+	struct zio_channel *chan;
+	struct zio_block *block;
+
+	getnstimeofday(&ts);
+
+	/*
+	 * fill cset 0: several per block. We return the block only when full,
+	 * Actually, if we get stop_io, we return it as partially-filled.
+	 * The first stamp is saved in the trigger too, whence it reaches the
+	 * control for all channels ad data_done time.
+	 */
+	cset = dev->cset;
+	chan = cset->chan;
+	block = chan->active_block;
+	if (block) {
+		if (!block->uoff)
+			cset->ti->tstamp = ts;
+		tsp = block->data + block->uoff;
+		*tsp = ts;
+		block->uoff += sizeof(ts);
+		if (block->uoff == block->datalen) {
+			block->uoff = 0; /* for read method */
+			zio_trigger_data_done(cset);
+		}
+	} else {
+		/* FIXME: use the alarms */
+		pr_warning("zio tdc: lost event in cset 0\n");
+	}
+
+	/*
+	 * fill cset 1: a zero-size thing: save the stamp in the trigger
+	 * because that's whence data_done copies it to all channels.
+	 * Also, fix nsamples in the current control, where it is
+	 * prepared for us every time the trigger is armed.
+	 */
+	cset = dev->cset + 1;
+	chan = cset->chan;
+	block = chan->active_block;
+	if (block) {
+		cset->ti->tstamp = ts;
+		chan->current_ctrl->nsamples = 1;
+		zio_trigger_data_done(cset);
+	} else {
+		/* FIXME: use the alarms */
+		pr_warning("zio tdc: lost event\n");
+	}
+	return IRQ_NONE;
+}
+
+static int ztdc_input(struct zio_cset *cset)
+{
+	/*
+	 * Nothing to be done: we just let interrupts flow.
+	 * But check nsamples is not zero for cset 0.
+	 */
+	if (cset->index == 0 && cset->chan->active_block->datalen == 0)
+		return -EINVAL;
+
+	return -EAGAIN; /* Will data_done later */
+}
+
+/*
+ * The probe function receives a new zio_device, which is different from
+ * what we allocated (that one is the "hardwre" device). So save it
+ */
+static struct zio_device *ztdc_dev;
+static int ztdc_probe(struct zio_device *zdev)
+{
+	ztdc_dev = zdev;
+	return 0;
+}
+
+static struct zio_cset ztdc_cset[] = {
+	{
+		ZIO_SET_OBJ_NAME("data-stamps"),
+		.raw_io =	ztdc_input,
+		.flags =	ZIO_DIR_INPUT | ZIO_CSET_TYPE_TIME |
+					ZIO_CSET_SELF_TIMED,
+		.n_chan =	1,
+		.ssize =	sizeof(struct timespec),
+	},
+	{
+		ZIO_SET_OBJ_NAME("ctrl-stamps"),
+		.raw_io =	ztdc_input,
+		.flags =	ZIO_DIR_INPUT | ZIO_CSET_TYPE_TIME |
+					ZIO_CSET_SELF_TIMED,
+		.n_chan =	1,
+		.ssize =	0,
+	},
+};
+
+static struct zio_device ztdc_tmpl = {
+	.owner =		THIS_MODULE,
+	.cset =			ztdc_cset,
+	.n_cset =		ARRAY_SIZE(ztdc_cset),
+};
+
+/* The driver uses a table of templates */
+static const struct zio_device_id ztdc_table[] = {
+	{"ztdc", &ztdc_tmpl},
+	{},
+};
+
+static struct zio_driver ztdc_zdrv = {
+	.driver = {
+		.name = "ztdc",
+		.owner = THIS_MODULE,
+	},
+	.id_table = ztdc_table,
+	.probe = ztdc_probe,
+};
+
+/* Lazily, use a single global device */
+static struct zio_device *ztdc_init_dev;
+
+irqreturn_t ztdc_fake_handler(int irq, void *dev_id)
+{
+	return IRQ_NONE;
+}
+
+static int __init ztdc_init(void)
+{
+	int err;
+
+	if (ztdc_irq < 0) {
+		pr_err("%s: please pass interrupt number as irq=\n",
+		       KBUILD_MODNAME);
+		return -EINVAL;
+	}
+
+	/* Try to request the interrupt first, to catch common errors */
+	err = request_irq(ztdc_irq, ztdc_fake_handler, IRQF_SHARED,
+			  KBUILD_MODNAME, ztdc_init);
+	if (err < 0) {
+		pr_err("%s: can't request shared irq %i: error %i\n",
+		       KBUILD_MODNAME, ztdc_irq, -err);
+		return err;
+	}
+	free_irq(ztdc_irq, ztdc_init);
+
+	err = zio_register_driver(&ztdc_zdrv);
+	if (err)
+		return err;
+
+	ztdc_init_dev = zio_allocate_device();
+	if (IS_ERR(ztdc_init_dev)) {
+		err = PTR_ERR(ztdc_init_dev);
+		goto out_alloc;
+	}
+	ztdc_init_dev->owner = THIS_MODULE;
+	err = zio_register_device(ztdc_init_dev, "ztdc", 0);
+	if (err)
+		goto out_register;
+	err = request_irq(ztdc_irq, ztdc_handler, IRQF_SHARED,
+			  KBUILD_MODNAME, ztdc_dev);
+	if (!err)
+		return 0;
+
+	/* unlikely: we already did that at the beginning */
+	pr_err("%s: can't request shared irq %i: error %i\n",
+	       KBUILD_MODNAME, ztdc_irq, -err);
+
+	zio_unregister_device(ztdc_dev);
+out_register:
+	zio_free_device(ztdc_dev);
+out_alloc:
+	zio_unregister_driver(&ztdc_zdrv);
+	return err;
+}
+
+static void __exit ztdc_exit(void)
+{
+	free_irq(ztdc_irq, ztdc_dev);
+	zio_unregister_device(ztdc_init_dev);
+	zio_free_device(ztdc_init_dev);
+	ztdc_dev = NULL;
+	zio_unregister_driver(&ztdc_zdrv);
+}
+
+module_init(ztdc_init);
+module_exit(ztdc_exit);
+
+MODULE_LICENSE("GPL");
+
