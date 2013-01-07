@@ -54,6 +54,11 @@ static int ztu_push_block(struct zio_ti *ti, struct zio_channel *chan,
 static void ztu_pull_block(struct zio_ti *ti, struct zio_channel *chan)
 {
 	pr_debug("%s:%d\n", __func__, __LINE__);
+
+	/* For self-timed devices, we have no pull, as it's already armed */
+	if (zio_cset_is_self_timed(ti->cset))
+		return;
+	/* Otherwise, the user sets the input timing by reading */
 	getnstimeofday(&ti->tstamp);
 	zio_arm_trigger(ti);
 }

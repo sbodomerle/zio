@@ -147,6 +147,8 @@ EXPORT_SYMBOL(zio_arm_trigger);
  */
 void zio_trigger_data_done(struct zio_cset *cset)
 {
+	int self_timed = zio_cset_is_self_timed(cset);
+
 	spin_lock(&cset->lock);
 
 	if (cset->ti->t_op->data_done)
@@ -156,6 +158,17 @@ void zio_trigger_data_done(struct zio_cset *cset)
 
 	cset->ti->flags &= ~ZIO_TI_ARMED;
 	spin_unlock(&cset->lock);
+
+	/*
+	 * If it is self-timed, re-arm the trigger immediately.
+	 * zio_arm_trigger() needs to lock, so it's correct we
+	 * released the lock above. No race is expected, because
+	 * self-timed devices need to run the transparent trigger. But
+	 * if the cset is misconfigured and somebody arm the trigger
+	 * in this small window, no harm is done anyways.
+	 */
+	if (self_timed)
+		zio_arm_trigger(cset->ti);
 }
 EXPORT_SYMBOL(zio_trigger_data_done);
 

@@ -319,6 +319,11 @@ int zio_change_current_trigger(struct zio_cset *cset, char *name)
 	/* Update current control for each channel */
 	for (i = 0; i < cset->n_chan; ++i)
 		__zattr_trig_init_ctrl(ti, cset->chan[i].current_ctrl);
+
+	/* Finally, arm it if so needed */
+	if (zio_cset_is_self_timed(cset))
+		zio_arm_trigger(ti);
+
 	return 0;
 
 out_destroy:
@@ -716,6 +721,10 @@ static int cset_register(struct zio_cset *cset, struct zio_cset *cset_t)
 	spin_lock(&zstat->lock);
 	list_add(&cset->list_cset, &zstat->list_cset);
 	spin_unlock(&zstat->lock);
+
+	/* All went well. Not auto-arm self-timed peripherals */
+	if (zio_cset_is_self_timed(cset))
+		zio_arm_trigger(ti);
 
 	return 0;
 
