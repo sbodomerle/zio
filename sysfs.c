@@ -23,25 +23,27 @@
 #include "zio-internal.h"
 
 
-#define ZOBJ_SYSFS_NAME "name"
-#define ZOBJ_SYSFS_ENABLE "enable"
-#define CSET_SYSFS_BUFFER "current_buffer"
-#define CSET_SYSFS_TRIGGER "current_trigger"
+#define ZOBJ_SYSFS_NAME		"name"
+#define ZOBJ_SYSFS_ENABLE	"enable"
+#define CSET_SYSFS_BUFFER	"current_buffer"
+#define CSET_SYSFS_TRIGGER	"current_trigger"
 
 const char zio_zdev_attr_names[_ZIO_DEV_ATTR_STD_NUM][ZIO_NAME_LEN] = {
-	[ZIO_ATTR_GAIN]		= "gain_factor",
+	[ZIO_ATTR_GAIN]			= "gain_factor",
 	[ZIO_ATTR_OFFSET]		= "offset",
 	[ZIO_ATTR_NBITS]		= "resolution-bits",
 	[ZIO_ATTR_MAXRATE]		= "max-sample-rate",
-	[ZIO_ATTR_VREFTYPE]	= "vref-src",
+	[ZIO_ATTR_VREFTYPE]		= "vref-src",
 };
 EXPORT_SYMBOL(zio_zdev_attr_names);
+
 const char zio_trig_attr_names[_ZIO_TRG_ATTR_STD_NUM][ZIO_NAME_LEN] = {
 	[ZIO_ATTR_TRIG_REENABLE]	= "re-enable",
 	[ZIO_ATTR_TRIG_PRE_SAMP]	= "pre-samples",
 	[ZIO_ATTR_TRIG_POST_SAMP]	= "post-samples",
 };
 EXPORT_SYMBOL(zio_trig_attr_names);
+
 const char zio_zbuf_attr_names[_ZIO_BUF_ATTR_STD_NUM][ZIO_NAME_LEN] = {
 	[ZIO_ATTR_ZBUF_MAXLEN]	= "max-buffer-len",
 	[ZIO_ATTR_ZBUF_MAXKB]	= "max-buffer-kb",
@@ -188,8 +190,6 @@ static void __zattr_propagate_value(struct zio_obj_head *head,
 			chan = &ti->cset->chan[i];
 			ctrl = chan->current_ctrl;
 			__zattr_valcpy(&ctrl->attr_trigger, zattr);
-			if ((zattr->flags & ZIO_ATTR_TYPE) == ZIO_ATTR_TYPE_EXT)
-				continue; /* continue to the next channel */
 		}
 		break;
 	default:
