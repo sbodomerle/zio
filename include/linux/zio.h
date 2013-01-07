@@ -202,13 +202,25 @@ struct zio_cset {
 
 /* first 4bit are reserved for zio object universal flags */
 enum zio_cset_flags {
-	ZIO_CSET_TYPE		= 0x70,	/* digital, analog, time, TBD... */
-	ZIO_CSET_TYPE_DIGITAL	= 0x00,
-	ZIO_CSET_TYPE_ANALOG	= 0x10,
-	ZIO_CSET_TYPE_TIME     	= 0x20,
-	ZIO_CSET_CHAN_TEMPLATE	= 0x80, /* 1 if channels from template */
-
+	ZIO_CSET_TYPE		=  0x70,	/* digital, analog, time, ... */
+	ZIO_CSET_TYPE_DIGITAL	=  0x00,
+	ZIO_CSET_TYPE_ANALOG	=  0x10,
+	ZIO_CSET_TYPE_TIME	=  0x20,
+	ZIO_CSET_CHAN_TEMPLATE	=  0x80, /* 1 if channels from template */
+	ZIO_CSET_SELF_TIMED	= 0x100, /* for trigger use (see docs) */
 };
+
+/* Check the flags so we know whether to arm immediately or not */
+static inline int zio_cset_is_self_timed(struct zio_cset *cset)
+{
+	unsigned long flags = cset->flags;
+
+	if ((flags & ZIO_DIR) == ZIO_DIR_OUTPUT)
+		return 0;
+	if (flags & ZIO_CSET_SELF_TIMED)
+		return 1;
+	return 0;
+}
 
 /*
  * zio_channel -- an individual channel within the cset

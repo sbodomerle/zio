@@ -1769,14 +1769,20 @@ or used by the developer are:
 @cindex ZIO_CSET_TYPE_DIGITAL
 @cindex ZIO_CSET_TYPE_ANALOG
 @cindex ZIO_CSET_TYPE_TIME
+@cindex ZIO_CSET_SELF_TIMED
 @cindex ZIO_DIR_INPUT
 @cindex ZIO_DIR_OUTPUT
 @item unsigned long flags
 
-	Currently only the type: @code{ZIO_CSET_TYPE_DIGITAL},
-	@code{ZIO_CSET_TYPE_ANALOG} or @code{ZIO_CSET_TYPE_TIME} (other types
+	A few flags, the most important being the type of cset:
+        @code{ZIO_CSET_TYPE_DIGITAL},
+        @code{ZIO_CSET_TYPE_ANALOG} or @code{ZIO_CSET_TYPE_TIME} (other types
         may be added in the future, we reserved for 8 of them), OR'd with
-        @t{ZIO_DIR_INPUT} or @t{ZIO_DIR_OUTPUT}.
+        @t{ZIO_DIR_INPUT} or @t{ZIO_DIR_OUTPUT}.  Then, if you set
+        @t{ZIO_CSET_SELF_TIMED} for an input cset, the trigger will be
+        immediately armed, so the driver can fill blocks when its time
+        arrives -- for self-timed csets you should use the default
+        trigger, which is transparent to user and device actions.
 
 @cindex channel template
 @item struct zio_channel *chan_template
