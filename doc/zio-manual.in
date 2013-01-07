@@ -481,7 +481,7 @@ knows the trigger has fired, in the latter case ZIO knows the trigger
 is still armed for this cset.
 
 @item At some time in the future, the device that reported @t{-EAGAIN}
-is done with the input operation. It thus calls @t{zio_data_done()}
+is done with the input operation. It thus calls @t{zio_trigger_data_done()}
 (that may rely on @i{ti->data_done}).
 When this happens (or if @t{raw_io} completed synchronously), the
 respective trigger changes its status to @i{idle}; the active block
@@ -538,7 +538,7 @@ or ti can perform I/O asynchronously and return @code{-EAGAIN}.
 In the latter case the trigger remains in @i{armed} state.
 
 @item At some time in the future, the device that reported @t{-EAGAIN}
-is done with hardware output, and calls  @t{zio_data_done()}
+is done with hardware output, and calls  @t{zio_trigger_data_done()}
 (that may rely on @i{ti->data_done}).
 When this happens (or if @t{raw_io} completed synchronously), the
 trigger instance becomes @i{idle} again, and it frees the blocks
@@ -1755,7 +1755,7 @@ or used by the developer are:
         to be performed when the internal trigger fires. If the
         function returns 0, the input or output operation is already
         completed. A return value of @code{-EAGAIN} means that
-        cset code will call @code{zio_data_done()} at a later time.
+        cset code will call @code{zio_trigger_data_done()} at a later time.
         Other return values are used to report real errors.
 
 @cindex sample size
@@ -2135,15 +2135,15 @@ The detailed meaning of the operations is as follows:
 @item data_done
 
 	This method, if defined, is called by the device by means of the helper
-        @t{zio_data_done()}. I/O in the device is
+        @t{zio_trigger_data_done()}. I/O in the device is
         almost always asynchronous, so when asked to transfer a cset,
-        the device will prepare to do it, and will call @code{zio_data_done}
+        the device will prepare to do it, and will call @code{zio_trigger_data_done}
         later. For output csets,
-        @code{zio_data_done} frees the blocks and prepares new blocks
-        for the next trigger event; for input, @code{zio_data_done} pushes
+        @code{zio_trigger_data_done} frees the blocks and prepares new blocks
+        for the next trigger event; for input, @code{zio_trigger_data_done} pushes
         material to the buffers.  This method, if present, is called
         while holding the @i{cset} spin lock, and the trigger still
-        in @t{ARMED} state (@t{zio_data_done} clears the flag only
+        in @t{ARMED} state (@t{zio_trigger_data_done} clears the flag only
         when everything is over with the current trigger event).
 
 @cindex config for triggers
