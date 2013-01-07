@@ -16,28 +16,6 @@
 #include <linux/zio-trigger.h>
 #include "zio-internal.h"
 
-/*
- * zio_trigger_data_done
- * This is a ZIO helper to invoke the data_done trigger operation when a data
- * transfer is over and we need to complete the operation. The trigger
- * is in "ARMED" state when this is called, and is not any more when
- * the function returns. Please note that  we keep the cset lock
- * for the duration of the whole function, which must be atomic
- */
-void zio_trigger_data_done(struct zio_cset *cset)
-{
-	spin_lock(&cset->lock);
-
-	if (cset->ti->t_op->data_done)
-		cset->ti->t_op->data_done(cset);
-	else
-		zio_generic_data_done(cset);
-
-	cset->ti->flags &= ~ZIO_TI_ARMED;
-	spin_unlock(&cset->lock);
-}
-EXPORT_SYMBOL(zio_trigger_data_done);
-
 static void __zio_internal_abort_free(struct zio_cset *cset)
 {
 	struct zio_channel *chan;
@@ -158,3 +136,26 @@ void zio_arm_trigger(struct zio_ti *ti)
 		__zio_arm_output_trigger(ti);
 }
 EXPORT_SYMBOL(zio_arm_trigger);
+
+/*
+ * zio_trigger_data_done
+ * This is a ZIO helper to invoke the data_done trigger operation when a data
+ * transfer is over and we need to complete the operation. The trigger
+ * is in "ARMED" state when this is called, and is not any more when
+ * the function returns. Please note that  we keep the cset lock
+ * for the duration of the whole function, which must be atomic
+ */
+void zio_trigger_data_done(struct zio_cset *cset)
+{
+	spin_lock(&cset->lock);
+
+	if (cset->ti->t_op->data_done)
+		cset->ti->t_op->data_done(cset);
+	else
+		zio_generic_data_done(cset);
+
+	cset->ti->flags &= ~ZIO_TI_ARMED;
+	spin_unlock(&cset->lock);
+}
+EXPORT_SYMBOL(zio_trigger_data_done);
+
