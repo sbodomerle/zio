@@ -150,6 +150,7 @@ static void __zattr_propagate_value(struct zio_obj_head *head,
 			       struct zio_attribute *zattr)
 {
 	int i, j;
+	unsigned long tflags;
 	struct zio_ti *ti;
 	struct zio_device *zdev;
 	struct zio_channel *chan;
@@ -184,6 +185,14 @@ static void __zattr_propagate_value(struct zio_obj_head *head,
 		break;
 	case ZIO_TI:
 		ti = to_zio_ti(&head->dev);
+		/* If trigger params change, we need to abort and restart */
+		spin_lock(&ti->cset->lock);
+		tflags = ti->flags;
+		if (tflags & ZIO_TI_ARMED) {
+			spin_unlock(&ti->cset->lock);
+			zio_trigger_abort_disable(ti->cset, 1);
+			spin_lock(&ti->cset->lock);
+		}
 		__ctrl_update_nsamples(ti);
 		/* Update attributes in all "current_ctrl" struct */
 		for (i = 0; i < ti->cset->n_chan; ++i) {
@@ -191,6 +200,11 @@ static void __zattr_propagate_value(struct zio_obj_head *head,
 			ctrl = chan->current_ctrl;
 			__zattr_valcpy(&ctrl->attr_trigger, zattr);
 		}
+		/* The new paramaters are in place, rearm/enable the trigger */
+		ti->flags = tflags & ~ZIO_TI_ARMED;
+		spin_unlock(&ti->cset->lock);
+		if (tflags & ZIO_TI_ARMED)
+			zio_arm_trigger(ti);
 		break;
 	default:
 		return;
