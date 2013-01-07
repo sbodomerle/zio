@@ -527,11 +527,7 @@ static int chan_register(struct zio_channel *chan, struct zio_channel *chan_t)
 		goto out_zattr_check;
 	}
 	ctrl->nsamples = chan->cset->ti->nsamples;
-	ctrl->nbits = __get_nbits(chan);
-	if (!ctrl->nbits) {
-		err = -EINVAL; /* message already printed */
-		goto out_ctrl_bits;
-	}
+	ctrl->nbits = __get_nbits(chan); /* may be zero */
 	/* ctrl->addr.family = PF_ZIO */
 	ctrl->addr.cset = chan->cset->index;
 	ctrl->addr.chan = chan->index;

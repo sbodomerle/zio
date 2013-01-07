@@ -220,7 +220,12 @@ static int _zdev_template_check_and_init(struct zio_device *zdev,
 				name, cset->index);
 			return -EINVAL;
 		}
-		if (!cset->ssize) {
+		/*
+		* Only time-type can have a zero-sized sample. This
+		* protects against users who forgot to fill fields.
+		*/
+		if (!cset->ssize &&
+		    (cset->flags & ZIO_CSET_TYPE) != ZIO_CSET_TYPE_TIME) {
 			dev_err(&zdev->head.dev,
 				"ssize can not be 0 in %s cset%i\n",
 				name, cset->index);
