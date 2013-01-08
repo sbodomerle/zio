@@ -121,10 +121,6 @@ void zio_arm_trigger(struct zio_ti *ti)
 {
 	unsigned long flags;
 
-	/* If the trigger runs too early, ti->cset is still NULL */
-	if (!ti->cset)
-		return;
-
 	/* check if trigger is disabled or previous instance is pending */
 	spin_lock_irqsave(&ti->cset->lock, flags);
 	if (unlikely((ti->flags & ZIO_STATUS) == ZIO_DISABLED ||

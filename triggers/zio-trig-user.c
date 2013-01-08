@@ -81,6 +81,8 @@ static struct zio_ti *ztu_create(struct zio_trigger_type *trig,
 	ti = kzalloc(sizeof(*ti), GFP_KERNEL);
 	if (!ti)
 		return ERR_PTR(-ENOMEM);
+	ti->flags = ZIO_DISABLED;
+	ti->cset = cset;
 
 	return ti;
 }

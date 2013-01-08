@@ -2118,9 +2118,10 @@ The detailed meaning of the operations is as follows:
 
 	The operations are called when this trigger type is associated to
         (resp. de-associated from) a new cset. @code{create} returns
-        a trigger instance structure, which is usually part of a larger
+        a disabled trigger instance structure, which is usually part of a larger
         structure that the instance itself will recover with the macro
         @code{container_of}. Please look at existing triggers for details
+        (for example, @t{ti->cset} must be set at creation time.
 
 @cindex push_block
 @item push_block
@@ -2402,8 +2403,9 @@ The following locks are defined used in ZIO core and data structures:
 	The cset structure includes a lock that is used to
         serialize access the I/O operations, as well as trigger-related
         events (i.e. the @code{ti->flags} bits like
-        @code{ZIO_TI_ARMED}).
-        I/O itself is serialized by trigger code in the ZIO core:
+        @code{ZIO_TI_ARMED}). For this reason, the field @t{ti->cset}
+        must be immediateky assigned when the trigger instance is created.
+        I/O is serialized by trigger code in the ZIO core:
         only one trigger event
         can be pending for each cset, using the ARMED flag. The cset
         itself, then,  can use this same lock to serialize other activities

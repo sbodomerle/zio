@@ -101,6 +101,8 @@ static struct zio_ti *zti_create(struct zio_trigger_type *trig,
 	ti = kzalloc(sizeof(*ti), GFP_KERNEL);
 	if (!ti)
 		return ERR_PTR(-ENOMEM);
+	ti->flags = ZIO_DISABLED;
+	ti->cset = cset;
 
 	/* Try all edge settings (gpio stuff prefers edges, but pci wants 0) */
 	for (i = 0; i < ARRAY_SIZE(edges); i++) {

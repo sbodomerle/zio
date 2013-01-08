@@ -127,6 +127,8 @@ static struct zio_ti *ztt_create(struct zio_trigger_type *trig,
 	if (!ztt)
 		return ERR_PTR(-ENOMEM);
 	ti = &ztt->ti;
+	ti->flags = ZIO_DISABLED;
+	ti->cset = cset;
 
 	/* Fill own fields */
 	setup_timer(&ztt->timer, ztt_fn,

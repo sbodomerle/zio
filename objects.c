@@ -183,7 +183,7 @@ static void __bi_unregister(struct zio_buffer_type *zbuf, struct zio_bi *bi)
 	zattr_set_remove(&bi->head);
 }
 
-/* create and initialize a new trigger instance */
+/* create and initialize a new disabled trigger instance */
 static struct zio_ti *__ti_create_and_init(struct zio_trigger_type *trig,
 					   struct zio_cset *cset)
 {
@@ -193,13 +193,16 @@ static struct zio_ti *__ti_create_and_init(struct zio_trigger_type *trig,
 	pr_debug("%s\n", __func__);
 	/* Create trigger, ensuring it's not reentrant */
 	spin_lock(&trig->lock);
-	ti = trig->t_op->create(trig, cset, NULL, 0/*FIXME*/);
+	ti = trig->t_op->create(trig, cset, NULL, 0 /* FIXME: fmode_t */);
 	spin_unlock(&trig->lock);
 	if (IS_ERR(ti)) {
 		pr_err("ZIO %s: can't create trigger, error %ld\n",
 		       __func__, PTR_ERR(ti));
 		goto out;
 	}
+	/* This is a new requirement: warn our users */
+	WARN(ti->cset != cset, "Trigger creation should set \"cset\" field\n");
+
 	/* Initialize trigger */
 	spin_lock_init(&ti->lock);
 	ti->t_op = trig->t_op;
@@ -248,8 +251,6 @@ static int __ti_register(struct zio_trigger_type *trig, struct zio_cset *cset,
 	spin_lock(&trig->lock);
 	list_add(&ti->list, &trig->list);
 	spin_unlock(&trig->lock);
-	ti->cset = cset;
-	/* Done. This ti->cset marks everything is running */
 
 	return 0;
 
@@ -282,6 +283,8 @@ int zio_change_current_trigger(struct zio_cset *cset, char *name)
 	int err, i;
 
 	pr_debug("%s\n", __func__);
+
+	/* FIXME: parse a leading "-" to mean we want it disabled */
 
 	if (unlikely(strcmp(name, trig_old->head.name) == 0))
 		return 0; /* it is the current trigger */
@@ -320,6 +323,11 @@ int zio_change_current_trigger(struct zio_cset *cset, char *name)
 	/* Update current control for each channel */
 	for (i = 0; i < cset->n_chan; ++i)
 		__zattr_trig_init_ctrl(ti, cset->chan[i].current_ctrl);
+
+	/* Enable this new trigger (FIXME: unless the user doesn't want it) */
+	spin_lock_irqsave(&cset->lock, flags);
+	ti->flags &= ~ZIO_DISABLED;
+	spin_unlock_irqrestore(&cset->lock, flags);
 
 	/* Finally, arm it if so needed */
 	if (zio_cset_is_self_timed(cset))
@@ -624,6 +632,7 @@ static void chan_unregister(struct zio_channel *chan)
 static int cset_register(struct zio_cset *cset, struct zio_cset *cset_t)
 {
 	int i, j, err = 0, size;
+	unsigned long flags;
 	struct zio_channel *chan_tmp;
 	struct zio_ti *ti = NULL;
 
@@ -719,7 +728,11 @@ static int cset_register(struct zio_cset *cset, struct zio_cset *cset_t)
 	list_add(&cset->list_cset, &zstat->list_cset);
 	spin_unlock(&zstat->lock);
 
-	/* All went well. Not auto-arm self-timed peripherals */
+	/* Finally, enable the trigger and arm it if needed */
+	spin_lock_irqsave(&cset->lock, flags);
+	ti->flags &= ~ZIO_DISABLED;
+	spin_unlock_irqrestore(&cset->lock, flags);
+
 	if (zio_cset_is_self_timed(cset))
 		zio_arm_trigger(ti);
 
