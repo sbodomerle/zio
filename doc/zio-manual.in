@@ -2399,15 +2399,17 @@ The following locks are defined used in ZIO core and data structures:
 @cindex cset lock
 @item zio_cset->lock
 
-@c FIXME: trigger-related  flags and locks
 	The cset structure includes a lock that is used to
-        serialize access to the @code{ti->flags} bits (e.g.:
-        @code{ZIO_TI_ARMED}, that signals that a trigger is pending).
+        serialize access the I/O operations, as well as trigger-related
+        events (i.e. the @code{ti->flags} bits like
+        @code{ZIO_TI_ARMED}).
         I/O itself is serialized by trigger code in the ZIO core:
         only one trigger event
         can be pending for each cset, using the ARMED flag. The cset
         itself, then,  can use this same lock to serialize other activities
         and prevent a trigger to be armed during such activities.
+        While taking this lock interrupts must be disabled, because trigger
+        operations usually happen in interrupt context.
 
 @item zio_buffer_type->lock
 @itemx zio_trigger_type->lock

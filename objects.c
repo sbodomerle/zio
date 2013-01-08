@@ -278,6 +278,7 @@ int zio_change_current_trigger(struct zio_cset *cset, char *name)
 {
 	struct zio_trigger_type *trig, *trig_old = cset->trig;
 	struct zio_ti *ti, *ti_old = cset->ti;
+	unsigned long flags;
 	int err, i;
 
 	pr_debug("%s\n", __func__);
@@ -307,11 +308,11 @@ int zio_change_current_trigger(struct zio_cset *cset, char *name)
 	zio_trigger_put(trig_old, cset->zdev->owner);
 
 	/* Set new trigger and rename "trigger-tmp" to "trigger" */
-	spin_lock(&cset->lock);
+	spin_lock_irqsave(&cset->lock, flags);
 	cset->trig = trig;
 	cset->ti = ti;
 	err = device_rename(&ti->head.dev, "trigger");
-	spin_unlock(&cset->lock);
+	spin_unlock_irqrestore(&cset->lock, flags);
 
 	WARN(err, "%s: cannot rename trigger folder for"
 	     " cset%d\n", __func__, cset->index);

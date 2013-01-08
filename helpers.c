@@ -39,6 +39,7 @@ static void __zio_internal_abort_free(struct zio_cset *cset)
 int zio_trigger_abort_disable(struct zio_cset *cset, int disable)
 {
 	struct zio_ti *ti = cset->ti;
+	unsigned long flags;
 	int ret;
 
 	/*
@@ -46,7 +47,7 @@ int zio_trigger_abort_disable(struct zio_cset *cset, int disable)
 	 * Since the whole data_done procedure happens in locked context,
 	 * there is no concurrency with an already-completing trigger event.
 	 */
-	spin_lock(&cset->lock);
+	spin_lock_irqsave(&cset->lock, flags);
 	if (ti->flags & ZIO_TI_ARMED) {
 		if (ti->t_op->abort)
 			ti->t_op->abort(ti);
@@ -59,7 +60,7 @@ int zio_trigger_abort_disable(struct zio_cset *cset, int disable)
 	ret = ti->flags &= ZIO_STATUS;
 	if (disable)
 		ti->flags |= ZIO_DISABLED;
-	spin_unlock(&cset->lock);
+	spin_unlock_irqrestore(&cset->lock, flags);
 	return ret;
 }
 EXPORT_SYMBOL(zio_trigger_abort_disable);
@@ -118,19 +119,21 @@ static void __zio_arm_output_trigger(struct zio_ti *ti)
  */
 void zio_arm_trigger(struct zio_ti *ti)
 {
+	unsigned long flags;
+
 	/* If the trigger runs too early, ti->cset is still NULL */
 	if (!ti->cset)
 		return;
 
 	/* check if trigger is disabled or previous instance is pending */
-	spin_lock(&ti->cset->lock);
+	spin_lock_irqsave(&ti->cset->lock, flags);
 	if (unlikely((ti->flags & ZIO_STATUS) == ZIO_DISABLED ||
 		     (ti->flags & ZIO_TI_ARMED))) {
-		spin_unlock(&ti->cset->lock);
+		spin_unlock_irqrestore(&ti->cset->lock, flags);
 		return;
 	}
 	ti->flags |= ZIO_TI_ARMED;
-	spin_unlock(&ti->cset->lock);
+	spin_unlock_irqrestore(&ti->cset->lock, flags);
 
 	if (likely((ti->flags & ZIO_DIR) == ZIO_DIR_INPUT))
 		__zio_arm_input_trigger(ti);
@@ -150,8 +153,9 @@ EXPORT_SYMBOL(zio_arm_trigger);
 void zio_trigger_data_done(struct zio_cset *cset)
 {
 	int self_timed = zio_cset_is_self_timed(cset);
+	unsigned long flags;
 
-	spin_lock(&cset->lock);
+	spin_lock_irqsave(&cset->lock, flags);
 
 	if (cset->ti->t_op->data_done)
 		cset->ti->t_op->data_done(cset);
@@ -159,7 +163,7 @@ void zio_trigger_data_done(struct zio_cset *cset)
 		zio_generic_data_done(cset);
 
 	cset->ti->flags &= ~ZIO_TI_ARMED;
-	spin_unlock(&cset->lock);
+	spin_unlock_irqrestore(&cset->lock, flags);
 
 	/*
 	 * If it is self-timed, re-arm the trigger immediately.

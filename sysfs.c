@@ -150,7 +150,7 @@ static void __zattr_propagate_value(struct zio_obj_head *head,
 			       struct zio_attribute *zattr)
 {
 	int i, j;
-	unsigned long tflags;
+	unsigned long flags, tflags;
 	struct zio_ti *ti;
 	struct zio_device *zdev;
 	struct zio_channel *chan;
@@ -186,12 +186,12 @@ static void __zattr_propagate_value(struct zio_obj_head *head,
 	case ZIO_TI:
 		ti = to_zio_ti(&head->dev);
 		/* If trigger params change, we need to abort and restart */
-		spin_lock(&ti->cset->lock);
+		spin_lock_irqsave(&ti->cset->lock, flags);
 		tflags = ti->flags;
 		if (tflags & ZIO_TI_ARMED) {
-			spin_unlock(&ti->cset->lock);
+			spin_unlock_irqrestore(&ti->cset->lock, flags);
 			zio_trigger_abort_disable(ti->cset, 1);
-			spin_lock(&ti->cset->lock);
+			spin_lock_irqsave(&ti->cset->lock, flags);
 		}
 		__ctrl_update_nsamples(ti);
 		/* Update attributes in all "current_ctrl" struct */
@@ -202,7 +202,7 @@ static void __zattr_propagate_value(struct zio_obj_head *head,
 		}
 		/* The new paramaters are in place, rearm/enable the trigger */
 		ti->flags = tflags & ~ZIO_TI_ARMED;
-		spin_unlock(&ti->cset->lock);
+		spin_unlock_irqrestore(&ti->cset->lock, flags);
 		if (tflags & ZIO_TI_ARMED)
 			zio_arm_trigger(ti);
 		break;
@@ -332,7 +332,7 @@ int __zattr_dev_init_ctrl(struct zio_device *zdev)
  */
 static void __zobj_enable(struct device *dev, unsigned int enable)
 {
-	unsigned long *flags;
+	unsigned long *zf, flags;
 	int i, status;
 	struct zio_obj_head *head;
 	struct zio_device *zdev;
@@ -342,13 +342,13 @@ static void __zobj_enable(struct device *dev, unsigned int enable)
 	pr_debug("%s\n", __func__);
 	head = to_zio_head(dev);
 
-	flags = zio_get_from_obj(to_zio_head(dev), flags);
-	status = !((*flags) & ZIO_STATUS);
+	zf = zio_get_from_obj(to_zio_head(dev), flags);
+	status = !((*zf) & ZIO_STATUS);
 	/* if the status is not changing */
 	if (!(enable ^ status))
 		return;
 	/* change status */
-	*flags = (*flags & (~ZIO_STATUS)) | status;
+	*zf = (*zf & (~ZIO_STATUS)) | status;
 	switch (head->zobj_type) {
 	case ZIO_DEV:
 		pr_debug("%s: zdev\n", __func__);
@@ -378,12 +378,12 @@ static void __zobj_enable(struct device *dev, unsigned int enable)
 		pr_debug("%s: zti\n", __func__);
 
 		ti = to_zio_ti(dev);
-		spin_lock(&ti->cset->lock);
+		spin_lock_irqsave(&ti->cset->lock, flags);
 		zio_trigger_abort_disable(ti->cset, 0);
 		/* trigger instance callback */
 		if (ti->t_op->change_status)
 			ti->t_op->change_status(ti, status);
-		spin_unlock(&ti->cset->lock);
+		spin_unlock_irqrestore(&ti->cset->lock, flags);
 		break;
 	/* following objects can't be enabled/disabled */
 	case ZIO_BUF:
