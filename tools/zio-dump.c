@@ -54,10 +54,15 @@ void print_attributes(struct zio_control *ctrl)
 		       ctrl->attr_trigger.ext_val);
 }
 
-static void ziodump_dataeof(int cfd, int dfd)
+static void ziodump_dataeof(int cfd, int dfd, int expected_size)
 {
 	struct stat stbuf;
 
+	if (!expected_size) {
+		/* We got a zero-size block, so report end-of-data */
+		printf("\n");
+		return;
+	}
 	/*
 	 * If ctrl == data and this is a regular file, EOF is expected
 	 * (it is likely the current-ctrl in sysfs). If not a regular file
@@ -159,7 +164,7 @@ void read_channel(int cfd, int dfd, FILE *log)
 		return; /* next ctrl, let's see... */
 	}
 	if (!i) { /* EOF: handle the various cases */
-		ziodump_dataeof(cfd, dfd);
+		ziodump_dataeof(cfd, dfd, ctrl.nsamples * ctrl.ssize);
 		return;
 	}
 	if (i != ctrl.nsamples * ctrl.ssize) {
