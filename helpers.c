@@ -50,6 +50,8 @@ int zio_trigger_abort_disable(struct zio_cset *cset, int disable)
 	if (ti->flags & ZIO_TI_ARMED) {
 		if (ti->t_op->abort)
 			ti->t_op->abort(ti);
+		else if (ti->cset->stop_io)
+			ti->cset->stop_io(ti->cset);
 		else
 			__zio_internal_abort_free(cset);
 		ti->flags &= (~ZIO_TI_ARMED);

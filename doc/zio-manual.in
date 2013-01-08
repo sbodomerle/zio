@@ -915,6 +915,9 @@ the fields are not yet being filled by the core.
         5-bit samples aligned in 32-bit words. The number of bits is a
         device attribute: drivers may allow to change them at run-time.
         The sample size is however immutable for the lifetime of a cset.
+        An input driver can reduce @t{nsamples} in the current control,
+        in order to return a shorter block than requested (the value
+        is re-initialized every time a trigger is armed).
 
 @cindex address of a channel
 @cindex channel, address
@@ -1758,6 +1761,15 @@ or used by the developer are:
         cset code will call @code{zio_trigger_data_done()} at a later time.
         Other return values are used to report real errors.
 
+@cindex stop_io
+@item void (*stop_io)(struct zio_cset *cset)
+
+	The function, if present, is called when an armed trigger is
+        aborted.  The driver will need to implement this method
+        if it wants to return a partially-filled block.  The method
+        is called with the lock taken, and can call @t{zio_generic_data_done},
+        which is the locked back-end of @t{zio_trigger_data_done}).
+
 @cindex sample size
 @item  unsigned ssize
 
@@ -2158,15 +2170,14 @@ The detailed meaning of the operations is as follows:
 	Abort, if defined, is called when an already-armed trigger event
         must be aborted. This happens, for example, because event
         parameters changed (e.g., the block size).  The method must
-        dispose the @i{active_block} for each channel, and set the
-        pointer to NULL. The trigger may perform @i{data_done} for
-        partially-filled block. The method
+        call @t{cset->stop_io} if not NULL and 
+        dispose the @i{active_block} for each channel, setting the
+        pointer to NULL. Please check how it is used in @t{helpers.c}.
+        The method
         is called while holding the cset lock and cannot fail nor sleep.
-
-@c  The trigger will usually call the @i{stop_io}
-@c        device method and optionally may perform @i{data_done} for
-@c        partially-filled  blocks. The method
-@c        is called while holding the cset lock and cannot fail nor sleep
+        A trigger implementing this method will usually call
+        the @i{stop_io} cset method. See the generic abort implementation
+        for reference.
 
 @item change_status
         The method, if defined, is called when the trigger is enabled or

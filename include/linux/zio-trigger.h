@@ -110,8 +110,9 @@ int zio_trigger_abort_disable(struct zio_cset *cset, int disable);
 
 /*
  * This generic_data_done can be used by triggers, as part of their own.
- * If not trigger-specific function is specified, the core calls this one.
- * When data_done is called, the trigger is armed and the cset lock is taken
+ * If no trigger-specific function is specified, the core calls this one.
+ * This can also be called by cset->stop_io to return partial blocks.
+ * The function is called while holding the cset spin lock.
  */
 static inline void zio_generic_data_done(struct zio_cset *cset)
 {
