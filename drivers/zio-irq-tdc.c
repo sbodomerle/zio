@@ -80,6 +80,35 @@ irqreturn_t ztdc_handler(int irq, void *dev_id)
 	return IRQ_NONE;
 }
 
+/*
+ * stop_io: called when a trigger need to be aborted and re-armed
+ * The function is called in locked context. Here is it only used
+ * for the data cset, so we can just return the partial block.
+ */
+static void ztdc_stop_io(struct zio_cset *cset)
+{
+	struct zio_channel *chan;
+	struct zio_block *block;
+
+	chan_for_each(chan, cset) { /* we have one channel, but this works */
+		block = chan->active_block;
+		if (!block)
+			continue;
+		if (!block->uoff) {/* Empty: just free it */
+			cset->zbuf->b_op->free_block(chan->bi, block);
+			chan->active_block = 0;
+		} else {
+			/* Close up the partial block, and return it */
+			chan->current_ctrl->nsamples =
+				block->uoff / chan->current_ctrl->ssize;
+			block->datalen = block->uoff;
+			block->uoff = 0;
+		}
+	}
+	zio_generic_data_done(cset);
+}
+
+/* raw_io method */
 static int ztdc_input(struct zio_cset *cset)
 {
 	/*
@@ -107,6 +136,7 @@ static struct zio_cset ztdc_cset[] = {
 	{
 		ZIO_SET_OBJ_NAME("data-stamps"),
 		.raw_io =	ztdc_input,
+		.stop_io =	ztdc_stop_io,
 		.flags =	ZIO_DIR_INPUT | ZIO_CSET_TYPE_TIME |
 					ZIO_CSET_SELF_TIMED,
 		.n_chan =	1,
@@ -115,6 +145,7 @@ static struct zio_cset ztdc_cset[] = {
 	{
 		ZIO_SET_OBJ_NAME("ctrl-stamps"),
 		.raw_io =	ztdc_input,
+		.stop_io =	NULL, /* by default the block is freed */
 		.flags =	ZIO_DIR_INPUT | ZIO_CSET_TYPE_TIME |
 					ZIO_CSET_SELF_TIMED,
 		.n_chan =	1,
