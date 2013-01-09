@@ -552,6 +552,43 @@ static ssize_t zattr_store(struct device *dev, struct device_attribute *attr,
 	return count;
 }
 
+/*
+ * zobj_show_devname
+ *
+ * The function return the address of the different ZIO object in the device
+ * hierarchy.
+ *
+ * FIXME with interface, this function call an interface operation which returns
+ * the address. In this way, pf-zio and cdev can return their own devname
+ */
+static ssize_t zobj_show_devname(struct device *dev,
+				 struct device_attribute *attr, char *buf)
+{
+	struct zio_obj_head *head = to_zio_head(dev);
+	struct zio_channel *chan;
+	struct zio_cset *cset;
+
+	switch (head->zobj_type) {
+	case ZIO_DEV:
+		return sprintf(buf, "%s\n", dev_name(dev));
+	case ZIO_CSET:
+		cset = to_zio_cset(dev);
+		return sprintf(buf, "%s-%i\n",
+			       dev_name(&cset->zdev->head.dev), cset->index);
+	case ZIO_CHAN:
+		chan = to_zio_chan(dev);
+		return sprintf(buf, "%s-%i-%i\n",
+			       dev_name(&chan->cset->zdev->head.dev),
+			       chan->cset->index, chan->index);
+	default:
+		WARN(1, "ZIO: unknown zio object %i for address\n",
+			head->zobj_type);
+		return -EINVAL;
+	}
+	return 0;
+
+}
+
 #if ZIO_HAS_BINARY_CONTROL
 /*
  * zobj_read_cur_ctrl
@@ -589,16 +626,27 @@ struct bin_attribute zio_attr_cur_ctrl = {
 
 /* default zio attributes */
 static struct device_attribute zio_default_attributes[] = {
-	__ATTR(name, ZIO_RO_PERM, zobj_show_name, NULL),
-	__ATTR(enable, ZIO_RW_PERM, zobj_show_enable, zobj_store_enable),
-	__ATTR(current_trigger, ZIO_RW_PERM, zobj_show_cur_trig, zobj_store_cur_trig),
-	__ATTR(current_buffer, ZIO_RW_PERM, zobj_show_cur_zbuf, zobj_store_cur_zbuf),
+	__ATTR(name, ZIO_RO_PERM,
+	       zobj_show_name, NULL),
+	__ATTR(enable, ZIO_RW_PERM,
+	       zobj_show_enable, zobj_store_enable),
+	__ATTR(current_trigger, ZIO_RW_PERM,
+	       zobj_show_cur_trig, zobj_store_cur_trig),
+	__ATTR(current_buffer, ZIO_RW_PERM,
+	       zobj_show_cur_zbuf, zobj_store_cur_zbuf),
+	__ATTR(devname, ZIO_RO_PERM,
+	       zobj_show_devname, NULL),
 	__ATTR_NULL,
 };
-/* default attributes for most of the zio object */
+/* default attributes for most of the zio objects */
 static struct attribute *def_device_attrs_ptr[] = {
 	&zio_default_attributes[0].attr,	/* name */
 	&zio_default_attributes[1].attr,	/* enable */
+	NULL,
+};
+/* default attributes for the hierarchy of device/cset/channel */
+static struct attribute *def_hier_attrs_ptr[] = {
+	&zio_default_attributes[4].attr,	/* devname */
 	NULL,
 };
 /* default attributes for channel set */
@@ -623,16 +671,21 @@ static const struct attribute_group zio_groups[] = {
 	{	/* bi only group */
 		.attrs = def_bi_attrs_ptr,
 	},
+	{	/* all hiearchy members */
+		.attrs = def_hier_attrs_ptr,
+	},
 };
 /* default groups for most of the zio object */
 static const struct attribute_group *def_device_groups_ptr[] = {
 	&zio_groups[0],	/* group for all zio object*/
+	&zio_groups[3],	/* group for all zio hierarchy members*/
 	NULL,
 };
 /* default groups for channel set */
 static const struct attribute_group *def_cset_groups_ptr[] = {
 	&zio_groups[0],	/* group for all zio object*/
 	&zio_groups[1],	/* cset only group */
+	&zio_groups[3],	/* group for all zio hierarchy members*/
 	NULL,
 };
 static const struct attribute_group *def_bi_groups_ptr[] = {
