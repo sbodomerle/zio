@@ -342,15 +342,28 @@ out_put:
 	return err;
 }
 
+/*
+ * This is only called in process context (through a sysfs operation)
+ *
+ * The code is very similar to the change of trigger above, and it must
+ * temporary disable the trigger. It will remember whether it was disabled
+ * when entering this thing, but later we'll have a "-" to keep it disabled.
+ */
 int zio_change_current_buffer(struct zio_cset *cset, char *name)
 {
 	struct zio_buffer_type *zbuf, *zbuf_old = cset->zbuf;
+	struct zio_ti *ti = cset->ti;
 	struct zio_bi **bi_vector;
+	unsigned long flags, tflags;
 	int i, j, err;
 
 	pr_debug("%s\n", __func__);
+
+	/* FIXME: parse a leading "-" to mean we want it disabled */
+
 	if (unlikely(strcmp(name, cset->zbuf->head.name) == 0))
 		return 0; /* it is the current buffer */
+
 	zbuf = zio_buffer_get(cset, name);
 	if (IS_ERR(zbuf))
 		return PTR_ERR(zbuf);
@@ -359,8 +372,9 @@ int zio_change_current_buffer(struct zio_cset *cset, char *name)
 			     GFP_KERNEL);
 	if (!bi_vector) {
 		err = -ENOMEM;
-		goto out;
+		goto out_put;
 	}
+
 	/* Create a new buffer instance for each channel of the cset */
 	for (i = 0; i < cset->n_chan; ++i) {
 		bi_vector[i] = __bi_create_and_init(zbuf, &cset->chan[i]);
@@ -377,6 +391,7 @@ int zio_change_current_buffer(struct zio_cset *cset, char *name)
 			goto out_create;
 		}
 	}
+	tflags = zio_trigger_abort_disable(cset, 1);
 
 	for (i = 0; i < cset->n_chan; ++i) {
 		/* Delete old buffer instance */
@@ -390,10 +405,18 @@ int zio_change_current_buffer(struct zio_cset *cset, char *name)
 			WARN(1, "%s: cannot rename buffer folder for"
 				" cset%d:chan%d\n", __func__, cset->index, i);
 	}
-
-	kfree(bi_vector);
 	cset->zbuf = zbuf;
+	kfree(bi_vector);
 	zio_buffer_put(zbuf_old, cset->zdev->owner);
+
+	/* exit the disabled region: keep it disabled if needed */
+	spin_lock_irqsave(&cset->lock, flags);
+	ti->flags = (ti->flags & ~ZIO_DISABLED) | tflags;
+	spin_unlock_irqrestore(&cset->lock, flags);
+
+	/* Finally, arm the trigger if so needed */
+	if (zio_cset_is_self_timed(cset))
+		zio_arm_trigger(ti);
 
 	return 0;
 
@@ -403,7 +426,7 @@ out_create:
 		__bi_destroy(zbuf, bi_vector[j]);
 	}
 	kfree(bi_vector);
-out:
+out_put:
 	zio_buffer_put(zbuf, cset->zdev->owner);
 	return err;
 }
