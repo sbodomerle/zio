@@ -70,6 +70,7 @@ struct zio_bi {
 	unsigned long flags;			/* input or output, etc */
 	wait_queue_head_t q;			/* for reading or writing */
 	spinlock_t		lock;
+	atomic_t		use_count;
 
 	/* Standard and extended attributes for this object */
 	struct zio_attribute_set		zattr_set;

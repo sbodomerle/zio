@@ -113,6 +113,7 @@ static struct zio_bi *__bi_create_and_init(struct zio_buffer_type *zbuf,
 	}
 	/* Initialize buffer */
 	spin_lock_init(&bi->lock);
+	atomic_set(&bi->use_count, 0);
 	bi->b_op = zbuf->b_op;
 	bi->f_op = zbuf->f_op;
 	bi->v_op = zbuf->v_op;
@@ -372,6 +373,24 @@ int zio_change_current_buffer(struct zio_cset *cset, char *name)
 			     GFP_KERNEL);
 	if (!bi_vector) {
 		err = -ENOMEM;
+		goto out_put;
+	}
+
+	/* If any of the instances are busy, refuse the change */
+	spin_lock_irqsave(&cset->lock, flags);
+	for (i = 0, j  = 0; i < cset->n_chan; ++i) {
+		cset->chan[i].bi->flags |= ZIO_DISABLED;
+		j += atomic_read(&cset->chan[i].bi->use_count);
+	}
+	/* If busy, clear the disabled thing and let it run */
+	for (i = 0; i < cset->n_chan; ++i) {
+		if (j)
+			cset->chan[i].bi->flags &= ~ZIO_DISABLED;
+	}
+	spin_unlock_irqrestore(&cset->lock, flags);
+
+	if (j) {
+		err = -EBUSY;
 		goto out_put;
 	}
 
@@ -1105,6 +1124,12 @@ int zio_register_buf(struct zio_buffer_type *zbuf, const char *name)
 	pr_debug("%s:%d\n", __func__, __LINE__);
 	if (!zbuf)
 		return -EINVAL;
+	if (!zbuf->f_op) {
+		pr_err("%s: no file operations provided by \"%s\" buffer\n",
+		       __func__, name);
+		return -EINVAL;
+	}
+
 	/* Verify if it is a valid name */
 	err = zobj_unique_name(&zstat->all_buffer_types, name);
 	if (err)
