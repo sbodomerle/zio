@@ -20,6 +20,8 @@
 #include <linux/zio.h>
 #include <linux/zio-trigger.h>
 
+ZIO_PARAM_BUFFER(ztdc_buffer);
+
 int ztdc_irq = -1;
 module_param_named(irq, ztdc_irq, int, 0444);
 
@@ -168,6 +170,9 @@ static int __init ztdc_init(void)
 		return err;
 	}
 	free_irq(ztdc_irq, ztdc_init);
+
+	if (ztdc_buffer)
+		ztdc_tmpl.preferred_buffer = ztdc_buffer;
 
 	err = zio_register_driver(&ztdc_zdrv);
 	if (err)
