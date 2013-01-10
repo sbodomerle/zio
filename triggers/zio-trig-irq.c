@@ -56,7 +56,7 @@ static irqreturn_t zti_handler(int irq, void *dev_id)
 
 	/* When a trigger fires, we must prepare our control and timestamp */
 	getnstimeofday(&ti->tstamp);
-	zio_fire_trigger(ti);
+	zio_arm_trigger(ti);
 	return IRQ_HANDLED;
 }
 
@@ -88,17 +88,30 @@ static struct zio_ti *zti_create(struct zio_trigger_type *trig,
 				 struct zio_control *ctrl, fmode_t flags)
 {
 	struct zio_ti *ti;
+	int edges[] = {
+		IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING,
+		IRQF_TRIGGER_FALLING,
+		IRQF_TRIGGER_RISING,
+		0
+	};
+	int i,  ret;
 
-	int ret;
 	pr_debug("%s:%d\n", __func__, __LINE__);
 
 	ti = kzalloc(sizeof(*ti), GFP_KERNEL);
 	if (!ti)
 		return ERR_PTR(-ENOMEM);
+	ti->flags = ZIO_DISABLED;
+	ti->cset = cset;
 
-	ret = request_irq(zti_irq, zti_handler, IRQF_SHARED
-			  | IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING,
+	/* Try all edge settings (gpio stuff prefers edges, but pci wants 0) */
+	for (i = 0; i < ARRAY_SIZE(edges); i++) {
+		ret = request_irq(zti_irq, zti_handler, IRQF_SHARED | edges[i],
 			  KBUILD_MODNAME, ti);
+		if (ret == -EBUSY)
+			continue;
+		break; /* success or other error */
+	}
 	if (ret < 0) {
 		kfree(ti);
 		return ERR_PTR(ret);
@@ -177,7 +190,7 @@ static int __init zti_init(void)
 static void __exit zti_exit(void)
 {
 	zio_unregister_trig(&zti_trigger);
-	if (zti_gpio)
+	if (zti_gpio != -1)
 		gpio_free(zti_gpio);
 }
 

@@ -60,6 +60,8 @@ static struct zio_buffer_type *zio_buffer_get(struct zio_cset *cset,
 
 	if (!name)
 		return ERR_PTR(-EINVAL);
+	if (unlikely(strlen(name) > ZIO_OBJ_NAME_LEN))
+		return ERR_PTR(-EINVAL); /* name too long */
 
 	list_item = __zio_object_get(cset, &zstat->all_buffer_types, name);
 	if (!list_item)
@@ -78,6 +80,8 @@ static struct zio_trigger_type *zio_trigger_get(struct zio_cset *cset,
 
 	if (!name)
 		return ERR_PTR(-EINVAL);
+	if (unlikely(strlen(name) > ZIO_OBJ_NAME_LEN))
+		return ERR_PTR(-EINVAL); /* name too long */
 
 	list_item = __zio_object_get(cset, &zstat->all_trigger_types, name);
 	if (!list_item)
@@ -109,6 +113,7 @@ static struct zio_bi *__bi_create_and_init(struct zio_buffer_type *zbuf,
 	}
 	/* Initialize buffer */
 	spin_lock_init(&bi->lock);
+	atomic_set(&bi->use_count, 0);
 	bi->b_op = zbuf->b_op;
 	bi->f_op = zbuf->f_op;
 	bi->v_op = zbuf->v_op;
@@ -179,7 +184,7 @@ static void __bi_unregister(struct zio_buffer_type *zbuf, struct zio_bi *bi)
 	zattr_set_remove(&bi->head);
 }
 
-/* create and initialize a new trigger instance */
+/* create and initialize a new disabled trigger instance */
 static struct zio_ti *__ti_create_and_init(struct zio_trigger_type *trig,
 					   struct zio_cset *cset)
 {
@@ -189,13 +194,16 @@ static struct zio_ti *__ti_create_and_init(struct zio_trigger_type *trig,
 	pr_debug("%s\n", __func__);
 	/* Create trigger, ensuring it's not reentrant */
 	spin_lock(&trig->lock);
-	ti = trig->t_op->create(trig, cset, NULL, 0/*FIXME*/);
+	ti = trig->t_op->create(trig, cset, NULL, 0 /* FIXME: fmode_t */);
 	spin_unlock(&trig->lock);
 	if (IS_ERR(ti)) {
 		pr_err("ZIO %s: can't create trigger, error %ld\n",
 		       __func__, PTR_ERR(ti));
 		goto out;
 	}
+	/* This is a new requirement: warn our users */
+	WARN(ti->cset != cset, "Trigger creation should set \"cset\" field\n");
+
 	/* Initialize trigger */
 	spin_lock_init(&ti->lock);
 	ti->t_op = trig->t_op;
@@ -244,8 +252,6 @@ static int __ti_register(struct zio_trigger_type *trig, struct zio_cset *cset,
 	spin_lock(&trig->lock);
 	list_add(&ti->list, &trig->list);
 	spin_unlock(&trig->lock);
-	ti->cset = cset;
-	/* Done. This ti->cset marks everything is running */
 
 	return 0;
 
@@ -254,9 +260,12 @@ out_reg:
 out:
 	return err;
 }
+
+/* The trigger must not be armed when calling this helper */
 static void __ti_unregister(struct zio_trigger_type *trig, struct zio_ti *ti)
 {
 	pr_debug("%s\n", __func__);
+
 	/* Remove from trigger instance list */
 	spin_lock(&trig->lock);
 	list_del(&ti->list);
@@ -266,80 +275,95 @@ static void __ti_unregister(struct zio_trigger_type *trig, struct zio_ti *ti)
 	zattr_set_remove(&ti->head);
 }
 
-
+/* This is only called in process context (through a sysfs operation) */
 int zio_change_current_trigger(struct zio_cset *cset, char *name)
 {
 	struct zio_trigger_type *trig, *trig_old = cset->trig;
-	struct zio_channel *chan;
 	struct zio_ti *ti, *ti_old = cset->ti;
+	unsigned long flags;
 	int err, i;
 
 	pr_debug("%s\n", __func__);
-	spin_lock(&cset->lock);
-	if (ti_old->flags & ZIO_TI_BUSY) {
-		spin_unlock(&cset->lock);
-		return -EBUSY;
-	}
-	/* Set ti BUSY, so it cannot fire */
-	ti_old->flags |= ZIO_TI_BUSY;
-	spin_unlock(&cset->lock);
 
-	if (strlen(name) > ZIO_OBJ_NAME_LEN)
-		return -EINVAL; /* name too long */
+	/* FIXME: parse a leading "-" to mean we want it disabled */
+
 	if (unlikely(strcmp(name, trig_old->head.name) == 0))
-		return 0; /* is the current trigger */
+		return 0; /* it is the current trigger */
 
-	/* get the new trigger */
 	trig = zio_trigger_get(cset, name);
 	if (IS_ERR(trig))
 		return PTR_ERR(trig);
+
 	/* Create and register the new trigger instance */
 	ti = __ti_create_and_init(trig, cset);
 	if (IS_ERR(ti)) {
 		err = PTR_ERR(ti);
-		goto out;
+		goto out_put;
 	}
 	err = __ti_register(trig, cset, ti, "trigger-tmp");
 	if (err)
-		goto out_reg;
-	/* New ti successful created, remove the old ti */
+		goto out_destroy;
+
+	/* Ok, we are done. Kill the current trigger to replace it*/
+	zio_trigger_abort_disable(cset, 1);
+	ti_old->cset = NULL;
 	__ti_unregister(trig_old, ti_old);
 	__ti_destroy(trig_old, ti_old);
 	zio_trigger_put(trig_old, cset->zdev->owner);
-	/* Set new trigger*/
-	mb();
+
+	/* Set new trigger and rename "trigger-tmp" to "trigger" */
+	spin_lock_irqsave(&cset->lock, flags);
 	cset->trig = trig;
 	cset->ti = ti;
-	/* Rename trigger-tmp to trigger */
 	err = device_rename(&ti->head.dev, "trigger");
-	if (err)
-		WARN(1, "%s: cannot rename trigger folder for"
-			" cset%d\n", __func__, cset->index);
-	/* Update channel current controls */
-	for (i = 0; i < cset->n_chan; ++i) {
-		chan = &cset->chan[i];
-		__zattr_trig_init_ctrl(ti, chan->current_ctrl);
-	}
+	spin_unlock_irqrestore(&cset->lock, flags);
+
+	WARN(err, "%s: cannot rename trigger folder for"
+	     " cset%d\n", __func__, cset->index);
+
+	/* Update current control for each channel */
+	for (i = 0; i < cset->n_chan; ++i)
+		__zattr_trig_init_ctrl(ti, cset->chan[i].current_ctrl);
+
+	/* Enable this new trigger (FIXME: unless the user doesn't want it) */
+	spin_lock_irqsave(&cset->lock, flags);
+	ti->flags &= ~ZIO_DISABLED;
+	spin_unlock_irqrestore(&cset->lock, flags);
+
+	/* Finally, arm it if so needed */
+	if (zio_cset_is_self_timed(cset))
+		zio_arm_trigger(ti);
+
 	return 0;
 
-out_reg:
+out_destroy:
 	__ti_destroy(trig, ti);
-out:
+out_put:
 	zio_trigger_put(trig, cset->zdev->owner);
 	return err;
 }
 
+/*
+ * This is only called in process context (through a sysfs operation)
+ *
+ * The code is very similar to the change of trigger above, and it must
+ * temporary disable the trigger. It will remember whether it was disabled
+ * when entering this thing, but later we'll have a "-" to keep it disabled.
+ */
 int zio_change_current_buffer(struct zio_cset *cset, char *name)
 {
 	struct zio_buffer_type *zbuf, *zbuf_old = cset->zbuf;
+	struct zio_ti *ti = cset->ti;
 	struct zio_bi **bi_vector;
+	unsigned long flags, tflags;
 	int i, j, err;
 
 	pr_debug("%s\n", __func__);
-	if (strlen(name) > ZIO_OBJ_NAME_LEN)
-		return -EINVAL; /* name too long */
+
+	/* FIXME: parse a leading "-" to mean we want it disabled */
+
 	if (unlikely(strcmp(name, cset->zbuf->head.name) == 0))
-		return 0; /* is the current buffer */
+		return 0; /* it is the current buffer */
 
 	zbuf = zio_buffer_get(cset, name);
 	if (IS_ERR(zbuf))
@@ -349,8 +373,27 @@ int zio_change_current_buffer(struct zio_cset *cset, char *name)
 			     GFP_KERNEL);
 	if (!bi_vector) {
 		err = -ENOMEM;
-		goto out;
+		goto out_put;
 	}
+
+	/* If any of the instances are busy, refuse the change */
+	spin_lock_irqsave(&cset->lock, flags);
+	for (i = 0, j  = 0; i < cset->n_chan; ++i) {
+		cset->chan[i].bi->flags |= ZIO_DISABLED;
+		j += atomic_read(&cset->chan[i].bi->use_count);
+	}
+	/* If busy, clear the disabled thing and let it run */
+	for (i = 0; i < cset->n_chan; ++i) {
+		if (j)
+			cset->chan[i].bi->flags &= ~ZIO_DISABLED;
+	}
+	spin_unlock_irqrestore(&cset->lock, flags);
+
+	if (j) {
+		err = -EBUSY;
+		goto out_put;
+	}
+
 	/* Create a new buffer instance for each channel of the cset */
 	for (i = 0; i < cset->n_chan; ++i) {
 		bi_vector[i] = __bi_create_and_init(zbuf, &cset->chan[i]);
@@ -367,6 +410,7 @@ int zio_change_current_buffer(struct zio_cset *cset, char *name)
 			goto out_create;
 		}
 	}
+	tflags = zio_trigger_abort_disable(cset, 1);
 
 	for (i = 0; i < cset->n_chan; ++i) {
 		/* Delete old buffer instance */
@@ -380,10 +424,18 @@ int zio_change_current_buffer(struct zio_cset *cset, char *name)
 			WARN(1, "%s: cannot rename buffer folder for"
 				" cset%d:chan%d\n", __func__, cset->index, i);
 	}
-
-	kfree(bi_vector);
 	cset->zbuf = zbuf;
+	kfree(bi_vector);
 	zio_buffer_put(zbuf_old, cset->zdev->owner);
+
+	/* exit the disabled region: keep it disabled if needed */
+	spin_lock_irqsave(&cset->lock, flags);
+	ti->flags = (ti->flags & ~ZIO_DISABLED) | tflags;
+	spin_unlock_irqrestore(&cset->lock, flags);
+
+	/* Finally, arm the trigger if so needed */
+	if (zio_cset_is_self_timed(cset))
+		zio_arm_trigger(ti);
 
 	return 0;
 
@@ -393,7 +445,7 @@ out_create:
 		__bi_destroy(zbuf, bi_vector[j]);
 	}
 	kfree(bi_vector);
-out:
+out_put:
 	zio_buffer_put(zbuf, cset->zdev->owner);
 	return err;
 }
@@ -526,11 +578,7 @@ static int chan_register(struct zio_channel *chan, struct zio_channel *chan_t)
 		goto out_zattr_check;
 	}
 	ctrl->nsamples = chan->cset->ti->nsamples;
-	ctrl->nbits = __get_nbits(chan);
-	if (!ctrl->nbits) {
-		err = -EINVAL; /* message already printed */
-		goto out_ctrl_bits;
-	}
+	ctrl->nbits = __get_nbits(chan); /* may be zero */
 	/* ctrl->addr.family = PF_ZIO */
 	ctrl->addr.cset = chan->cset->index;
 	ctrl->addr.chan = chan->index;
@@ -626,6 +674,7 @@ static void chan_unregister(struct zio_channel *chan)
 static int cset_register(struct zio_cset *cset, struct zio_cset *cset_t)
 {
 	int i, j, err = 0, size;
+	unsigned long flags;
 	struct zio_channel *chan_tmp;
 	struct zio_ti *ti = NULL;
 
@@ -721,6 +770,14 @@ static int cset_register(struct zio_cset *cset, struct zio_cset *cset_t)
 	list_add(&cset->list_cset, &zstat->list_cset);
 	spin_unlock(&zstat->lock);
 
+	/* Finally, enable the trigger and arm it if needed */
+	spin_lock_irqsave(&cset->lock, flags);
+	ti->flags &= ~ZIO_DISABLED;
+	spin_unlock_irqrestore(&cset->lock, flags);
+
+	if (zio_cset_is_self_timed(cset))
+		zio_arm_trigger(ti);
+
 	return 0;
 
 out_reg:
@@ -758,6 +815,8 @@ static void cset_unregister(struct zio_cset *cset)
 	spin_lock(&zstat->lock);
 	list_del(&cset->list_cset);
 	spin_unlock(&zstat->lock);
+	/* Make it idle */
+	zio_trigger_abort_disable(cset, 1);
 	/* Private exit function */
 	if (cset->exit)
 		cset->exit(cset);
@@ -1065,6 +1124,12 @@ int zio_register_buf(struct zio_buffer_type *zbuf, const char *name)
 	pr_debug("%s:%d\n", __func__, __LINE__);
 	if (!zbuf)
 		return -EINVAL;
+	if (!zbuf->f_op) {
+		pr_err("%s: no file operations provided by \"%s\" buffer\n",
+		       __func__, name);
+		return -EINVAL;
+	}
+
 	/* Verify if it is a valid name */
 	err = zobj_unique_name(&zstat->all_buffer_types, name);
 	if (err)

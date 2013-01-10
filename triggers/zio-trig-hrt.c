@@ -150,7 +150,7 @@ static enum hrtimer_restart ztt_fn(struct hrtimer *timer)
 	/* FIXME: fill the trigger attributes too */
 
 	ztt = to_ztt_instance(ti);
-	zio_fire_trigger(ti);
+	zio_arm_trigger(ti);
 
 	if (ztt->period) {
 		hrtimer_add_expires_ns(&ztt->timer, ztt->period);
@@ -218,6 +218,8 @@ static struct zio_ti *ztt_create(struct zio_trigger_type *trig,
 	if (!ztt)
 		return ERR_PTR(-ENOMEM);
 	ti = &ztt->ti;
+	ti->flags = ZIO_DISABLED;
+	ti->cset = cset;
 
 	/* Fill own fields */
 	hrtimer_init(&ztt->timer, CLOCK_REALTIME, HRTIMER_MODE_ABS);

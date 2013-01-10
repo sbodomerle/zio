@@ -78,7 +78,7 @@ static void ztt_fn(unsigned long arg)
 	getnstimeofday(&ti->tstamp);
 
 	ztt = to_ztt_instance(ti);
-	zio_fire_trigger(ti);
+	zio_arm_trigger(ti);
 
 	if (!ztt->period)
 		return; /* one-shot */
@@ -127,6 +127,8 @@ static struct zio_ti *ztt_create(struct zio_trigger_type *trig,
 	if (!ztt)
 		return ERR_PTR(-ENOMEM);
 	ti = &ztt->ti;
+	ti->flags = ZIO_DISABLED;
+	ti->cset = cset;
 
 	/* Fill own fields */
 	setup_timer(&ztt->timer, ztt_fn,
@@ -156,10 +158,10 @@ static void ztt_change_status(struct zio_ti *ti, unsigned int status)
 	if (!status) {	/* enable */
 		ztt_start_timer(ztt, ztt->period);
 	} else {	/* disable */
-		/* FIXME kernel/timer.c don't use this is lock*/
-		del_timer_sync(&ztt->timer);
+		del_timer(&ztt->timer);
 	}
 }
+
 static const struct zio_trigger_operations ztt_trigger_ops = {
 	.push_block = ztt_push_block,
 	.pull_block = NULL,

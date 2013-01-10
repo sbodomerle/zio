@@ -23,25 +23,27 @@
 #include "zio-internal.h"
 
 
-#define ZOBJ_SYSFS_NAME "name"
-#define ZOBJ_SYSFS_ENABLE "enable"
-#define CSET_SYSFS_BUFFER "current_buffer"
-#define CSET_SYSFS_TRIGGER "current_trigger"
+#define ZOBJ_SYSFS_NAME		"name"
+#define ZOBJ_SYSFS_ENABLE	"enable"
+#define CSET_SYSFS_BUFFER	"current_buffer"
+#define CSET_SYSFS_TRIGGER	"current_trigger"
 
 const char zio_zdev_attr_names[_ZIO_DEV_ATTR_STD_NUM][ZIO_NAME_LEN] = {
-	[ZIO_ATTR_GAIN]		= "gain_factor",
+	[ZIO_ATTR_GAIN]			= "gain_factor",
 	[ZIO_ATTR_OFFSET]		= "offset",
 	[ZIO_ATTR_NBITS]		= "resolution-bits",
 	[ZIO_ATTR_MAXRATE]		= "max-sample-rate",
-	[ZIO_ATTR_VREFTYPE]	= "vref-src",
+	[ZIO_ATTR_VREFTYPE]		= "vref-src",
 };
 EXPORT_SYMBOL(zio_zdev_attr_names);
+
 const char zio_trig_attr_names[_ZIO_TRG_ATTR_STD_NUM][ZIO_NAME_LEN] = {
 	[ZIO_ATTR_TRIG_REENABLE]	= "re-enable",
 	[ZIO_ATTR_TRIG_PRE_SAMP]	= "pre-samples",
 	[ZIO_ATTR_TRIG_POST_SAMP]	= "post-samples",
 };
 EXPORT_SYMBOL(zio_trig_attr_names);
+
 const char zio_zbuf_attr_names[_ZIO_BUF_ATTR_STD_NUM][ZIO_NAME_LEN] = {
 	[ZIO_ATTR_ZBUF_MAXLEN]	= "max-buffer-len",
 	[ZIO_ATTR_ZBUF_MAXKB]	= "max-buffer-kb",
@@ -148,6 +150,7 @@ static void __zattr_propagate_value(struct zio_obj_head *head,
 			       struct zio_attribute *zattr)
 {
 	int i, j;
+	unsigned long flags, tflags;
 	struct zio_ti *ti;
 	struct zio_device *zdev;
 	struct zio_channel *chan;
@@ -182,15 +185,26 @@ static void __zattr_propagate_value(struct zio_obj_head *head,
 		break;
 	case ZIO_TI:
 		ti = to_zio_ti(&head->dev);
+		/* If trigger params change, we need to abort and restart */
+		spin_lock_irqsave(&ti->cset->lock, flags);
+		tflags = ti->flags;
+		if (tflags & ZIO_TI_ARMED) {
+			spin_unlock_irqrestore(&ti->cset->lock, flags);
+			zio_trigger_abort_disable(ti->cset, 1);
+			spin_lock_irqsave(&ti->cset->lock, flags);
+		}
 		__ctrl_update_nsamples(ti);
 		/* Update attributes in all "current_ctrl" struct */
 		for (i = 0; i < ti->cset->n_chan; ++i) {
 			chan = &ti->cset->chan[i];
 			ctrl = chan->current_ctrl;
 			__zattr_valcpy(&ctrl->attr_trigger, zattr);
-			if ((zattr->flags & ZIO_ATTR_TYPE) == ZIO_ATTR_TYPE_EXT)
-				continue; /* continue to the next channel */
 		}
+		/* The new paramaters are in place, rearm/enable the trigger */
+		ti->flags = tflags & ~ZIO_TI_ARMED;
+		spin_unlock_irqrestore(&ti->cset->lock, flags);
+		if (tflags & ZIO_TI_ARMED)
+			zio_arm_trigger(ti);
 		break;
 	default:
 		return;
@@ -318,7 +332,7 @@ int __zattr_dev_init_ctrl(struct zio_device *zdev)
  */
 static void __zobj_enable(struct device *dev, unsigned int enable)
 {
-	unsigned long *flags;
+	unsigned long *zf, flags;
 	int i, status;
 	struct zio_obj_head *head;
 	struct zio_device *zdev;
@@ -328,13 +342,13 @@ static void __zobj_enable(struct device *dev, unsigned int enable)
 	pr_debug("%s\n", __func__);
 	head = to_zio_head(dev);
 
-	flags = zio_get_from_obj(to_zio_head(dev), flags);
-	status = !((*flags) & ZIO_STATUS);
+	zf = zio_get_from_obj(to_zio_head(dev), flags);
+	status = !((*zf) & ZIO_STATUS);
 	/* if the status is not changing */
 	if (!(enable ^ status))
 		return;
 	/* change status */
-	*flags = (*flags & (~ZIO_STATUS)) | status;
+	*zf = (*zf & (~ZIO_STATUS)) | status;
 	switch (head->zobj_type) {
 	case ZIO_DEV:
 		pr_debug("%s: zdev\n", __func__);
@@ -364,10 +378,12 @@ static void __zobj_enable(struct device *dev, unsigned int enable)
 		pr_debug("%s: zti\n", __func__);
 
 		ti = to_zio_ti(dev);
-		zio_trigger_abort(ti->cset);
+		spin_lock_irqsave(&ti->cset->lock, flags);
+		zio_trigger_abort_disable(ti->cset, 0);
 		/* trigger instance callback */
 		if (ti->t_op->change_status)
 			ti->t_op->change_status(ti, status);
+		spin_unlock_irqrestore(&ti->cset->lock, flags);
 		break;
 	/* following objects can't be enabled/disabled */
 	case ZIO_BUF:

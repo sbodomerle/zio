@@ -89,9 +89,11 @@ static struct zio_channel *zio_minor_to_chan(int minor)
 static inline int zio_channel_get(struct zio_channel *chan)
 {
 	return try_module_get(chan->cset->zdev->owner);
+	/* bi use count is done in the caller */
 }
 static inline void zio_channel_put(struct zio_channel *chan)
 {
+	atomic_dec(&chan->bi->use_count);
 	module_put(chan->cset->zdev->owner);
 }
 
@@ -101,35 +103,31 @@ static int zio_f_open(struct inode *ino, struct file *f)
 	struct zio_channel *chan;
 	struct zio_buffer_type *zbuf;
 	const struct file_operations *old_fops, *new_fops;
+	unsigned long flags;
 	int err, minor;
 
 	pr_debug("%s:%i\n", __func__, __LINE__);
 
 	minor = iminor(ino);
 	chan = zio_minor_to_chan(minor);
-	if (!chan || !zio_channel_get(chan)) {
-		pr_err("%s: no channel for minor %i\n",
+
+	if (!chan || !chan->bi || !zio_channel_get(chan)) {
+		pr_err("%s: no channel or no buffer for minor %i\n",
 			__func__, minor);
 		return -ENODEV;
 	}
-	zbuf = chan->cset->zbuf;
-	if (!zbuf->f_op) {
-		pr_err("%s: no file operations provided by \"%s\" buffer\n",
-			__func__, zbuf->head.name);
-		err = -ENODEV;
+
+	/* Take the cset lock to protect against a cset-wide buffer change */
+	spin_lock_irqsave(&chan->cset->lock, flags);
+	atomic_inc(&chan->bi->use_count);
+	err = (chan->bi->flags & ZIO_STATUS) == ZIO_DISABLED ? -EAGAIN : 0;
+	spin_unlock_irqrestore(&chan->cset->lock, flags);
+	if (err)
 		goto out;
-	}
-	f->private_data = NULL;
+
 	priv = kzalloc(sizeof(struct zio_f_priv), GFP_KERNEL);
 	if (!priv) {
 		err = -ENOMEM;
-		goto out;
-	}
-	/* if there is no instance, then create a new one */
-	if (!chan->bi) {
-		WARN(1, "%s: chan%d in cset%d had no buffer instance",
-			__func__, chan->index, chan->cset->index);
-		err = -ENODEV;
 		goto out;
 	}
 	priv->chan = chan;
@@ -139,10 +137,11 @@ static int zio_f_open(struct inode *ino, struct file *f)
 		priv->type = ZIO_CDEV_DATA;
 	else
 		priv->type = ZIO_CDEV_CTRL;
-	f->private_data = priv;
 
+	/* Change the file operations, locking the status structure */
 	mutex_lock(&zmutex);
 	old_fops = f->f_op;
+	zbuf = chan->cset->zbuf;
 	new_fops = fops_get(zbuf->f_op);
 	err = 0;
 	if (new_fops->open)
@@ -155,6 +154,8 @@ static int zio_f_open(struct inode *ino, struct file *f)
 	fops_put(old_fops);
 	f->f_op = new_fops;
 	mutex_unlock(&zmutex);
+
+	f->private_data = priv;
 	return 0;
 
 out:

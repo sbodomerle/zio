@@ -46,12 +46,11 @@ struct zio_ti {
 
 /* first 4bit are reserved for zio object universal flags */
 enum zio_ti_flag_mask {
-	ZIO_TI_BUSY = 0x10,	/* trigger fire and transfer occurs */
-	ZIO_TI_COMPLETING = 0x20	/* trigger is clompleting transfert */
+	ZIO_TI_ARMED = 0x10,		/* trigger is armed, device rules */
 };
 
 #define to_zio_ti(obj) container_of(obj, struct zio_ti, head.dev)
-void zio_fire_trigger(struct zio_ti *ti);
+void zio_arm_trigger(struct zio_ti *ti);
 
 /*
  * When a buffer has a complete block of data, it can send it to the trigger
@@ -103,9 +102,61 @@ struct zio_trigger_operations {
 	void			(*destroy)(struct zio_ti *ti);
 	void			(*change_status)(struct zio_ti *ti,
 						 unsigned int status);
-	void			(*abort)(struct zio_cset *cset);
+	void			(*abort)(struct zio_ti *ti);
 };
 
-void zio_trigger_abort(struct zio_cset *cset);
+void zio_trigger_data_done(struct zio_cset *cset);
+int zio_trigger_abort_disable(struct zio_cset *cset, int disable);
+
+/*
+ * This generic_data_done can be used by triggers, as part of their own.
+ * If no trigger-specific function is specified, the core calls this one.
+ * This can also be called by cset->stop_io to return partial blocks.
+ * The function is called while holding the cset spin lock.
+ */
+static inline void zio_generic_data_done(struct zio_cset *cset)
+{
+	struct zio_buffer_type *zbuf;
+	struct zio_device *zdev;
+	struct zio_channel *chan;
+	struct zio_block *block;
+	struct zio_ti *ti;
+	struct zio_bi *bi;
+
+	pr_debug("%s:%d\n", __func__, __LINE__);
+
+	ti = cset->ti;
+	zdev = cset->zdev;
+	zbuf = cset->zbuf;
+
+	if (unlikely((ti->flags & ZIO_DIR) == ZIO_DIR_OUTPUT)) {
+		chan_for_each(chan, cset) {
+			bi = chan->bi;
+			block = chan->active_block;
+			if (block)
+				zbuf->b_op->free_block(chan->bi, block);
+			/* We may have a new block ready, or not */
+			chan->active_block = zbuf->b_op->retr_block(chan->bi);
+		}
+		return;
+	}
+	/* DIR_INPUT */
+	chan_for_each(chan, cset) {
+		bi = chan->bi;
+		block = chan->active_block;
+		if (!block)
+			continue;
+		/* Copy the stamp: it is cset-wide so it lives in the trigger */
+		chan->current_ctrl->tstamp.secs = ti->tstamp.tv_sec;
+		chan->current_ctrl->tstamp.ticks = ti->tstamp.tv_nsec;
+		chan->current_ctrl->tstamp.bins = ti->tstamp_extra;
+		memcpy(zio_get_ctrl(block), chan->current_ctrl,
+		       ZIO_CONTROL_SIZE);
+
+		if (zbuf->b_op->store_block(bi, block)) /* may fail, no prob */
+			zbuf->b_op->free_block(bi, block);
+		chan->active_block = NULL;
+	}
+}
 
 #endif /* __ZIO_TRIGGER_H__ */
