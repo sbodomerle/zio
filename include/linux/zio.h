@@ -298,6 +298,24 @@ static inline unsigned int zio_get_n_chan_enabled(struct zio_cset *cset) {
 	char *_name; \
 	module_param_named(buffer, _name, charp, 0444)
 
+/* The block is the basic data item being transferred */
+struct zio_block {
+	unsigned long		ctrl_flags;
+	void			*data;
+	size_t			datalen;
+	size_t			uoff;
+};
+
+/*
+ * We must know whether the ctrl block has been filled/read or not: "cdone"
+ * No "set_ctrl" or "clr_cdone" are needed, as cdone starts 0 and is only set
+ */
+#define zio_get_ctrl(block) ((struct zio_control *)((block)->ctrl_flags & ~1))
+#define zio_set_ctrl(block, ctrl) ((block)->ctrl_flags = (unsigned long)(ctrl))
+#define zio_is_cdone(block)  ((block)->ctrl_flags & 1)
+#define zio_set_cdone(block)  ((block)->ctrl_flags |= 1)
+
+
 /*
  * Misc library-like code, from zio-misc.c
  */

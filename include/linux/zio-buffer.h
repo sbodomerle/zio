@@ -13,6 +13,7 @@
 #include <linux/spinlock.h>
 #include <linux/wait.h>
 
+#include <linux/zio.h>
 #include <linux/zio-user.h>
 
 #define ZIO_DEFAULT_BUFFER "kmalloc" /* For devices with no own buffer type */
@@ -85,24 +86,6 @@ struct zio_bi {
 enum zio_bi_flag_mask {
 	ZIO_BI_PUSHING = 0x10,	/* a push is being performed */
 };
-
-
-/* The block is the basic data item being transferred */
-struct zio_block {
-	unsigned long		ctrl_flags;
-	void			*data;
-	size_t			datalen;
-	size_t			uoff;
-};
-
-/*
- * We must know whether the ctrl block has been filled/read or not: "cdone"
- * No "set_ctrl" or "clr_cdone" are needed, as cdone starts 0 and is only set
- */
-#define zio_get_ctrl(block) ((struct zio_control *)((block)->ctrl_flags & ~1))
-#define zio_set_ctrl(block, ctrl) ((block)->ctrl_flags = (unsigned long)(ctrl))
-#define zio_is_cdone(block)  ((block)->ctrl_flags & 1)
-#define zio_set_cdone(block)  ((block)->ctrl_flags |= 1)
 
 
 /*
