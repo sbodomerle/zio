@@ -23,13 +23,15 @@ struct ztt_instance {
 	struct zio_ti ti;
 	struct timer_list timer;
 	unsigned long next_run;
-	unsigned long period;
+	unsigned long period; /* internal: jiffies */
+	unsigned long phase; /* internal: jiffies */
 };
 #define to_ztt_instance(ti) container_of(ti, struct ztt_instance, ti)
 
 enum ztt_attrs { /* names for the "addr" value of sw parameters */
 	ZTT_ATTR_NSAMPLES = 0,
 	ZTT_ATTR_PERIOD,
+	ZTT_ATTR_PHASE,
 };
 
 static ZIO_ATTR_DEFINE_STD(ZIO_TRG, ztt_std_attr) = {
@@ -40,18 +42,61 @@ static ZIO_ATTR_DEFINE_STD(ZIO_TRG, ztt_std_attr) = {
 static struct zio_attribute ztt_ext_attr[] = {
 	ZIO_ATTR_EXT("ms-period", S_IRUGO | S_IWUGO,
 		     ZTT_ATTR_PERIOD, 2000),
+	ZIO_ATTR_EXT("ms-phase", S_IRUGO | S_IWUGO,
+		     ZTT_ATTR_PHASE, 0),
 };
+
+/* This recalculates next_run according to period and phase */
+static void ztt_resync(struct ztt_instance *ztt)
+{
+	unsigned long next_run = ztt->next_run;
+	unsigned long this_phase = next_run % ztt->period;
+
+	if (this_phase == ztt->phase)
+		return; /* current expire time ok, and in the future */
+	next_run -= this_phase;
+	next_run += ztt->phase;
+
+	/* select the first expiration */
+	next_run -= ztt->period;
+	while (next_run <= jiffies)
+		next_run += ztt->period;
+	ztt->next_run = next_run;
+	mod_timer(&ztt->timer, ztt->next_run);
+}
+
 static int ztt_conf_set(struct device *dev, struct zio_attribute *zattr,
 		uint32_t  usr_val)
 {
 	struct zio_ti *ti = to_zio_ti(dev);
 	struct ztt_instance *ztt;
+	unsigned long jval;
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
+	ztt = to_ztt_instance(ti);
 	switch (zattr->id) {
 	case ZTT_ATTR_PERIOD:
-		ztt = to_ztt_instance(ti);
-		ztt->period = msecs_to_jiffies(usr_val);
+		/*
+		 * Writing the period doesn't force a resync,
+		 * in order to allow for a slowly-changing rate
+		 */
+		jval =  msecs_to_jiffies(usr_val);
+		if ((signed)jval < 1)
+			return -EINVAL;
+		ztt->period = jval;
+		break;
+	case ZTT_ATTR_PHASE:
+		/*
+		 * Writing the phase forces a resync. This results
+		 * in a glitch if you already changed the period.
+		 * For finer control please use the hrt trigger
+		 */
+		jval =  msecs_to_jiffies(usr_val);
+		if ((signed)jval < 0)
+			return -EINVAL;
+		if (jval %= ztt->period);
+		ztt->phase = jval;
+		ztt_resync(ztt);
 		break;
 	case ZTT_ATTR_NSAMPLES:
 		/* Nothing to do */
@@ -108,10 +153,10 @@ static int ztt_config(struct zio_ti *ti, struct zio_control *ctrl)
 	pr_debug("%s:%d\n", __func__, __LINE__);
 	return 0;
 }
-static void ztt_start_timer(struct ztt_instance *ztt, uint32_t ms)
+static void ztt_start_timer(struct ztt_instance *ztt)
 {
-	ztt->next_run = jiffies + HZ;
-	ztt->period = msecs_to_jiffies(ms);
+	ztt->next_run = jiffies + 1;
+	ztt_resync(ztt);
 	mod_timer(&ztt->timer, ztt->next_run);
 }
 static struct zio_ti *ztt_create(struct zio_trigger_type *trig,
@@ -133,7 +178,9 @@ static struct zio_ti *ztt_create(struct zio_trigger_type *trig,
 	/* Fill own fields */
 	setup_timer(&ztt->timer, ztt_fn,
 		    (unsigned long)(&ztt->ti));
-	ztt_start_timer(ztt, ztt_ext_attr[0].value);
+	ztt->period = msecs_to_jiffies(ztt_ext_attr[0].value);
+	ztt->phase = msecs_to_jiffies(ztt_ext_attr[1].value);
+	ztt_start_timer(ztt);
 
 	return ti;
 }
@@ -156,7 +203,7 @@ static void ztt_change_status(struct zio_ti *ti, unsigned int status)
 	ztt = to_ztt_instance(ti);
 
 	if (!status) {	/* enable */
-		ztt_start_timer(ztt, ztt->period);
+		ztt_start_timer(ztt);
 	} else {	/* disable */
 		del_timer(&ztt->timer);
 	}
