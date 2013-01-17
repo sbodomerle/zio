@@ -491,8 +491,14 @@ static unsigned int zio_generic_poll(struct file *f,
 static int zio_generic_release(struct inode *inode, struct file *f)
 {
 	struct zio_f_priv *priv = f->private_data;
+	struct zio_channel *chan = priv->chan;
+	struct zio_block *block = chan->user_block;
 
-	zio_channel_put(priv->chan);
+	if (chan->user_block)
+		chan->bi->b_op->free_block(chan->bi, block);
+	chan->user_block = NULL;
+
+	zio_channel_put(chan);
 	/* priv is allocated by zio_f_open, must be freed */
 	kfree(priv);
 	return 0;
