@@ -7,6 +7,7 @@ HOSTCC ?= gcc
 
 hostprogs-y := zio-dump
 hostprogs-y += zio-cat-file
+hostprogs-y += test-dtc
 
 # The following is ugly, please forgive me by now
 user: $(hostprogs-y)
