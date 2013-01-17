@@ -324,15 +324,32 @@ static int __zio_write_allowed(struct zio_f_priv *priv)
 {
 	struct zio_channel *chan = priv->chan;
 	struct zio_bi *bi = chan->bi;
-	struct zio_block *block;
+	struct zio_block *block = chan->user_block;
 	const int can_write = POLLOUT | POLLWRNORM;
 
-	if (priv->type == ZIO_CDEV_CTRL) {
-		/* Control is always writeable */
+	if (unlikely(priv->type == ZIO_CDEV_CTRL)) {
+		/* A dataful control can be replaced before store */
+		if (chan->cset->ssize) {
+			if (block) {
+				bi->b_op->free_block(bi, block);
+				chan->user_block = NULL;
+			}
+			return can_write;
+		}
+		if (!block)
+			return can_write;
+		/* A dataless control may need to sleep if buffer full */
+		if (bi->b_op->store_block(bi, block) < 0)
+			return 0;
+		chan->user_block = NULL;
 		return can_write;
 	}
 
-	/* We want to write data. If we have no control, retrieve one */
+	/* We want to write data. If datasize is zero, we can't */
+	if (!chan->cset->ssize)
+		return 0;
+
+	/* If we have no block, retrieve one */
 	if (!chan->user_block)
 		chan->user_block = __zio_write_allocblock(bi);
 	block = chan->user_block;
@@ -443,22 +460,31 @@ static ssize_t zio_generic_write(struct file *f, const char __user *ubuf,
 		return count;
 	}
 
-	/* Control: drop the current block and create a new one */
-	if (priv->type == ZIO_CDEV_CTRL && count < ZIO_CONTROL_SIZE)
+	/* Control: if we get here, we are sure the user_block is NULL */
+	BUG_ON(chan->user_block);
+
+	if (count < ZIO_CONTROL_SIZE)
 		return -EINVAL;
 	count = ZIO_CONTROL_SIZE;
 
-	if (chan->user_block)
-		bi->b_op->free_block(bi, chan->user_block);
-	chan->user_block = NULL;
-	ctrl = zio_alloc_control(GFP_KERNEL);
-	if (!ctrl)
+	block = __zio_write_allocblock(bi);
+	if (!block)
 		return -ENOMEM;
-
-	if (copy_from_user(ctrl, ubuf, count))
+	ctrl = zio_get_ctrl(block);
+	if (copy_from_user(ctrl, ubuf, count)) {
+		bi->b_op->free_block(bi, block);
 		return -EFAULT;
-	memcpy(chan->current_ctrl, ctrl, count);
+	}
 	*offp += count;
+
+	/* FIXME: use information in this control */
+
+	chan->user_block = block;
+
+	/* If it's a dataless channel, just store the control */
+	if (!chan->cset->ssize && bi->b_op->store_block(bi, block) == 0)
+		chan->user_block = NULL;
+
 	return count;
 }
 
