@@ -315,6 +315,14 @@ struct zio_block {
 #define zio_is_cdone(block)  ((block)->ctrl_flags & 1)
 #define zio_set_cdone(block)  ((block)->ctrl_flags |= 1)
 
+/*
+ * It returns the size of the control associated to a channel.
+ * When TLV is implemented, the value will be channel-dependent.
+ */
+static inline unsigned int zio_control_size(struct zio_channel *chan)
+{
+	return __ZIO_CONTROL_SIZE;
+}
 
 /*
  * Misc library-like code, from zio-misc.c

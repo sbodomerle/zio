@@ -21,7 +21,7 @@
  * This is fixed for forward compatibility; zio_control may have more
  * fields in the future, and current apps should handle it.
  */
-#define ZIO_CONTROL_SIZE	512
+#define __ZIO_CONTROL_SIZE	512
 
 /*
  * The timestamp is mostly app-specific. It cam be timspec-alike but
@@ -145,12 +145,7 @@ struct zio_control {
  */
 static inline void __unused_check_size(void)
 {
-	/* if zio_control is smaller then ZIO_CONTROL_SIZE, compile error */
-	static int __used v1[sizeof(struct zio_control) - ZIO_CONTROL_SIZE];
-	/* if zio_control is greater then ZIO_CONTROL_SIZE, compile error */
-	static int __used v2[ZIO_CONTROL_SIZE - sizeof(struct zio_control)];
-
-	BUILD_BUG_ON(sizeof(struct zio_control) != ZIO_CONTROL_SIZE);
+	BUILD_BUG_ON(sizeof(struct zio_control) != __ZIO_CONTROL_SIZE);
 }
 
 #endif /* __KERNEL__ */

@@ -582,7 +582,7 @@ ssize_t zobj_read_cur_ctrl(struct file *file,struct kobject *kobj,
 
 struct bin_attribute zio_attr_cur_ctrl = {
 	.attr = { .name = "current-control", .mode = 0444, },
-	.size = ZIO_CONTROL_SIZE, /* Will be modified for TLV support */
+	.size = __ZIO_CONTROL_SIZE, /* To be changed at runtime for TLV */
 	.read = zobj_read_cur_ctrl,
 };
 #endif /* ZIO_HAS_BINARY_CONTROL */

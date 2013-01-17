@@ -87,7 +87,7 @@ static int zloop_complete(struct zio_device *zdev, int cset_index)
 		ch_in = cset_in->chan + i;
 		ch_out = cset_out->chan + i;
 
-		/*		
+		/*
 		 * Hot point: if an output channel is disabled and
 		 * the input is not, the input will be filled with
 		 * zeroes. If the input is disabled, the associated
@@ -316,15 +316,15 @@ static ssize_t zloop_read(struct file *f, char __user *buf, size_t count,
 	/* We are unlocked here, because readers are stopped by "busy" */
 	block = chan->active_block;
 	if (data->type == ZLOOP_TYPE_READ_CTRLDATA &&
-	    data->ctrl_offset < ZIO_CONTROL_SIZE) {
+	    data->ctrl_offset < zio_control_size(chan)) {
 		/* return the control first, and then the data */
-		ccnt = ZIO_CONTROL_SIZE - data->ctrl_offset;
+		ccnt = zio_control_size(chan) - data->ctrl_offset;
 		if (ccnt > count)
 			ccnt = count;
 		if (copy_to_user(buf, zio_get_ctrl(block) + data->ctrl_offset,
 				 ccnt))
 			goto out;
-		data->ctrl_offset += ZIO_CONTROL_SIZE;
+		data->ctrl_offset += zio_control_size(chan);
 		count -= ccnt;
 		buf += ccnt;
 		*offp += ccnt;

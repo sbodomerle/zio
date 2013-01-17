@@ -367,7 +367,7 @@ static ssize_t zio_generic_read(struct file *f, char __user *ubuf,
 	pr_debug("%s:%d type %s\n", __func__, __LINE__,
 		priv->type == ZIO_CDEV_CTRL ? "ctrl" : "data");
 
-	if (priv->type == ZIO_CDEV_CTRL && count < ZIO_CONTROL_SIZE)
+	if (priv->type == ZIO_CDEV_CTRL && count < zio_control_size(chan))
 		return -EINVAL;
 
 	if ((bi->flags & ZIO_DIR) == ZIO_DIR_OUTPUT)
@@ -385,10 +385,11 @@ static ssize_t zio_generic_read(struct file *f, char __user *ubuf,
 	/* So, it's readable */
 	if (unlikely(priv->type == ZIO_CDEV_CTRL)) {
 		zio_set_cdone(block);
-		if (copy_to_user(ubuf, zio_get_ctrl(block), ZIO_CONTROL_SIZE))
+		if (copy_to_user(ubuf, zio_get_ctrl(block),
+				 zio_control_size(chan)))
 			return -EFAULT;
-		*offp += ZIO_CONTROL_SIZE;
-		return ZIO_CONTROL_SIZE;
+		*offp += zio_control_size(chan);
+		return zio_control_size(chan);
 	}
 
 	/* Data file, and we have data */
@@ -445,9 +446,9 @@ static ssize_t zio_generic_write(struct file *f, const char __user *ubuf,
 	/* Control: if we get here, we are sure the user_block is NULL */
 	BUG_ON(chan->user_block);
 
-	if (count < ZIO_CONTROL_SIZE)
+	if (count < zio_control_size(chan))
 		return -EINVAL;
-	count = ZIO_CONTROL_SIZE;
+	count = zio_control_size(chan);
 
 	block = __zio_write_allocblock(bi);
 	if (!block)
