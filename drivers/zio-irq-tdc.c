@@ -229,7 +229,7 @@ static int __init ztdc_init(void)
 
 	zio_unregister_device(ztdc_dev);
 out_register:
-	zio_free_device(ztdc_dev);
+	zio_free_device(ztdc_init_dev);
 out_alloc:
 	zio_unregister_driver(&ztdc_zdrv);
 	return err;
