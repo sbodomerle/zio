@@ -589,10 +589,10 @@ struct bin_attribute zio_attr_cur_ctrl = {
 
 /* default zio attributes */
 static struct device_attribute zio_default_attributes[] = {
-	__ATTR(name, 0444, zobj_show_name, NULL),
-	__ATTR(enable, 0666, zobj_show_enable, zobj_store_enable),
-	__ATTR(current_trigger, 0666, zobj_show_cur_trig, zobj_store_cur_trig),
-	__ATTR(current_buffer, 0666, zobj_show_cur_zbuf, zobj_store_cur_zbuf),
+	__ATTR(name, ZIO_RO_PERM, zobj_show_name, NULL),
+	__ATTR(enable, ZIO_RW_PERM, zobj_show_enable, zobj_store_enable),
+	__ATTR(current_trigger, ZIO_RW_PERM, zobj_show_cur_trig, zobj_store_cur_trig),
+	__ATTR(current_buffer, ZIO_RW_PERM, zobj_show_cur_zbuf, zobj_store_cur_zbuf),
 	__ATTR_NULL,
 };
 /* default attributes for most of the zio object */

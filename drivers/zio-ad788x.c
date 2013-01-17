@@ -56,28 +56,28 @@ struct ad788x {
  */
 /* Standard attributes for AD7887*/
 static ZIO_ATTR_DEFINE_STD(ZIO_DEV, zattr_dev_ad7887) = {
-	ZIO_ATTR(zdev, ZIO_ATTR_NBITS, S_IRUGO, 0, 12),
+	ZIO_ATTR(zdev, ZIO_ATTR_NBITS, ZIO_RO_PERM, 0, 12),
 	/* vref_src can be internal (0) or external (1)*/
-	ZIO_ATTR(zdev, ZIO_ATTR_VREFTYPE, S_IRUGO | S_IWUGO,
+	ZIO_ATTR(zdev, ZIO_ATTR_VREFTYPE, ZIO_RW_PERM,
 		 AD7887_VREF_ADDR, 1),
 };
 /* Standard attributes for AD7888*/
 static ZIO_ATTR_DEFINE_STD(ZIO_DEV, zattr_dev_ad7888) = {
-	ZIO_ATTR(zdev, ZIO_ATTR_NBITS, S_IRUGO, 0, 12),
+	ZIO_ATTR(zdev, ZIO_ATTR_NBITS, ZIO_RO_PERM, 0, 12),
 	/* vref_src can be internal (0) or external (1)*/
-	ZIO_ATTR(zdev, ZIO_ATTR_VREFTYPE, S_IRUGO | S_IWUGO,
+	ZIO_ATTR(zdev, ZIO_ATTR_VREFTYPE, ZIO_RW_PERM,
 		 AD7888_VREF_ADDR, 0),
 };
 /* Extended attributes for AD7887 */
 static struct zio_attribute zattr_dev_ext_ad7887[] = {
-	ZIO_ATTR_EXT(AD788x_PM_NAME, S_IRUGO | S_IWUGO, AD788x_PM_ADDR, 0x0),
+	ZIO_ATTR_EXT(AD788x_PM_NAME, ZIO_RW_PERM, AD788x_PM_ADDR, 0x0),
 	/* 0 single channel, 1 dual channel*/
-	ZIO_ATTR_EXT(AD7887_DUAL_NAME, S_IRUGO | S_IWUGO,
+	ZIO_ATTR_EXT(AD7887_DUAL_NAME, ZIO_RW_PERM,
 		     AD7887_SINDUAL_ADDR, 1),
 };
 /* Extended attributes for AD7888 */
 static struct zio_attribute zattr_dev_ext_ad7888[] = {
-	ZIO_ATTR_EXT(AD788x_PM_NAME, S_IRUGO | S_IWUGO, AD788x_PM_ADDR, 0x0),
+	ZIO_ATTR_EXT(AD788x_PM_NAME, ZIO_RW_PERM, AD788x_PM_ADDR, 0x0),
 };
 
 static int ad788x_conf_set(struct device *dev, struct zio_attribute *zattr,

@@ -35,15 +35,13 @@ enum ztt_attrs { /* names for the "addr" value of sw parameters */
 };
 
 static ZIO_ATTR_DEFINE_STD(ZIO_TRG, ztt_std_attr) = {
-	ZIO_ATTR(trig, ZIO_ATTR_TRIG_POST_SAMP, S_IRUGO | S_IWUGO,
+	ZIO_ATTR(trig, ZIO_ATTR_TRIG_POST_SAMP, ZIO_RW_PERM,
 		 ZTT_ATTR_NSAMPLES, 16),
 };
 
 static struct zio_attribute ztt_ext_attr[] = {
-	ZIO_ATTR_EXT("ms-period", S_IRUGO | S_IWUGO,
-		     ZTT_ATTR_PERIOD, 2000),
-	ZIO_ATTR_EXT("ms-phase", S_IRUGO | S_IWUGO,
-		     ZTT_ATTR_PHASE, 0),
+	ZIO_ATTR_EXT("ms-period", ZIO_RW_PERM, ZTT_ATTR_PERIOD, 2000),
+	ZIO_ATTR_EXT("ms-phase", ZIO_RW_PERM, ZTT_ATTR_PHASE, 0),
 };
 
 /* This recalculates next_run according to period and phase */

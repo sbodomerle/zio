@@ -42,7 +42,7 @@ struct zbk_item {
 #define to_item(block) container_of(block, struct zbk_item, block);
 
 static ZIO_ATTR_DEFINE_STD(ZIO_BUF, zbk_std_zattr) = {
-	ZIO_ATTR(zbuf, ZIO_ATTR_ZBUF_MAXLEN, S_IRUGO | S_IWUGO, 0x0, 16),
+	ZIO_ATTR(zbuf, ZIO_ATTR_ZBUF_MAXLEN, ZIO_RW_PERM, 0x0, 16),
 };
 
 static int zbk_conf_set(struct device *dev, struct zio_attribute *zattr,

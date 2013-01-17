@@ -45,24 +45,24 @@ enum ztt_attrs { /* names for the "addr" value of sw parameters */
 };
 
 static ZIO_ATTR_DEFINE_STD(ZIO_TRG, ztt_std_attr) = {
-	ZIO_ATTR(trig, ZIO_ATTR_TRIG_POST_SAMP, S_IRUGO | S_IWUGO,
+	ZIO_ATTR(trig, ZIO_ATTR_TRIG_POST_SAMP, ZIO_RW_PERM,
 		  ZTT_ATTR_NSAMPLES, 16),
 };
 
 static struct zio_attribute ztt_ext_attr[] = {
-	ZIO_ATTR_EXT("slack-ns", S_IRUGO | S_IWUGO,
+	ZIO_ATTR_EXT("slack-ns", ZIO_RW_PERM,
 		      ZTT_ATTR_SLACK_NS, 1000*1000 /* 1 ms */),
-	ZIO_ATTR_EXT("period-ns", S_IRUGO | S_IWUGO,
+	ZIO_ATTR_EXT("period-ns", ZIO_RW_PERM,
 		      ZTT_ATTR_PERIOD, 0 /* not periodic */),
 	/* Setting sec/nsec is effective when writing the sec field */
-	ZIO_ATTR_EXT("exp-nsec", S_IRUGO | S_IWUGO,
+	ZIO_ATTR_EXT("exp-nsec", ZIO_RW_PERM,
 		      ZTT_ATTR_EXP_NSEC, 0 /* off */),
-	ZIO_ATTR_EXT("exp-sec", S_IRUGO | S_IWUGO,
+	ZIO_ATTR_EXT("exp-sec", ZIO_RW_PERM,
 		      ZTT_ATTR_EXP_SEC, 0 /* off */),
 	/* Setting the scalar value is effective when writing high half */
-	ZIO_ATTR_EXT("exp-scalar-l", S_IRUGO | S_IWUGO,
+	ZIO_ATTR_EXT("exp-scalar-l", ZIO_RW_PERM,
 		      ZTT_ATTR_EXP_SCALAR_L, 0 /* off */),
-	ZIO_ATTR_EXT("exp-scalar-h", S_IRUGO | S_IWUGO,
+	ZIO_ATTR_EXT("exp-scalar-h", ZIO_RW_PERM,
 		      ZTT_ATTR_EXP_SCALAR_H, 0 /* off */),
 };
 

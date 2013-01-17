@@ -61,9 +61,9 @@ static ssize_t zio_show_triggers(struct bus_type *bus, char *buf)
 
 
 static struct bus_attribute def_bus_attrs[] = {
-	__ATTR(version, 0444, zio_show_version, NULL),
-	__ATTR(available_buffers, 0444, zio_show_buffers, NULL),
-	__ATTR(available_triggers, 0444, zio_show_triggers, NULL),
+	__ATTR(version, ZIO_RO_PERM, zio_show_version, NULL),
+	__ATTR(available_buffers, ZIO_RO_PERM, zio_show_buffers, NULL),
+	__ATTR(available_triggers, ZIO_RO_PERM, zio_show_triggers, NULL),
 	__ATTR_NULL,
 };
 

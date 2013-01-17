@@ -29,13 +29,13 @@ enum zti_attrs {
 };
 
 static ZIO_ATTR_DEFINE_STD(ZIO_TRG, zti_std_attr) = {
-	ZIO_ATTR(trig, ZIO_ATTR_TRIG_POST_SAMP, S_IRUGO | S_IWUGO,
+	ZIO_ATTR(trig, ZIO_ATTR_TRIG_POST_SAMP, ZIO_RW_PERM,
 		 ZTI_ATTR_NSAMPLES, 16),
 };
 
 static struct zio_attribute zti_ext_attr[] = {
-	ZIO_ATTR_EXT("irq", S_IRUGO, ZTI_ATTR_IRQ, -1),
-	ZIO_ATTR_EXT("gpio", S_IRUGO, ZTI_ATTR_GPIO, -1),
+	ZIO_ATTR_EXT("irq", ZIO_RO_PERM, ZTI_ATTR_IRQ, -1),
+	ZIO_ATTR_EXT("gpio", ZIO_RO_PERM, ZTI_ATTR_GPIO, -1),
 };
 static int zti_conf_set(struct device *dev, struct zio_attribute *zattr,
 		uint32_t  usr_val)

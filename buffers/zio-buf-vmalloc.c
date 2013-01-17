@@ -58,11 +58,11 @@ enum {
 };
 
 static ZIO_ATTR_DEFINE_STD(ZIO_BUF, zbk_std_zattr) = {
-	ZIO_ATTR(zbuf, ZIO_ATTR_ZBUF_MAXKB, S_IRUGO | S_IWUGO, 0x0, 128),
+	ZIO_ATTR(zbuf, ZIO_ATTR_ZBUF_MAXKB, ZIO_RW_PERM, 0x0, 128),
 };
 
 static struct zio_attribute zbk_ext_attr[] = {
-	ZIO_ATTR_EXT("merge-data", S_IRUGO | S_IWUGO,
+	ZIO_ATTR_EXT("merge-data", ZIO_RW_PERM,
 		     ZBK_ATTR_MERGE_DATA, 0),
 };
 
