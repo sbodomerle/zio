@@ -5,6 +5,7 @@ EXTRA_CFLAGS += -I$(obj)/../include
 obj-m = zio-zero.o
 obj-m += zio-loop.o
 obj-m += zio-irq-tdc.o
+obj-m += zio-fake-dtc.o
 obj-m += zio-mini.o
 obj-m += zio-gpio.o
 ifdef CONFIG_SPI
