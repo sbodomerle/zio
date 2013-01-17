@@ -661,11 +661,43 @@ ssize_t zobj_read_cur_ctrl(struct file *file,struct kobject *kobj,
 	return count;
 }
 
-struct bin_attribute zio_attr_cur_ctrl = {
-	.attr = { .name = "current-control", .mode = 0444, },
-	.size = __ZIO_CONTROL_SIZE, /* To be changed at runtime for TLV */
-	.read = zobj_read_cur_ctrl,
+static ssize_t zobj_show_address(struct file *file,struct kobject *kobj,
+				 struct bin_attribute *bin_attr,
+				 char *buf, loff_t off, size_t count)
+{
+	struct zio_channel *chan;
+
+	if (off >= bin_attr->size)
+		return 0;
+
+	/* This file must be read entirely */
+	if (off != 0)
+		return -ESPIPE; /* Illegal seek */
+	if (count < bin_attr->size)
+		return -EINVAL;
+	if (count > bin_attr->size)
+		count = bin_attr->size;
+
+	chan = to_zio_chan(container_of(kobj, struct device, kobj));
+	memcpy(buf, &chan->current_ctrl->addr, count); /* FIXME: lock */
+
+	return count;
+
+}
+
+struct bin_attribute zio_bin_attr[] = {
+	[ZIO_BIN_CTRL] = {
+		.attr = { .name = "current-control", .mode = ZIO_RO_PERM, },
+		.size = __ZIO_CONTROL_SIZE, /* changed at runtime for TLV */
+		.read = zobj_read_cur_ctrl,
+	},
+	[ZIO_BIN_ADDR] = {
+		.attr = { .name = "address", .mode = ZIO_RO_PERM, },
+		.size = sizeof(struct zio_addr),
+		.read = zobj_show_address,
+	}
 };
+
 #endif /* ZIO_HAS_BINARY_CONTROL */
 
 /* This is only for internal use (DAN == default attribute name) */

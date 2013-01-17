@@ -16,7 +16,7 @@ extern struct device_type cset_device_type;
 extern struct device_type chan_device_type;
 extern struct device_type ti_device_type;
 extern struct device_type bi_device_type;
-extern struct bin_attribute zio_attr_cur_ctrl;
+extern struct bin_attribute zio_bin_attr[];
 
 /* This list is used in the core to keep track of registered objects */
 struct zio_object_list {

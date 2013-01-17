@@ -543,7 +543,7 @@ static int chan_register(struct zio_channel *chan, struct zio_channel *chan_t)
 {
 	struct zio_control *ctrl;
 	struct zio_bi *bi;
-	int err;
+	int err, i;
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
 	if (!chan)
@@ -597,17 +597,19 @@ static int chan_register(struct zio_channel *chan, struct zio_channel *chan_t)
 	if (err)
 		goto out_ctrl_bits;
 	if (ZIO_HAS_BINARY_CONTROL) {
-		/* Create the sysfs binary file for the current control */
-		err = sysfs_create_bin_file(&chan->head.dev.kobj,
-					    &zio_attr_cur_ctrl);
-		if (err)
-			goto out_bin_attr;
+		for (i = 0; i < __ZIO_BIN_ATTR_NUM; ++i) {
+			/* Create the sysfs binary file for the current control */
+			err = sysfs_create_bin_file(&chan->head.dev.kobj,
+						    &zio_bin_attr[i]);
+			if (err)
+				goto out_bin_attr;
+		}
 	}
 	/* Create buffer */
 	bi = __bi_create_and_init(chan->cset->zbuf, chan);
 	if (IS_ERR(bi)) {
 		err = PTR_ERR(bi);
-		goto out_buf_create;
+		goto out_bin_attr;
 	}
 	err = __bi_register(chan->cset->zbuf, chan, bi, "buffer");
 	if (err)
@@ -625,10 +627,13 @@ out_cdev_create:
 	__bi_unregister(chan->cset->zbuf, bi);
 out_buf_reg:
 	__bi_destroy(chan->cset->zbuf, bi);
-out_buf_create:
-	if (ZIO_HAS_BINARY_CONTROL)
-		sysfs_remove_bin_file(&chan->head.dev.kobj, &zio_attr_cur_ctrl);
 out_bin_attr:
+	if (ZIO_HAS_BINARY_CONTROL) {
+		while (i--)
+			sysfs_remove_bin_file(&chan->head.dev.kobj,
+					      &zio_bin_attr[i]);
+	}
+
 	device_unregister(&chan->head.dev);
 out_ctrl_bits:
 	zio_free_control(ctrl);
@@ -643,6 +648,8 @@ out_zattr_copy:
 
 static void chan_unregister(struct zio_channel *chan)
 {
+	int i;
+
 	pr_debug("%s:%d\n", __func__, __LINE__);
 	if (!chan)
 		return;
@@ -651,7 +658,9 @@ static void chan_unregister(struct zio_channel *chan)
 	__bi_unregister(chan->cset->zbuf, chan->bi);
 	__bi_destroy(chan->cset->zbuf, chan->bi);
 	if (ZIO_HAS_BINARY_CONTROL)
-		sysfs_remove_bin_file(&chan->head.dev.kobj, &zio_attr_cur_ctrl);
+		for (i = 0; i < __ZIO_BIN_ATTR_NUM; ++i)
+			sysfs_remove_bin_file(&chan->head.dev.kobj,
+					      &zio_bin_attr[i]);
 	device_unregister(&chan->head.dev);
 	zio_free_control(chan->current_ctrl);
 	zattr_set_remove(&chan->head);

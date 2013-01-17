@@ -89,6 +89,11 @@ enum zio_buf_std_attr {
 	ZIO_ATTR_ZBUF_MAXKB,	/* max number of kB in buffer */
 	_ZIO_BUF_ATTR_STD_NUM,	/* used to size arrays */
 };
+enum zio_chn_bin_attr {
+	ZIO_BIN_CTRL = 0,	/* current control */
+	ZIO_BIN_ADDR,		/* address */
+	__ZIO_BIN_ATTR_NUM,
+};
 
 extern const char zio_zdev_attr_names[_ZIO_DEV_ATTR_STD_NUM][ZIO_NAME_LEN];
 extern const char zio_trig_attr_names[_ZIO_TRG_ATTR_STD_NUM][ZIO_NAME_LEN];
