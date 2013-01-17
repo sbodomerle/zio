@@ -159,7 +159,8 @@ EXPORT_SYMBOL(zio_arm_trigger);
  */
 void zio_trigger_data_done(struct zio_cset *cset)
 {
-	int self_timed = zio_cset_is_self_timed(cset);
+	int self_timed = cset->flags & ZIO_CSET_SELF_TIMED;
+
 	unsigned long flags;
 
 	spin_lock_irqsave(&cset->lock, flags);

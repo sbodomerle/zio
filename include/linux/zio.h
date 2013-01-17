@@ -212,7 +212,7 @@ enum zio_cset_flags {
 };
 
 /* Check the flags so we know whether to arm immediately or not */
-static inline int zio_cset_is_self_timed(struct zio_cset *cset)
+static inline int zio_cset_early_arm(struct zio_cset *cset)
 {
 	unsigned long flags = cset->flags;
 

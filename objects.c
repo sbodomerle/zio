@@ -331,7 +331,7 @@ int zio_change_current_trigger(struct zio_cset *cset, char *name)
 	spin_unlock_irqrestore(&cset->lock, flags);
 
 	/* Finally, arm it if so needed */
-	if (zio_cset_is_self_timed(cset))
+	if (zio_cset_early_arm(cset))
 		zio_arm_trigger(ti);
 
 	return 0;
@@ -434,7 +434,7 @@ int zio_change_current_buffer(struct zio_cset *cset, char *name)
 	spin_unlock_irqrestore(&cset->lock, flags);
 
 	/* Finally, arm the trigger if so needed */
-	if (zio_cset_is_self_timed(cset))
+	if (zio_cset_early_arm(cset))
 		zio_arm_trigger(ti);
 
 	return 0;
@@ -775,7 +775,7 @@ static int cset_register(struct zio_cset *cset, struct zio_cset *cset_t)
 	ti->flags &= ~ZIO_DISABLED;
 	spin_unlock_irqrestore(&cset->lock, flags);
 
-	if (zio_cset_is_self_timed(cset))
+	if (zio_cset_early_arm(cset))
 		zio_arm_trigger(ti);
 
 	return 0;
