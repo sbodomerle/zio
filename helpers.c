@@ -65,7 +65,7 @@ int zio_trigger_abort_disable(struct zio_cset *cset, int disable)
 }
 EXPORT_SYMBOL(zio_trigger_abort_disable);
 
-static void __zio_arm_input_trigger(struct zio_ti *ti)
+static int __zio_arm_input_trigger(struct zio_ti *ti)
 {
 	struct zio_buffer_type *zbuf;
 	struct zio_block *block;
@@ -73,7 +73,7 @@ static void __zio_arm_input_trigger(struct zio_ti *ti)
 	struct zio_cset *cset;
 	struct zio_channel *chan;
 	struct zio_control *ctrl;
-	int datalen;
+	int i, datalen;
 
 	cset = ti->cset;
 	zdev = cset->zdev;
@@ -93,23 +93,24 @@ static void __zio_arm_input_trigger(struct zio_ti *ti)
 		/* on error it returns NULL so we are all happy */
 		chan->active_block = block;
 	}
-	if (!cset->raw_io(cset)) {
-		/* It succeeded immediately */
-		zio_trigger_data_done(cset);
-	}
+	i = cset->raw_io(cset);
+	if (!i)
+		zio_trigger_data_done(cset); /* Succeeded */
+	return i;
 }
 
-static void __zio_arm_output_trigger(struct zio_ti *ti)
+static int __zio_arm_output_trigger(struct zio_ti *ti)
 {
 	struct zio_cset *cset = ti->cset;
+	int i;
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
 
 	/* We are expected to already have a block in active channels */
-	if (!cset->raw_io(cset)) {
-		/* It succeeded immediately */
-		zio_trigger_data_done(cset);
-	}
+	i = cset->raw_io(cset);
+	if (!i)
+		zio_trigger_data_done(cset); /* Succeeded */
+	return i;
 }
 
 /*
@@ -120,7 +121,9 @@ static void __zio_arm_output_trigger(struct zio_ti *ti)
 void zio_arm_trigger(struct zio_ti *ti)
 {
 	unsigned long flags;
+	int ret;
 
+	pr_debug("%s:%d\n", __func__, __LINE__);
 	/* check if trigger is disabled or previous instance is pending */
 	spin_lock_irqsave(&ti->cset->lock, flags);
 	if (unlikely((ti->flags & ZIO_STATUS) == ZIO_DISABLED ||
@@ -132,9 +135,17 @@ void zio_arm_trigger(struct zio_ti *ti)
 	spin_unlock_irqrestore(&ti->cset->lock, flags);
 
 	if (likely((ti->flags & ZIO_DIR) == ZIO_DIR_INPUT))
-		__zio_arm_input_trigger(ti);
+		ret = __zio_arm_input_trigger(ti);
 	else
-		__zio_arm_output_trigger(ti);
+		ret = __zio_arm_output_trigger(ti);
+
+	/* already succeeded or accepted for later */
+	if (!ret || ret == -EAGAIN)
+		return;
+	/* real error: un-arm */
+	spin_lock_irqsave(&ti->cset->lock, flags);
+	ti->flags &= ~ZIO_TI_ARMED;
+	spin_unlock_irqrestore(&ti->cset->lock, flags);
 }
 EXPORT_SYMBOL(zio_arm_trigger);
 
