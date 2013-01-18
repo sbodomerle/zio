@@ -595,6 +595,44 @@ static ssize_t zobj_show_devname(struct device *dev,
 
 }
 
+/*
+ * zobj_show_alarm
+ * It get alarm status from the current control of the channel and it return
+ * the value to sysfs
+ */
+static ssize_t zio_show_alarm(struct device *dev,
+			       struct device_attribute *attr, char *buf)
+{
+	struct zio_channel *chan = to_zio_chan(dev);
+	struct zio_control *ctrl = chan->current_ctrl;
+
+	return sprintf(buf, "%d\n", (ctrl->zio_alarms << 8) | ctrl->drv_alarms);
+}
+
+/*
+ * zio_store_alarm
+ * It get from the user the alarm to clear, then it clears the alarm in the
+ * curren control of the channel
+ */
+static ssize_t zio_store_alarm(struct device *dev,
+			       struct device_attribute *attr,
+			       const char *buf, size_t count)
+{
+	struct zio_channel *chan = to_zio_chan(dev);
+	struct zio_control *ctrl = chan->current_ctrl;
+	uint16_t clr_alarm;
+	long val;
+
+	if (strict_strtol(buf, 0, &val))
+		return -EINVAL;
+
+	clr_alarm = val;
+	ctrl->zio_alarms &= (~((clr_alarm & 0xFF00) >> 8));
+	ctrl->drv_alarms &= (~(clr_alarm & 0xFF));
+
+	return count;
+}
+
 #if ZIO_HAS_BINARY_CONTROL
 /*
  * zobj_read_cur_ctrl
@@ -639,6 +677,7 @@ enum zio_default_attribute_numeration {
 	ZIO_DAN_DNAM,	/* devname */
 	ZIO_DAN_TYPE,	/* devtype */
 	ZIO_DAN_FLUS,	/* flush */
+	ZIO_DAN_ALAR,	/* alarms */
 };
 
 /* default zio attributes */
@@ -655,6 +694,8 @@ static struct device_attribute zio_default_attributes[] = {
 				zobj_show_devname, NULL),
 	[ZIO_DAN_TYPE] = __ATTR(devtype, ZIO_RO_PERM,
 				zobj_show_dev_type, NULL),
+	[ZIO_DAN_ALAR] = __ATTR(alarms, ZIO_RW_PERM,
+				zio_show_alarm, zio_store_alarm),
 	__ATTR_NULL,
 };
 /* default attributes for most of the zio objects */
@@ -675,6 +716,11 @@ static struct attribute *def_cset_attrs_ptr[] = {
 	&zio_default_attributes[ZIO_DAN_CBUF].attr,
 	NULL,
 };
+/* default attributes for channel */
+static struct attribute *def_chan_attrs_ptr[] = {
+	&zio_default_attributes[ZIO_DAN_ALAR].attr,
+	NULL,
+};
 /* default attributes for buffer instance */
 static struct attribute *def_bi_attrs_ptr[] = {
 	&zio_default_attributes[ZIO_DAN_NAME].attr,
@@ -685,6 +731,7 @@ static struct attribute *def_bi_attrs_ptr[] = {
 enum zio_default_attribute_group_enumeration {
 	ZIO_DAG_ALL = 0,	/* Group valid for any ZIO object*/
 	ZIO_DAG_CSET,	/* Only for cset */
+	ZIO_DAG_CHAN,	/* Only for channel */
 	ZIO_DAG_BI,	/* Only for buffer instance */
 	ZIO_DAG_HIE,	/* Only within device hierarchy (dev, cset, chan) */
 };
@@ -696,6 +743,9 @@ static const struct attribute_group zio_groups[] = {
 	},
 	[ZIO_DAG_CSET] = {	/* cset only group */
 		.attrs = def_cset_attrs_ptr,
+	},
+	[ZIO_DAG_CHAN] = {
+		.attrs = def_chan_attrs_ptr,
 	},
 	[ZIO_DAG_BI] = {	/* bi only group */
 		.attrs = def_bi_attrs_ptr,
@@ -720,13 +770,14 @@ static const struct attribute_group *def_cset_groups_ptr[] = {
 /* default groups for channel */
 static const struct attribute_group *def_chan_groups_ptr[] = {
 	&zio_groups[ZIO_DAG_ALL],
+	&zio_groups[ZIO_DAG_CHAN],
 	&zio_groups[ZIO_DAG_HIE],
 	NULL,
 };
 /* default groups for trigger instance */
 static const struct attribute_group *def_ti_groups_ptr[] = {
 	&zio_groups[ZIO_DAG_ALL],
- 	NULL,
+	NULL,
  };
 /* default groups for buffer instance */
 static const struct attribute_group *def_bi_groups_ptr[] = {
