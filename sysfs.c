@@ -403,6 +403,12 @@ static ssize_t zobj_show_name(struct device *dev,
 {
 	return sprintf(buf, "%s\n", to_zio_head(dev)->name);
 }
+/* Print the name of a zio object */
+static ssize_t zobj_show_dev_type(struct device *dev,
+				  struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%s\n", dev->type->name);
+}
 /* Print the current trigger name */
 static ssize_t zobj_show_cur_trig(struct device *dev,
 				  struct device_attribute *attr, char *buf)
@@ -647,12 +653,15 @@ static struct device_attribute zio_default_attributes[] = {
 				zobj_show_cur_zbuf, zobj_store_cur_zbuf),
 	[ZIO_DAN_DNAM] = __ATTR(devname, ZIO_RO_PERM,
 				zobj_show_devname, NULL),
+	[ZIO_DAN_TYPE] = __ATTR(devtype, ZIO_RO_PERM,
+				zobj_show_dev_type, NULL),
 	__ATTR_NULL,
 };
 /* default attributes for most of the zio objects */
 static struct attribute *def_obj_attrs_ptr[] = {
 	&zio_default_attributes[ZIO_DAN_NAME].attr,
 	&zio_default_attributes[ZIO_DAN_ENAB].attr,
+	&zio_default_attributes[ZIO_DAN_TYPE].attr,
 	NULL,
 };
 /* default attributes for hierachy components (dev/cset/chan) */
