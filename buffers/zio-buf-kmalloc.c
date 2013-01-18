@@ -71,6 +71,13 @@ static struct zio_block *zbk_alloc_block(struct zio_bi *bi,
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
 
+	/* alloc fails if we overflow the buffer size */
+	spin_lock(&bi->lock);
+	if (zbki->nitem >= bi->zattr_set.std_zattr[ZIO_ATTR_ZBUF_MAXLEN].value)
+		goto out_unlock;
+	zbki->nitem++;
+	spin_unlock(&bi->lock);
+
 	/* alloc item and data. Control remains null at this point */
 	item = kmem_cache_alloc(zbk_slab, gfp);
 	data = kmalloc(datalen, gfp);
@@ -88,6 +95,10 @@ out_free:
 	kfree(data);
 	kmem_cache_free(zbk_slab, item);
 	zio_free_control(ctrl);
+	spin_lock(&bi->lock);
+	zbki->nitem--;
+out_unlock:
+	spin_unlock(&bi->lock);
 	return NULL;
 }
 
@@ -96,14 +107,25 @@ static void zbk_free_block(struct zio_bi *bi, struct zio_block *block)
 {
 	struct zbk_item *item;
 	struct zbk_instance *zbki;
+	int awake = 0;
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
 
 	item = to_item(block);
 	zbki = item->instance;
+
+	spin_lock(&bi->lock);
+	if ( ((bi->flags & ZIO_DIR) == ZIO_DIR_OUTPUT) &&
+	     zbki->nitem < bi->zattr_set.std_zattr[ZIO_ATTR_ZBUF_MAXLEN].value)
+		awake = 1;
+	zbki->nitem--;
+	spin_unlock(&bi->lock);
+
 	kfree(block->data);
 	zio_free_control(zio_get_ctrl(block));
 	kmem_cache_free(zbk_slab, item);
+	if (awake)
+		wake_up_interruptible(&bi->q);
 }
 
 /* When write() stores the first block, we try pushing it */
@@ -134,25 +156,17 @@ static int zbk_store_block(struct zio_bi *bi, struct zio_block *block)
 {
 	struct zbk_instance *zbki = to_zbki(bi);
 	struct zio_channel *chan = bi->chan;
-	struct zbk_item *item;
-	int awake = 0, pushed = 0, output;
+	struct zbk_item *item = to_item(block);
+	int awake = 0, pushed = 0, isempty;
+	int output = (bi->flags & ZIO_DIR) == ZIO_DIR_OUTPUT;
 
 	pr_debug("%s:%d (%p, %p)\n", __func__, __LINE__, bi, block);
 
-	if (unlikely(!zio_get_ctrl(block))) {
-		WARN_ON(1);
-		return -EINVAL;
-	}
-
-	item = to_item(block);
-	output = (bi->flags & ZIO_DIR) == ZIO_DIR_OUTPUT;
-
 	/* add to the buffer instance or push to the trigger */
 	spin_lock(&bi->lock);
-	if (zbki->nitem >= bi->zattr_set.std_zattr[ZIO_ATTR_ZBUF_MAXLEN].value)
-		goto out_unlock;
+	isempty = list_empty(&zbki->list);
 	list_add_tail(&item->list, &zbki->list);
-	if (!zbki->nitem) {
+	if (isempty) {
 		if (unlikely(output))
 			pushed = __try_push(bi, chan, block);
 		else
@@ -160,17 +174,12 @@ static int zbk_store_block(struct zio_bi *bi, struct zio_block *block)
 	}
 	if (pushed)
 		list_del(&item->list);
-	zbki->nitem += !pushed;
 	spin_unlock(&bi->lock);
 
 	/* if first input, awake user space */
 	if (awake)
 		wake_up_interruptible(&bi->q);
 	return 0;
-
-out_unlock:
-	spin_unlock(&bi->lock);
-	return -ENOSPC;
 }
 
 /* Retr is called by f->read (for input) or by the trigger (for output) */
@@ -180,23 +189,17 @@ static struct zio_block *zbk_retr_block(struct zio_bi *bi)
 	struct zbk_instance *zbki;
 	struct zio_ti *ti;
 	struct list_head *first;
-	int awake = 0;
 
 	zbki = to_zbki(bi);
 
 	spin_lock(&bi->lock);
-	if (!zbki->nitem || bi->flags & ZIO_BI_PUSHING)
+	if (list_empty(&zbki->list) || bi->flags & ZIO_BI_PUSHING)
 		goto out_unlock;
 	first = zbki->list.next;
 	item = list_entry(first, struct zbk_item, list);
 	list_del(&item->list);
-	if (zbki->nitem == bi->zattr_set.std_zattr[ZIO_ATTR_ZBUF_MAXLEN].value)
-		awake = 1;
-	zbki->nitem--;
 	spin_unlock(&bi->lock);
 
-	if (awake && ((bi->flags & ZIO_DIR) == ZIO_DIR_OUTPUT))
-		wake_up_interruptible(&bi->q);
 	pr_debug("%s:%d (%p, %p)\n", __func__, __LINE__, bi, item);
 	return &item->block;
 
