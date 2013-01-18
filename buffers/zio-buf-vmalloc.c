@@ -283,6 +283,10 @@ static struct zio_bi *zbk_create(struct zio_buffer_type *zbuf,
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
 
+	/* zero-sized blocks can't use this buffer type */
+	if (chan->cset->ssize == 0)
+		return ERR_PTR(-EINVAL);
+
 	size = 1024 * zbuf->zattr_set.std_zattr[ZIO_ATTR_ZBUF_MAXKB].value;
 
 	zbki = kzalloc(sizeof(*zbki), GFP_KERNEL);
