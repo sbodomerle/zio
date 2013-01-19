@@ -494,7 +494,10 @@ static unsigned int zio_generic_poll(struct file *f,
 	struct zio_bi *bi = priv->chan->bi;
 
 	poll_wait(f, &bi->q, w);
-	return __zio_read_allowed(priv) | __zio_write_allowed(priv);
+	if ((bi->flags & ZIO_DIR) == ZIO_DIR_OUTPUT)
+		return  __zio_write_allowed(priv);
+	else
+		return __zio_read_allowed(priv);
 }
 
 static int zio_generic_release(struct inode *inode, struct file *f)
