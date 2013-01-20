@@ -119,9 +119,11 @@ static void ad788x_complete(void *cont)
 	data = &data[1];
 	/* demux data */
 	chan_for_each(chan, cset) {
-			buf = (uint16_t *)chan->active_block->data;
-			for (i = 0; i < context->nsamples; ++i)
-				buf[i] = data[i * context->chan_enable + j];
+		if (!chan->active_block)
+			continue;
+		buf = (uint16_t *)chan->active_block->data;
+		for (i = 0; i < context->nsamples; ++i)
+			buf[i] = data[i * context->chan_enable + j];
 		++j;
 	}
 	zio_trigger_data_done(cset);
