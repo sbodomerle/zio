@@ -264,10 +264,11 @@ void zio_unregister_cdev()
 /*
  * Helper functions to check whether read and write would block. The
  * return value is a poll(2) mask, so the poll method just calls them.
+ * Both functions return with a user block if read/write can happen.
  */
 
-/* Read is quite straightforward, as blocks reack us already filled */
-static int __zio_read_allowed(struct zio_f_priv *priv)
+/* Read is quite straightforward, as blocks reach us already filled */
+static int zio_read_mask(struct zio_f_priv *priv)
 {
 	struct zio_channel *chan = priv->chan;
 	struct zio_bi *bi = chan->bi;
@@ -278,22 +279,21 @@ static int __zio_read_allowed(struct zio_f_priv *priv)
 	if (!chan->user_block)
 		return 0;
 
-	/* We have a block. So there is data and possibly control too */
+	/* We have a block. But it can be a zero-size block (no data) */
 	if (likely(priv->type == ZIO_CDEV_DATA))
+		return chan->user_block->datalen ? can_read : 0;
+
+	/* Control: if not yet done, we can read */
+	if (!zio_is_cdone(chan->user_block))
 		return can_read;
 
-	if (!zio_is_cdone(chan->user_block))
-		return POLLIN | POLLRDNORM;
-
-	/* There's a block, but we want to re-read control. Get a new block */
+	/* We want to re-read control. Get a new block */
 	bi->b_op->free_block(bi, chan->user_block);
 	chan->user_block = bi->b_op->retr_block(bi);
-	if (!chan->user_block)
-		return 0;
-	return POLLIN | POLLRDNORM;
+	return chan->user_block ? can_read : 0;
 }
 
-/* Write is more tricky: we need control, so we may ask it to the trigger */
+/* Write is more tricky: this sub-helper asks datasize to the trigger */
 static struct zio_block *__zio_write_allocblock(struct zio_bi *bi)
 {
 	struct zio_cset *cset = bi->chan->cset;
@@ -303,7 +303,7 @@ static struct zio_block *__zio_write_allocblock(struct zio_bi *bi)
 	return bi->b_op->alloc_block(bi, datalen, GFP_KERNEL);
 }
 
-static int __zio_write_allowed(struct zio_f_priv *priv)
+static int zio_write_mask(struct zio_f_priv *priv)
 {
 	struct zio_channel *chan = priv->chan;
 	struct zio_bi *bi = chan->bi;
@@ -311,21 +311,11 @@ static int __zio_write_allowed(struct zio_f_priv *priv)
 	const int can_write = POLLOUT | POLLWRNORM;
 
 	if (unlikely(priv->type == ZIO_CDEV_CTRL)) {
-		/* A dataful control can be replaced before store */
-		if (chan->cset->ssize) {
-			if (block) {
-				bi->b_op->free_block(bi, block);
-				chan->user_block = NULL;
-			}
-			return can_write;
-		}
-		if (!block)
-			return can_write;
-		/* A dataless control may need to sleep if buffer full */
-		if (bi->b_op->store_block(bi, block) < 0)
-			return 0;
-		chan->user_block = NULL;
-		return can_write;
+		/* A control can be replaced before store */
+		if (block)
+			bi->b_op->free_block(bi, block);
+		chan->user_block = __zio_write_allocblock(bi);
+		return chan->user_block ? can_write : 0;
 	}
 
 	/* We want to write data. If datasize is zero, we can't */
@@ -333,22 +323,10 @@ static int __zio_write_allowed(struct zio_f_priv *priv)
 		return 0;
 
 	/* If we have no block, retrieve one */
-	if (!chan->user_block)
-		chan->user_block = __zio_write_allocblock(bi);
-	block = chan->user_block;
 	if (!block)
-		return 0;
+		chan->user_block = __zio_write_allocblock(bi);
 
-	/* If the block is not full, user can write data */
-	if (block->uoff < block->datalen)
-		return can_write;
-
-	/* Block is full: try to push out to the buffer */
-	if (bi->b_op->store_block(bi, block) < 0)
-		return 0;
-
-	/* We sent it: get a new one for this new data */
-	chan->user_block = __zio_write_allocblock(bi);
+	/* If there is a previous block, we are sure it is not full */
 	return chan->user_block ? can_write : 0;
 }
 
@@ -368,32 +346,31 @@ static ssize_t zio_generic_read(struct file *f, char __user *ubuf,
 	pr_debug("%s:%d type %s\n", __func__, __LINE__,
 		priv->type == ZIO_CDEV_CTRL ? "ctrl" : "data");
 
-	if (priv->type == ZIO_CDEV_CTRL && count < zio_control_size(chan))
-		return -EINVAL;
-
 	if ((bi->flags & ZIO_DIR) == ZIO_DIR_OUTPUT)
 		return -EINVAL;
 
-	if (!__zio_read_allowed(priv)) {
+	if (!zio_read_mask(priv)) {
 		if (f->f_flags & O_NONBLOCK)
 			return -EAGAIN;
-		wait_event_interruptible(bi->q, __zio_read_allowed(priv));
+		wait_event_interruptible(bi->q, zio_read_mask(priv));
 		if (signal_pending(current))
 			return -ERESTARTSYS;
 	}
 	block = chan->user_block;
 
-	/* So, it's readable */
+	/* So, it's readable. Handle control first */
 	if (unlikely(priv->type == ZIO_CDEV_CTRL)) {
-		zio_set_cdone(block);
-		if (copy_to_user(ubuf, zio_get_ctrl(block),
-				 zio_control_size(chan)))
+		if (count < zio_control_size(chan))
+			return -EINVAL;
+		count = zio_control_size(chan);
+		if (copy_to_user(ubuf, zio_get_ctrl(block), count))
 			return -EFAULT;
-		*offp += zio_control_size(chan);
-		return zio_control_size(chan);
+		zio_set_cdone(block);
+		*offp += count;
+		return count;
 	}
 
-	/* Data file, and we have data */
+	/* Data file, and some data is there */
 	if (count > block->datalen - block->uoff)
 		count = block->datalen - block->uoff;
 	if (copy_to_user(ubuf, block->data + block->uoff, count))
@@ -414,7 +391,6 @@ static ssize_t zio_generic_write(struct file *f, const char __user *ubuf,
 	struct zio_channel *chan = priv->chan;
 	struct zio_bi *bi = chan->bi;
 	struct zio_block *block;
-	struct zio_control *ctrl;
 
 	pr_debug("%s:%d type %s\n", __func__, __LINE__,
 		priv->type == ZIO_CDEV_CTRL ? "ctrl" : "data");
@@ -422,53 +398,42 @@ static ssize_t zio_generic_write(struct file *f, const char __user *ubuf,
 	if ((bi->flags & ZIO_DIR) == ZIO_DIR_INPUT)
 		return -EINVAL;
 
-	if (!__zio_write_allowed(priv)) {
+	if (!zio_write_mask(priv)) {
 		if (f->f_flags & O_NONBLOCK)
 			return -EAGAIN;
-		wait_event_interruptible(bi->q, __zio_write_allowed(priv));
+		wait_event_interruptible(bi->q, zio_write_mask(priv));
 		if (signal_pending(current))
 			return -ERESTARTSYS;
 	}
+	block = chan->user_block;
 
-	if (likely(priv->type == ZIO_CDEV_DATA)) {
-		/* Data is writeable, so we have space in this block */
-		block = chan->user_block;
-		if (count > block->datalen - block->uoff)
-			count =  block->datalen - block->uoff;
-		if (copy_from_user(block->data + block->uoff, ubuf, count))
+	/* File is writeable, handle control first */
+	if (unlikely(priv->type == ZIO_CDEV_CTRL)) {
+		if (count < zio_control_size(chan))
+			return -EINVAL;
+		count = zio_control_size(chan);
+		if (copy_from_user(zio_get_ctrl(block), ubuf, count))
 			return -EFAULT;
-		block->uoff += count;
-		if (block->uoff == block->datalen)
-			if (bi->b_op->store_block(bi, block) == 0)
-				chan->user_block = NULL;
+		zio_set_cdone(block);
+		*offp += count;
+
+		if (!chan->cset->ssize) { /* data-less: store it now */
+			bi->b_op->store_block(bi, block); /* can't fail */
+			chan->user_block = NULL;
+		}
 		return count;
 	}
 
-	/* Control: if we get here, we are sure the user_block is NULL */
-	BUG_ON(chan->user_block);
-
-	if (count < zio_control_size(chan))
-		return -EINVAL;
-	count = zio_control_size(chan);
-
-	block = __zio_write_allocblock(bi);
-	if (!block)
-		return -ENOMEM;
-	ctrl = zio_get_ctrl(block);
-	if (copy_from_user(ctrl, ubuf, count)) {
-		bi->b_op->free_block(bi, block);
+	if (count > block->datalen - block->uoff)
+		count =  block->datalen - block->uoff;
+	if (copy_from_user(block->data + block->uoff, ubuf, count))
 		return -EFAULT;
-	}
 	*offp += count;
-
-	/* FIXME: use information in this control */
-
-	chan->user_block = block;
-
-	/* If it's a dataless channel, just store the control */
-	if (!chan->cset->ssize && bi->b_op->store_block(bi, block) == 0)
+	block->uoff += count;
+	if (block->uoff == block->datalen) {
+		bi->b_op->store_block(bi, block); /* can't fail */
 		chan->user_block = NULL;
-
+	}
 	return count;
 }
 
@@ -496,9 +461,9 @@ static unsigned int zio_generic_poll(struct file *f,
 
 	poll_wait(f, &bi->q, w);
 	if ((bi->flags & ZIO_DIR) == ZIO_DIR_OUTPUT)
-		return  __zio_write_allowed(priv);
+		return zio_write_mask(priv);
 	else
-		return __zio_read_allowed(priv);
+		return zio_read_mask(priv);
 }
 
 static int zio_generic_release(struct inode *inode, struct file *f)
