@@ -172,17 +172,19 @@ static int ztt_push_block(struct zio_ti *ti, struct zio_channel *chan,
 		return -EBUSY;
 	chan->active_block = block;
 
-	ctrl = zio_get_ctrl(block);
+	/* If it is already pending, we are done */
+	if (hrtimer_is_queued(&ztt->timer))
+		return 0;
 
-	/* No timestamp provided in this control: accept the block */
+	/* If no timestamp provided in this control: we are done */
+	ctrl = zio_get_ctrl(block);
 	if (!ctrl->tstamp.secs && !ctrl->tstamp.ticks)
 		return 0;
 
-	/* The timer is already pending: sysfs takes precedence */
-	if (hrtimer_active(&ztt->timer))
-		return 0;
-
-	/* Fire a new HR timer based on the stamp in this control block */
+	/*
+	 * Fire a new HR timer based on the stamp in this control block. For
+	 * multi-channel cset, software is responsible for stamp consistency.
+	 */
 	if (ctrl->tstamp.secs) {
 		struct timespec ts = {ctrl->tstamp.secs, ctrl->tstamp.ticks};
 		ktime = timespec_to_ktime(ts);
