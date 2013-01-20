@@ -84,13 +84,10 @@ static int __zio_arm_input_trigger(struct zio_ti *ti)
 	/* Allocate the buffer for the incoming sample, in active channels */
 	chan_for_each(chan, cset) {
 		ctrl = chan->current_ctrl;
-		ctrl->seq_num++;
-
 		ctrl->nsamples = ti->nsamples;
 		datalen = ctrl->ssize * ti->nsamples;
-		block = zbuf->b_op->alloc_block(chan->bi, datalen,
-						GFP_ATOMIC);
-		/* on error it returns NULL so we are all happy */
+		block = zbuf->b_op->alloc_block(chan->bi, datalen, GFP_ATOMIC);
+		/* If alloc error, it is reported at data_done time */
 		chan->active_block = block;
 	}
 	i = cset->raw_io(cset);
