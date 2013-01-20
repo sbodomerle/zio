@@ -56,8 +56,7 @@ irqreturn_t ztdc_handler(int irq, void *dev_id)
 			zio_trigger_data_done(cset);
 		}
 	} else {
-		/* FIXME: use the alarms */
-		pr_warning("zio tdc: lost event in cset 0\n");
+		chan->current_ctrl->zio_alarms |= ZIO_ALARM_LOST_TRIGGER;
 	}
 
 	/*
@@ -74,10 +73,9 @@ irqreturn_t ztdc_handler(int irq, void *dev_id)
 		chan->current_ctrl->nsamples = 1;
 		zio_trigger_data_done(cset);
 	} else {
-		/* FIXME: use the alarms */
-		pr_warning("zio tdc: lost event\n");
+		chan->current_ctrl->zio_alarms |= ZIO_ALARM_LOST_TRIGGER;
 	}
-	return IRQ_NONE;
+	return IRQ_NONE; /* none because we rely on other devices */
 }
 
 /*
@@ -111,13 +109,15 @@ static void ztdc_stop_io(struct zio_cset *cset)
 /* raw_io method */
 static int ztdc_input(struct zio_cset *cset)
 {
-	/*
-	 * Nothing to be done: we just let interrupts flow.
-	 * But check nsamples is not zero for cset 0.
-	 */
-	if (cset->index == 0 && cset->chan->active_block->datalen == 0)
-		return -EINVAL;
+	struct zio_channel *chan = cset->chan; /* our csets have this only */
 
+	chan_for_each(chan, cset) { /* we have one channel, but this works */
+		if (!chan->active_block)
+			continue;
+		/* Check datalen here, as the handler just writes in it */
+		if (cset->index == 0 && chan->active_block->datalen == 0)
+			return -EINVAL;
+	}
 	return -EAGAIN; /* Will data_done later */
 }
 
