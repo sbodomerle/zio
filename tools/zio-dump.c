@@ -124,6 +124,8 @@ void read_channel(int cfd, int dfd, FILE *log)
 	       ctrl.major_version, ctrl.minor_version,
 	       ctrl.triggername, ctrl.addr.devname, ctrl.addr.dev_id,
 	       ctrl.addr.cset, ctrl.addr.chan);
+	printf("Ctrl: alarms 0x%02x 0x%02x\n",
+	       ctrl.zio_alarms, ctrl.drv_alarms);
 	printf("Ctrl: seq %i, n %i, size %i, bits %i, "
 	       "flags %08x (%s)\n",
 	       ctrl.seq_num,
