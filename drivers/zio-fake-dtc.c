@@ -54,6 +54,7 @@ static int zdtc_raw_io(struct zio_cset *cset)
 	struct zio_control *ctrl;
 	ktime_t ktime;
 
+	/* We cannot be armed if there's no block. Wait for next push */
 	if (!cset->chan->active_block)
 		return -EIO;
 	ctrl = zio_get_ctrl(cset->chan->active_block);
