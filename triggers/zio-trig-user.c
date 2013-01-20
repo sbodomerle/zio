@@ -41,10 +41,16 @@ static int ztu_push_block(struct zio_ti *ti, struct zio_channel *chan,
 			  struct zio_block *block)
 {
 	pr_debug("%s:%d\n", __func__, __LINE__);
+	struct zio_cset *cset = chan->cset;
 
 	if (chan->active_block)
 		return -EBUSY;
 	chan->active_block = block;
+
+	/* If all enabled channels are ready, tell hardware we are ready */
+	chan_for_each(chan, cset)
+		if (!chan->active_block)
+			return 0;
 	getnstimeofday(&ti->tstamp);
 	zio_arm_trigger(ti);
 	return 0;
