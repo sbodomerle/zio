@@ -83,6 +83,7 @@ struct zio_tlv {
  * group is defined here, the latter group is driver-specific.
  */
 #define ZIO_ALARM_LOST_BLOCK	(1 << 0)	/* It happened */
+#define ZIO_ALARM_LOST_TRIGGER	(1 << 1)	/* Same, cset-wide */
 
 /*
  * The following data item is the control structure that is being exchanged
