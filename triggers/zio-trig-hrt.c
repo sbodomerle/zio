@@ -144,9 +144,6 @@ static enum hrtimer_restart ztt_fn(struct hrtimer *timer)
 	ztt = container_of(timer, struct ztt_instance, timer);
 	ti = &ztt->ti;
 
-	/* When this sw-trigger fires, we must fill the timestamp */
-	getnstimeofday(&ti->tstamp);
-
 	/* FIXME: fill the trigger attributes too */
 
 	ztt = to_ztt_instance(ti);

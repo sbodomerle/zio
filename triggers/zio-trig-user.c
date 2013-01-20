@@ -51,7 +51,6 @@ static int ztu_push_block(struct zio_ti *ti, struct zio_channel *chan,
 	chan_for_each(chan, cset)
 		if (!chan->active_block)
 			return 0;
-	getnstimeofday(&ti->tstamp);
 	zio_arm_trigger(ti);
 	return 0;
 }
@@ -65,7 +64,6 @@ static void ztu_pull_block(struct zio_ti *ti, struct zio_channel *chan)
 	if (zio_cset_early_arm(ti->cset))
 		return;
 	/* Otherwise, the user sets the input timing by reading */
-	getnstimeofday(&ti->tstamp);
 	zio_arm_trigger(ti);
 }
 

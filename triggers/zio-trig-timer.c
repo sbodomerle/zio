@@ -117,12 +117,9 @@ static void ztt_fn(unsigned long arg)
 	struct zio_ti *ti = (void *)arg;
 	struct ztt_instance *ztt;
 
-	/* When this sw-trigger fires, we must fill the timestamp */
-	getnstimeofday(&ti->tstamp);
-
-	ztt = to_ztt_instance(ti);
 	zio_arm_trigger(ti);
 
+	ztt = to_ztt_instance(ti);
 	if (!ztt->period)
 		return; /* one-shot */
 

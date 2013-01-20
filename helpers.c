@@ -132,6 +132,7 @@ void zio_arm_trigger(struct zio_ti *ti)
 		return;
 	}
 	ti->flags |= ZIO_TI_ARMED;
+	getnstimeofday(&ti->tstamp);
 	spin_unlock_irqrestore(&ti->cset->lock, flags);
 
 	if (likely((ti->flags & ZIO_DIR) == ZIO_DIR_INPUT))
