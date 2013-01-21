@@ -378,8 +378,8 @@ static void __zobj_enable(struct device *dev, unsigned int enable)
 		pr_debug("%s: zti\n", __func__);
 
 		ti = to_zio_ti(dev);
-		spin_lock_irqsave(&ti->cset->lock, flags);
 		zio_trigger_abort_disable(ti->cset, 0);
+		spin_lock_irqsave(&ti->cset->lock, flags);
 		/* trigger instance callback */
 		if (ti->t_op->change_status)
 			ti->t_op->change_status(ti, status);
