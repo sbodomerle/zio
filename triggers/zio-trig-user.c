@@ -40,9 +40,9 @@ struct zio_sysfs_operations ztu_s_ops = {
 static int ztu_push_block(struct zio_ti *ti, struct zio_channel *chan,
 			  struct zio_block *block)
 {
-	pr_debug("%s:%d\n", __func__, __LINE__);
 	struct zio_cset *cset = chan->cset;
 
+	pr_debug("%s:%d\n", __func__, __LINE__);
 	if (chan->active_block)
 		return -EBUSY;
 	chan->active_block = block;
