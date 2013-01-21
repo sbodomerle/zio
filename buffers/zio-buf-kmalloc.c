@@ -67,16 +67,17 @@ static struct zio_block *zbk_alloc_block(struct zio_bi *bi,
 	struct zbk_instance *zbki = to_zbki(bi);
 	struct zbk_item *item;
 	struct zio_control *ctrl;
+	unsigned long flags;
 	void *data;
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
 
 	/* alloc fails if we overflow the buffer size */
-	spin_lock(&bi->lock);
+	spin_lock_irqsave(&bi->lock, flags);
 	if (zbki->nitem >= bi->zattr_set.std_zattr[ZIO_ATTR_ZBUF_MAXLEN].value)
 		goto out_unlock;
 	zbki->nitem++;
-	spin_unlock(&bi->lock);
+	spin_unlock_irqrestore(&bi->lock, flags);
 
 	/* alloc item and data. Control remains null at this point */
 	item = kmem_cache_alloc(zbk_slab, gfp);
@@ -95,10 +96,10 @@ out_free:
 	kfree(data);
 	kmem_cache_free(zbk_slab, item);
 	zio_free_control(ctrl);
-	spin_lock(&bi->lock);
+	spin_lock_irqsave(&bi->lock, flags);
 	zbki->nitem--;
 out_unlock:
-	spin_unlock(&bi->lock);
+	spin_unlock_irqrestore(&bi->lock, flags);
 	return NULL;
 }
 
@@ -107,6 +108,7 @@ static void zbk_free_block(struct zio_bi *bi, struct zio_block *block)
 {
 	struct zbk_item *item;
 	struct zbk_instance *zbki;
+	unsigned long flags;
 	int awake = 0;
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
@@ -114,12 +116,12 @@ static void zbk_free_block(struct zio_bi *bi, struct zio_block *block)
 	item = to_item(block);
 	zbki = item->instance;
 
-	spin_lock(&bi->lock);
+	spin_lock_irqsave(&bi->lock, flags);
 	if ( ((bi->flags & ZIO_DIR) == ZIO_DIR_OUTPUT) &&
 	     zbki->nitem < bi->zattr_set.std_zattr[ZIO_ATTR_ZBUF_MAXLEN].value)
 		awake = 1;
 	zbki->nitem--;
-	spin_unlock(&bi->lock);
+	spin_unlock_irqrestore(&bi->lock, flags);
 
 	kfree(block->data);
 	zio_free_control(zio_get_ctrl(block));
@@ -144,7 +146,7 @@ static inline int __try_push(struct zio_bi *bi, struct zio_channel *chan,
 	 * release the lock but also say we can't retrieve now.
 	 */
 	bi->flags |= ZIO_BI_PUSHING;
-	spin_unlock(&bi->lock);
+	spin_unlock(&bi->lock); /* Don't irqrestore here, keep them disabled */
 	pushed = (ti->t_op->push_block(ti, chan, block) == 0);
 	spin_lock(&bi->lock);
 	bi->flags &=  ~ZIO_BI_PUSHING;
@@ -157,13 +159,14 @@ static int zbk_store_block(struct zio_bi *bi, struct zio_block *block)
 	struct zbk_instance *zbki = to_zbki(bi);
 	struct zio_channel *chan = bi->chan;
 	struct zbk_item *item = to_item(block);
+	unsigned long flags;
 	int awake = 0, pushed = 0, isempty;
 	int output = (bi->flags & ZIO_DIR) == ZIO_DIR_OUTPUT;
 
 	pr_debug("%s:%d (%p, %p)\n", __func__, __LINE__, bi, block);
 
 	/* add to the buffer instance or push to the trigger */
-	spin_lock(&bi->lock);
+	spin_lock_irqsave(&bi->lock, flags);
 	isempty = list_empty(&zbki->list);
 	list_add_tail(&item->list, &zbki->list);
 	if (isempty) {
@@ -174,7 +177,7 @@ static int zbk_store_block(struct zio_bi *bi, struct zio_block *block)
 	}
 	if (pushed)
 		list_del(&item->list);
-	spin_unlock(&bi->lock);
+	spin_unlock_irqrestore(&bi->lock, flags);
 
 	/* if first input, awake user space */
 	if (awake)
@@ -189,22 +192,23 @@ static struct zio_block *zbk_retr_block(struct zio_bi *bi)
 	struct zbk_instance *zbki;
 	struct zio_ti *ti;
 	struct list_head *first;
+	unsigned long flags;
 
 	zbki = to_zbki(bi);
 
-	spin_lock(&bi->lock);
+	spin_lock_irqsave(&bi->lock, flags);
 	if (list_empty(&zbki->list) || bi->flags & ZIO_BI_PUSHING)
 		goto out_unlock;
 	first = zbki->list.next;
 	item = list_entry(first, struct zbk_item, list);
 	list_del(&item->list);
-	spin_unlock(&bi->lock);
+	spin_unlock_irqrestore(&bi->lock, flags);
 
 	pr_debug("%s:%d (%p, %p)\n", __func__, __LINE__, bi, item);
 	return &item->block;
 
 out_unlock:
-	spin_unlock(&bi->lock);
+	spin_unlock_irqrestore(&bi->lock, flags);
 	/* There is no data in buffer, and we may pull to have data soon */
 	ti = bi->cset->ti;
 	if ((bi->flags & ZIO_DIR) == ZIO_DIR_INPUT && ti->t_op->pull_block) {

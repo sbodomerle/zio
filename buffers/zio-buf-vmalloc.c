@@ -202,6 +202,7 @@ static int zbk_store_block(struct zio_bi *bi, struct zio_block *block)
 	struct zbk_instance *zbki = to_zbki(bi);
 	struct zio_channel *chan = bi->chan;
 	struct zbk_item *item;
+	unsigned long flags;
 	int awake = 0, pushed = 0, output, first;
 
 	pr_debug("%s:%d (%p, %p)\n", __func__, __LINE__, bi, block);
@@ -212,7 +213,7 @@ static int zbk_store_block(struct zio_bi *bi, struct zio_block *block)
 	output = (bi->flags & ZIO_DIR) == ZIO_DIR_OUTPUT;
 
 	/* add to the buffer instance or push to the trigger */
-	spin_lock(&bi->lock);
+	spin_lock_irqsave(&bi->lock, flags);
 	first = list_empty(&zbki->list);
 	list_add_tail(&item->list, &zbki->list);
 	if (first) {
@@ -225,7 +226,7 @@ static int zbk_store_block(struct zio_bi *bi, struct zio_block *block)
 		list_del(&item->list);
 	if (!first && zbki->flags & ZBK_FLAG_MERGE_DATA)
 		zbk_try_merge(zbki, item);
-	spin_unlock(&bi->lock);
+	spin_unlock_irqrestore(&bi->lock, flags);
 
 	/* if first input, awake user space */
 	if (awake)
@@ -240,18 +241,19 @@ static struct zio_block *zbk_retr_block(struct zio_bi *bi)
 	struct zbk_instance *zbki;
 	struct zio_ti *ti;
 	struct list_head *first;
+	unsigned long flags;
 	int awake = 0;
 
 	zbki = to_zbki(bi);
 
-	spin_lock(&bi->lock);
+	spin_lock_irqsave(&bi->lock, flags);
 	if (list_empty(&zbki->list) || bi->flags & ZIO_BI_PUSHING)
 		goto out_unlock;
 	first = zbki->list.next;
 	item = list_entry(first, struct zbk_item, list);
 	list_del(&item->list);
 	awake = 1;
-	spin_unlock(&bi->lock);
+	spin_unlock_irqrestore(&bi->lock, flags);
 
 	if (awake && ((bi->flags & ZIO_DIR) == ZIO_DIR_OUTPUT))
 		wake_up_interruptible(&bi->q);
@@ -259,7 +261,7 @@ static struct zio_block *zbk_retr_block(struct zio_bi *bi)
 	return &item->block;
 
 out_unlock:
-	spin_unlock(&bi->lock);
+	spin_unlock_irqrestore(&bi->lock, flags);
 	/* There is no data in buffer, and we may pull to have data soon */
 	ti = bi->cset->ti;
 	if ((bi->flags & ZIO_DIR) == ZIO_DIR_INPUT && ti->t_op->pull_block) {
