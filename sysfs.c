@@ -606,7 +606,7 @@ static ssize_t zio_show_alarm(struct device *dev,
 	struct zio_channel *chan = to_zio_chan(dev);
 	struct zio_control *ctrl = chan->current_ctrl;
 
-	return sprintf(buf, "%d\n", (ctrl->zio_alarms << 8) | ctrl->drv_alarms);
+	return sprintf(buf, "%d %d\n", ctrl->zio_alarms, ctrl->drv_alarms);
 }
 
 /*
@@ -620,16 +620,17 @@ static ssize_t zio_store_alarm(struct device *dev,
 {
 	struct zio_channel *chan = to_zio_chan(dev);
 	struct zio_control *ctrl = chan->current_ctrl;
-	uint16_t clr_alarm;
-	long val;
+	unsigned int v1, v2;
 
-	if (strict_strtol(buf, 0, &val))
+	switch(sscanf(buf, "%i %i", &v1, &v2)) {
+	case 2:
+		ctrl->drv_alarms &= (~v2);
+	case 1:
+		ctrl->zio_alarms &= (~v1);
+		break;
+	default:
 		return -EINVAL;
-
-	clr_alarm = val;
-	ctrl->zio_alarms &= (~((clr_alarm & 0xFF00) >> 8));
-	ctrl->drv_alarms &= (~(clr_alarm & 0xFF));
-
+	}
 	return count;
 }
 
