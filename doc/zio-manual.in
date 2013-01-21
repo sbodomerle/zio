@@ -38,7 +38,7 @@
 @finalout
 @c #################################################################
 @titlepage
-@title ZIO User Manual (version-1.0)
+@title ZIO User Manual
 @subtitle @value{update-month}
 @subtitle A kernel framework for laboratory I/O
 
