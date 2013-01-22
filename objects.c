@@ -306,7 +306,6 @@ int zio_change_current_trigger(struct zio_cset *cset, char *name)
 
 	/* Ok, we are done. Kill the current trigger to replace it*/
 	zio_trigger_abort_disable(cset, 1);
-	ti_old->cset = NULL;
 	__ti_unregister(trig_old, ti_old);
 	__ti_destroy(trig_old, ti_old);
 	zio_trigger_put(trig_old, cset->zdev->owner);
