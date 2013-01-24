@@ -371,6 +371,11 @@ static void __chan_enable_interleave(struct zio_channel *chan,
 /*
  * enable/disable a zio object
  * must be called while holding the zio_device spinlock
+ *
+ * @dev: the device to enable/disable
+ * @enable: this value come from the user space, 0 for disable and 1 for enable
+ *          The enable status on a ZIO device is active low, so this function
+ *          must handle this difference.
  */
 int __zio_object_enable(struct zio_obj_head *head, unsigned int enable)
 {
@@ -390,6 +395,7 @@ int __zio_object_enable(struct zio_obj_head *head, unsigned int enable)
 		return 0;
 	/* change status */
 	*zf = (*zf & (~ZIO_STATUS)) | status;
+
 	switch (head->zobj_type) {
 	case ZIO_DEV:
 		dev_dbg(&head->dev, "(dev)\n");
@@ -398,6 +404,10 @@ int __zio_object_enable(struct zio_obj_head *head, unsigned int enable)
 		/* enable/disable all csets */
 		for (i = 0; i < zdev->n_cset; ++i)
 			__zio_object_enable(&zdev->cset[i].head, enable);
+
+		/* device callback */
+		if (zdev->change_flags)
+			zdev->change_flags(head, ZIO_STATUS);
 		break;
 	case ZIO_CSET:
 		dev_dbg(&head->dev, "(cset)\n");
@@ -408,16 +418,23 @@ int __zio_object_enable(struct zio_obj_head *head, unsigned int enable)
 		/* enable/disable all channels */
 		for (i = 0; i < cset->n_chan; ++i)
 			__zio_object_enable(&cset->chan[i].head, enable);
+
+		/* cset callback */
+		if (cset->change_flags)
+			cset->change_flags(head, ZIO_STATUS);
 		break;
 	case ZIO_CHAN:
 		dev_dbg(&head->dev, "(chan)\n");
-
 		chan = to_zio_chan(&head->dev);
 
 		if (chan->cset->flags & ZIO_CSET_CHAN_INTERLEAVE) {
 			__ctrl_update_nsamples(chan->cset->ti);
 			__chan_enable_interleave(chan, enable);
 		}
+
+		/* channel callback */
+		if (chan->change_flags)
+			chan->change_flags(head, ZIO_STATUS);
 		break;
 	case ZIO_TI:
 		dev_dbg(&head->dev, "(ti)\n");

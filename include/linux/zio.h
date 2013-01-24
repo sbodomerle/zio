@@ -149,6 +149,9 @@ struct zio_device {
 	char *preferred_buffer;
 	char *preferred_trigger;
 	void *priv_d;
+
+	void			(*change_flags)(struct zio_obj_head *head,
+						unsigned long mask);
 };
 struct zio_device *zio_allocate_device(void);
 void zio_free_device(struct zio_device *dev);
@@ -168,6 +171,8 @@ struct zio_cset {
 	struct zio_ti		*ti;		/* trigger instance */
 	int			(*raw_io)(struct zio_cset *cset);
 	void			(*stop_io)(struct zio_cset *cset);
+	void			(*change_flags)(struct zio_obj_head *head,
+						unsigned long mask);
 	spinlock_t		lock;		 /* for flags and triggers */
 
 	unsigned		ssize;		/* sample size (bytes) */
@@ -241,6 +246,9 @@ struct zio_channel {
 	struct zio_block	*user_block;	/* being transferred w/ user */
 	struct mutex		user_lock;
 	struct zio_block	*active_block;	/* being managed by hardware */
+
+	void			(*change_flags)(struct zio_obj_head *head,
+						unsigned long mask);
 };
 
 /* first 4bit are reserved for zio object universal flags */

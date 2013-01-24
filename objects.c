@@ -710,6 +710,7 @@ static int chan_register(struct zio_channel *chan, struct zio_channel *chan_t)
 	dev_set_name(&chan->head.dev, chan->head.name);
 	chan->head.dev.type = &chan_device_type;
 	chan->head.dev.parent = &chan->cset->head.dev;
+	chan->change_flags = chan_t->change_flags;
 	err = device_register(&chan->head.dev);
 	if (err)
 		goto out_ctrl_bits;
@@ -1086,7 +1087,7 @@ int __zdev_register(struct zio_device *parent,
 	zdev->preferred_buffer = tmpl->preferred_buffer;
 	zdev->preferred_trigger = tmpl->preferred_trigger;
 	zdev->n_cset = tmpl->n_cset;
-
+	zdev->change_flags = tmpl->change_flags;
 
 	if (tmpl->zattr_set.std_zattr)
 		tmpl->zattr_set.n_std_attr = _ZIO_DEV_ATTR_STD_NUM;
