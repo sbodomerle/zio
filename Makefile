@@ -23,6 +23,10 @@ modules_install:
 	$(MAKE) -C $(LINUX) M=$(shell /bin/pwd) $@
 
 
+coccicheck:
+	$(MAKE) -C $(LINUX) M=$(shell /bin/pwd) coccicheck
+
+
 .PHONY: tools
 
 tools:
