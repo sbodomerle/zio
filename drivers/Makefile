@@ -27,3 +27,7 @@ ifdef CONFIG_SPI
 obj-m += zio-ad788x.o
 obj-m += zio-smb380.o
 endif
+
+ifdef CONFIG_SOC_AT91SAM9260
+obj-m += zio-at91-adc.o
+endif
