@@ -79,7 +79,7 @@ struct zio_ffa *zio_ffa_create(unsigned long begin, unsigned long end)
 	if (!ffa || !c) {
 		kfree(ffa);
 		kfree(c);
-		return ffa;
+		return NULL;
 	}
 	spin_lock_init(&ffa->lock);
 	INIT_LIST_HEAD(&c->list);
