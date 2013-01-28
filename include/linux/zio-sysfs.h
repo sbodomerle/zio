@@ -10,8 +10,9 @@
 #include <linux/zio-user.h>
 
 /* ZIO default permissions */
-#define ZIO_RW_PERM (S_IRUGO | S_IWUSR | S_IWGRP)
 #define ZIO_RO_PERM (S_IRUGO)
+#define ZIO_WO_PERM (S_IWUSR | S_IWGRP)
+#define ZIO_RW_PERM (ZIO_RO_PERM | ZIO_WO_PERM)
 
 /*
  * zio_attribute: the attribute to access device parameters.
