@@ -438,6 +438,14 @@ int zio_change_current_trigger(struct zio_cset *cset, char *name)
 	if (IS_ERR(trig))
 		return PTR_ERR(trig);
 
+	if ((cset->flags & ZIO_DIR_OUTPUT) && !trig->t_op->push_block) {
+		dev_err(&cset->head.dev, 
+			"%s: trigger \"%s\" lacks mandatory push_block operation\n",
+			__func__, name);
+		err = -EINVAL;
+		goto out_put;
+	}
+
 	/* Create and register the new trigger instance */
 	ti = __ti_create(trig, cset, "trigger-tmp");
 	if (IS_ERR(ti)) {
@@ -1381,6 +1389,7 @@ int zio_register_trig(struct zio_trigger_type *trig, const char *name)
 	err = zobj_unique_name(&zstat->all_trigger_types, name);
 	if (err)
 		return err < 0 ? err : -EBUSY;
+
 	strncpy(trig->head.name, name, ZIO_OBJ_NAME_LEN);
 	trig->head.zobj_type = ZIO_TRG;
 	err = zobj_register(&zstat->all_trigger_types, &trig->head,
