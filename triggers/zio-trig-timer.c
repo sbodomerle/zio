@@ -13,6 +13,7 @@
 #include <linux/slab.h>
 #include <linux/timer.h>
 #include <linux/jiffies.h>
+#include <linux/types.h>
 
 #include <linux/zio.h>
 #include <linux/zio-sysfs.h>
@@ -25,6 +26,9 @@ struct ztt_instance {
 	unsigned long next_run;
 	unsigned long period; /* internal: jiffies */
 	unsigned long phase; /* internal: jiffies */
+
+	unsigned int infinite; /* 0: if not infinite */
+	uint32_t nshots_left; /* internal: number of shots left */
 };
 #define to_ztt_instance(ti) container_of(ti, struct ztt_instance, ti)
 
@@ -32,9 +36,12 @@ enum ztt_attrs { /* names for the "addr" value of sw parameters */
 	ZTT_ATTR_NSAMPLES = 0,
 	ZTT_ATTR_PERIOD,
 	ZTT_ATTR_PHASE,
+	ZTT_ATTR_NSHOTS,
 };
 
 static ZIO_ATTR_DEFINE_STD(ZIO_TRG, ztt_std_attr) = {
+	ZIO_ATTR(trig, ZIO_ATTR_TRIG_N_SHOTS, ZIO_RW_PERM,
+		 ZTT_ATTR_NSHOTS, 0),
 	ZIO_ATTR(trig, ZIO_ATTR_TRIG_POST_SAMP, ZIO_RW_PERM,
 		 ZTT_ATTR_NSAMPLES, 16),
 };
@@ -43,6 +50,8 @@ static struct zio_attribute ztt_ext_attr[] = {
 	ZIO_ATTR_EXT("ms-period", ZIO_RW_PERM, ZTT_ATTR_PERIOD, 2000),
 	ZIO_ATTR_EXT("ms-phase", ZIO_RW_PERM, ZTT_ATTR_PHASE, 0),
 };
+
+static void ztt_start_timer(struct ztt_instance *ztt);
 
 /* This recalculates next_run according to period and phase */
 static void ztt_resync(struct ztt_instance *ztt)
@@ -74,6 +83,8 @@ static int ztt_conf_set(struct device *dev, struct zio_attribute *zattr,
 	ztt = to_ztt_instance(ti);
 	switch (zattr->id) {
 	case ZTT_ATTR_PERIOD:
+		if (!usr_val) /* period cannot be 0 */
+			return -EINVAL;
 		/*
 		 * Writing the period doesn't force a resync,
 		 * in order to allow for a slowly-changing rate
@@ -98,6 +109,12 @@ static int ztt_conf_set(struct device *dev, struct zio_attribute *zattr,
 	case ZTT_ATTR_NSAMPLES:
 		/* Nothing to do */
 		break;
+	case ZTT_ATTR_NSHOTS:
+		/* For trigger timer the meaning of nshots=0 if infinite */
+		ztt->infinite =  !usr_val ? 1 : 0;
+		ztt->nshots_left = usr_val;
+		ztt_start_timer(ztt);
+		break;
 	default:
 		pr_err("%s: unknown \"addr\" 0x%lx for configuration\n",
 				__func__, zattr->id);
@@ -114,13 +131,16 @@ static struct zio_sysfs_operations ztt_s_ops = {
 static void ztt_fn(unsigned long arg)
 {
 	struct zio_ti *ti = (void *)arg;
-	struct ztt_instance *ztt;
+	struct ztt_instance *ztt = to_ztt_instance(ti);
+
+	if (!ztt->infinite) {
+		if (ztt->nshots_left > 0)
+			ztt->nshots_left--;
+		else
+			return; /* All shots done! */
+	}
 
 	zio_arm_trigger(ti);
-
-	ztt = to_ztt_instance(ti);
-	if (!ztt->period)
-		return; /* one-shot */
 
 	ztt->next_run += ztt->period;
 	mod_timer(&ztt->timer, ztt->next_run);
@@ -172,6 +192,7 @@ static struct zio_ti *ztt_create(struct zio_trigger_type *trig,
 	/* Fill own fields */
 	setup_timer(&ztt->timer, ztt_fn,
 		    (unsigned long)(&ztt->ti));
+	ztt->infinite = 1;
 	ztt->period = msecs_to_jiffies(ztt_ext_attr[0].value);
 	ztt->phase = msecs_to_jiffies(ztt_ext_attr[1].value);
 	ztt_start_timer(ztt);
