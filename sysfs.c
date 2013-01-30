@@ -38,7 +38,7 @@ const char zio_zdev_attr_names[_ZIO_DEV_ATTR_STD_NUM][ZIO_NAME_LEN] = {
 EXPORT_SYMBOL(zio_zdev_attr_names);
 
 const char zio_trig_attr_names[_ZIO_TRG_ATTR_STD_NUM][ZIO_NAME_LEN] = {
-	[ZIO_ATTR_TRIG_REENABLE]	= "re-enable",
+	[ZIO_ATTR_TRIG_N_SHOTS]		= "nshots",
 	[ZIO_ATTR_TRIG_PRE_SAMP]	= "pre-samples",
 	[ZIO_ATTR_TRIG_POST_SAMP]	= "post-samples",
 };

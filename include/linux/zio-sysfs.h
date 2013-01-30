@@ -80,7 +80,7 @@ enum zio_dev_std_attr {
 	_ZIO_DEV_ATTR_STD_NUM,	/* used to size arrays */
 };
 enum zio_trg_std_attr {
-	ZIO_ATTR_TRIG_REENABLE = 0,/* re-arm trigger */
+	ZIO_ATTR_TRIG_N_SHOTS = 0,/* trigger programmed shots (0: infinite) */
 	ZIO_ATTR_TRIG_POST_SAMP,	/* samples after trigger fire */
 	ZIO_ATTR_TRIG_PRE_SAMP,	/* samples before trigger fire */
 	_ZIO_TRG_ATTR_STD_NUM,	/* used to size arrays */
