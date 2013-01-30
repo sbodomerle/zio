@@ -273,6 +273,20 @@ static inline struct zio_channel *zio_first_enabled_chan(struct zio_cset *cset,
 		     (cptr = zio_first_enabled_chan(cset, cptr));	\
 		     cptr++)
 
+/*
+ * zio_all_block_ready
+ * It returns 1 if all channels have an active_block, otherwise it returns 0
+ */
+static inline unsigned int zio_all_block_ready(struct zio_cset *cset)
+{
+	struct zio_channel *chan;
+
+	chan_for_each(chan, cset)
+		if (!chan->active_block)
+			return 0;
+	return 1;
+}
+
 /* Use this in defining csets */
 #define ZIO_SET_OBJ_NAME(_name) .head = {.name = _name}
 
