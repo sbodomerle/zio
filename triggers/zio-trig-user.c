@@ -36,6 +36,38 @@ struct zio_sysfs_operations ztu_s_ops = {
 	.conf_set = ztu_conf_set,
 };
 
+/*
+ * zio_all_block_ready
+ * It returns 1 if all channels have an active_block, otherwise it returns 0
+ */
+static inline unsigned int zio_all_block_ready(struct zio_cset *cset)
+{
+	struct zio_channel *chan;
+
+	chan_for_each(chan, cset)
+		if (!chan->active_block)
+			return 0;
+	return 1;
+}
+
+static int ztu_data_done(struct zio_cset *cset)
+{
+	int rearm;
+
+	rearm = zio_generic_data_done(cset);
+
+	/* if it is self timed, return immediately and force re-arming */
+	if (rearm)
+		return rearm;
+
+	/* If it is input, do not force re-arm (it will be done by the user) */
+	if ((cset->flags & ZIO_DIR) == ZIO_DIR_INPUT)
+		return 0;
+
+	/* If it is output and all blocks are ready, we must force re-arming */
+	return zio_all_block_ready(cset);
+}
+
 /* The buffer pushes a block if it has none queued and one is written */
 static int ztu_push_block(struct zio_ti *ti, struct zio_channel *chan,
 			  struct zio_block *block)
@@ -48,10 +80,8 @@ static int ztu_push_block(struct zio_ti *ti, struct zio_channel *chan,
 	chan->active_block = block;
 
 	/* If all enabled channels are ready, tell hardware we are ready */
-	chan_for_each(chan, cset)
-		if (!chan->active_block)
-			return 0;
-	zio_arm_trigger(ti);
+	if (zio_all_block_ready(cset))
+		zio_arm_trigger(ti);
 	return 0;
 }
 
@@ -97,6 +127,7 @@ static void ztu_destroy(struct zio_ti *ti)
 }
 
 static const struct zio_trigger_operations ztu_trigger_ops = {
+	.data_done = ztu_data_done,
 	.push_block = ztu_push_block,
 	.pull_block = ztu_pull_block,
 	.config = ztu_config,
