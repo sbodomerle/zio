@@ -41,7 +41,7 @@ int __zio_trigger_abort_disable(struct zio_cset *cset, int disable)
 {
 	struct zio_ti *ti = cset->ti;
 	unsigned long flags;
-	int ret;
+	int ret = 0;
 
 	spin_lock_irqsave(&cset->lock, flags);
 
@@ -57,10 +57,18 @@ int __zio_trigger_abort_disable(struct zio_cset *cset, int disable)
 	 * there is no concurrency with an already-completing trigger event.
 	 */
 	if (ti->flags & ZIO_TI_ARMED) {
+		if (ti->cset->stop_io) {
+			ret = ti->cset->stop_io(ti->cset);
+			if (ret)
+				goto out;
+		}
+
+		/*
+		 * The device successfully stopped the acquisition. we can
+		 * safely abort the trigger
+		 */
 		if (ti->t_op->abort)
 			ti->t_op->abort(ti);
-		else if (ti->cset->stop_io)
-			ti->cset->stop_io(ti->cset);
 		else
 			__zio_internal_abort_free(cset);
 		ti->flags &= (~ZIO_TI_ARMED);
@@ -68,6 +76,7 @@ int __zio_trigger_abort_disable(struct zio_cset *cset, int disable)
 	ret = ti->flags & ZIO_STATUS;
 	if (disable)
 		ti->flags |= ZIO_DISABLED;
+out:
 	spin_unlock_irqrestore(&cset->lock, flags);
 	return ret;
 }
