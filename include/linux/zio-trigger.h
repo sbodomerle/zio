@@ -90,7 +90,7 @@ struct zio_trigger_operations {
 	void			(*pull_block)(struct zio_ti *ti,
 					      struct zio_channel *chan);
 
-	void			(*data_done)(struct zio_cset *cset);
+	int			(*data_done)(struct zio_cset *cset);
 
 	int			(*config)(struct zio_ti *ti,
 					  struct zio_control *ctrl);
@@ -105,7 +105,7 @@ struct zio_trigger_operations {
 	void			(*abort)(struct zio_ti *ti);
 };
 
-void zio_trigger_data_done(struct zio_cset *cset);
+int zio_trigger_data_done(struct zio_cset *cset);
 int zio_trigger_abort_disable(struct zio_cset *cset, int disable);
 
 /*
@@ -113,9 +113,13 @@ int zio_trigger_abort_disable(struct zio_cset *cset, int disable);
  * If no trigger-specific function is specified, the core calls this one.
  * This can also be called by cset->stop_io to return partial blocks.
  * The function is called while holding the cset spin lock.
+ *
+ * The function returns 1 if the trigger must be rearmed automatically,
+ * otherwise, it returns 0.
  */
-static inline void zio_generic_data_done(struct zio_cset *cset)
+static inline int zio_generic_data_done(struct zio_cset *cset)
 {
+	int self_timed = cset->flags & ZIO_CSET_SELF_TIMED;
 	struct zio_buffer_type *zbuf;
 	struct zio_channel *chan;
 	struct zio_block *block;
@@ -155,11 +159,13 @@ static inline void zio_generic_data_done(struct zio_cset *cset)
 		chan->active_block = NULL;
 	}
 	if (likely((ti->flags & ZIO_DIR) == ZIO_DIR_INPUT))
-		return;
+		return (self_timed ? 1 : 0);
 
 	/* Only for output: prepare the next event if any is ready */
 	chan_for_each(chan, cset)
 		chan->active_block = zio_buffer_retr_block(chan->bi);
+
+	return (self_timed ? 1 : 0);
 }
 
 /**

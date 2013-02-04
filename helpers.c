@@ -162,33 +162,37 @@ EXPORT_SYMBOL(zio_arm_trigger);
  * transfer is over and we need to complete the operation. The trigger
  * is in "ARMED" state when this is called, and is not any more when
  * the function returns. Please note that  we keep the cset lock
- * for the duration of the whole function, which must be atomic
+ * for the duration of the whole function, which must be atomic.
+ *
+ * The data_done trigger operation returns an integer [0, 1] which mean if the
+ * trigger must be re-armed or not. The rearm value it is returned to the caller
+ * to notify if the trigger was rearmed or not.
  */
-void zio_trigger_data_done(struct zio_cset *cset)
+int zio_trigger_data_done(struct zio_cset *cset)
 {
-	int self_timed = cset->flags & ZIO_CSET_SELF_TIMED;
-
 	unsigned long flags;
+	int rearm;
 
 	spin_lock_irqsave(&cset->lock, flags);
 
 	if (cset->ti->t_op->data_done)
-		cset->ti->t_op->data_done(cset);
+		rearm = cset->ti->t_op->data_done(cset);
 	else
-		zio_generic_data_done(cset);
+		rearm = zio_generic_data_done(cset);
 
 	cset->ti->flags &= ~ZIO_TI_ARMED;
 	spin_unlock_irqrestore(&cset->lock, flags);
 
 	/*
-	 * If it is self-timed, re-arm the trigger immediately.
 	 * zio_arm_trigger() needs to lock, so it's correct we
 	 * released the lock above. No race is expected, because
 	 * self-timed devices need to run the transparent trigger. But
 	 * if the cset is misconfigured and somebody arm the trigger
 	 * in this small window, no harm is done anyways.
 	 */
-	if (self_timed)
+	if (rearm == 1)
 		zio_arm_trigger(cset->ti);
+
+	return rearm;
 }
 EXPORT_SYMBOL(zio_trigger_data_done);
