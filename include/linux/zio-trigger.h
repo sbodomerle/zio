@@ -150,8 +150,7 @@ static inline void zio_generic_data_done(struct zio_cset *cset)
 		} else { /* DIR_INPUT */
 			memcpy(zio_get_ctrl(block), ctrl,
 			       zio_control_size(chan));
-			if (zbuf->b_op->store_block(bi, block))
-				zbuf->b_op->free_block(bi, block);
+			zio_buffer_store_block(bi, block);
 		}
 		chan->active_block = NULL;
 	}
@@ -160,7 +159,7 @@ static inline void zio_generic_data_done(struct zio_cset *cset)
 
 	/* Only for output: prepare the next event if any is ready */
 	chan_for_each(chan, cset)
-		chan->active_block = zbuf->b_op->retr_block(chan->bi);
+		chan->active_block = zio_buffer_retr_block(chan->bi);
 }
 
 #endif /* __ZIO_TRIGGER_H__ */

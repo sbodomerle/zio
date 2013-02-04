@@ -86,7 +86,7 @@ static int __zio_arm_input_trigger(struct zio_ti *ti)
 		ctrl = chan->current_ctrl;
 		ctrl->nsamples = ti->nsamples;
 		datalen = ctrl->ssize * ti->nsamples;
-		block = zbuf->b_op->alloc_block(chan->bi, datalen, GFP_ATOMIC);
+		block = zio_buffer_alloc_block(chan->bi, datalen, GFP_ATOMIC);
 		/* If alloc error, it is reported at data_done time */
 		chan->active_block = block;
 	}
@@ -98,7 +98,7 @@ static int __zio_arm_input_trigger(struct zio_ti *ti)
 		dev_err(&ti->head.dev,
 			"raw_io failed (%i), cannot arm trigger\n", i);
 		chan_for_each(chan, cset) {
-			zbuf->b_op->free_block(chan->bi, chan->active_block);
+			zio_buffer_free_block(chan->bi, chan->active_block);
 		}
 	}
 
@@ -192,4 +192,3 @@ void zio_trigger_data_done(struct zio_cset *cset)
 		zio_arm_trigger(cset->ti);
 }
 EXPORT_SYMBOL(zio_trigger_data_done);
-
