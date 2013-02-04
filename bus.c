@@ -205,6 +205,11 @@ static int _zdev_template_check_and_init(struct zio_device *zdev,
 	int i;
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
+	if (!zdev) {
+		pr_err("%s:%d missing zio_device template\n",
+				__func__, __LINE__);
+		return -EINVAL;
+	}
 	if (!zdev->owner) {
 		/* FIXME I can use driver->owner */
 		dev_err(&zdev->head.dev, "device template %s has no owner\n",
