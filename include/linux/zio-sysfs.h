@@ -86,7 +86,7 @@ enum zio_dev_std_attr {
 };
 enum zio_trg_std_attr {
 	ZIO_ATTR_TRIG_N_SHOTS = 0,/* trigger programmed shots (0: infinite) */
-	ZIO_ATTR_TRIG_POST_SAMP,	/* samples after trigger fire */
+	ZIO_ATTR_TRIG_POST_SAMP,/* samples after trigger fire */
 	ZIO_ATTR_TRIG_PRE_SAMP,	/* samples before trigger fire */
 
 	/* Specials attributes */
@@ -95,7 +95,7 @@ enum zio_trg_std_attr {
 	_ZIO_TRG_ATTR_STD_NUM,	/* used to size arrays and check ZIO */
 };
 enum zio_buf_std_attr {
-	ZIO_ATTR_ZBUF_MAXLEN = 0,	/* max number of element in buffer */
+	ZIO_ATTR_ZBUF_MAXLEN = 0,/* max number of element in buffer */
 	ZIO_ATTR_ZBUF_MAXKB,	/* max number of kB in buffer */
 
 	/* Specials attributes */

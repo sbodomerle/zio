@@ -1210,7 +1210,7 @@ int zio_register_trig(struct zio_trigger_type *trig, const char *name)
 	return 0;
 
 err_nsamp:
-	pr_err("%s: trigger \"%s\" lacks mandatory \"pre-sample\" or"
+	pr_err("%s: trigger \"%s\" lacks mandatory \"pre-sample\" or "
 		"\"post-sample\" attribute", __func__, name);
 	return -EINVAL;
 }
