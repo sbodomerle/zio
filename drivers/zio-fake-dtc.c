@@ -41,11 +41,13 @@ static enum hrtimer_restart zdtc_fn(struct hrtimer *timer)
  * The function is called in locked context. Here is it only used
  * for the data cset, so we can just return the partial block.
  */
-static void zdtc_stop_io(struct zio_cset *cset)
+static int zdtc_stop_io(struct zio_cset *cset)
 {
 	dev_dbg(&cset->head.dev, "%s\n", __func__);
 	hrtimer_cancel(&zdtc.timer);
 	zio_generic_data_done(cset);
+
+	return 0;
 }
 
 /* raw_io method: arm the timer with the currently requested time */

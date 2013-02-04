@@ -83,7 +83,7 @@ irqreturn_t ztdc_handler(int irq, void *dev_id)
  * The function is called in locked context. Here is it only used
  * for the data cset, so we can just return the partial block.
  */
-static void ztdc_stop_io(struct zio_cset *cset)
+static int ztdc_stop_io(struct zio_cset *cset)
 {
 	struct zio_channel *chan;
 	struct zio_block *block;
@@ -104,6 +104,8 @@ static void ztdc_stop_io(struct zio_cset *cset)
 		}
 	}
 	zio_generic_data_done(cset);
+
+	return 0;
 }
 
 /* raw_io method */
