@@ -202,6 +202,14 @@ static int __zio_trigger_data_done(struct zio_cset *cset)
 	else
 		must_rearm = zio_generic_data_done(cset);
 
+	/*
+	 * Inform device that all acquisition is done, so it can stop
+	 * the acquisition. ZIO invokes stop_io before reset the ARMED
+	 * flags to avoid stop_io to rearm the trigger.
+	 */
+	if (cset->stop_io)
+		rearm = cset->stop_io(cset);
+
 	cset->ti->flags &= ~ZIO_TI_ARMED;
 	spin_unlock_irqrestore(&cset->lock, flags);
 
