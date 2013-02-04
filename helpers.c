@@ -91,8 +91,17 @@ static int __zio_arm_input_trigger(struct zio_ti *ti)
 		chan->active_block = block;
 	}
 	i = cset->raw_io(cset);
-	if (!i)
+	if (!i) {
 		zio_trigger_data_done(cset); /* Succeeded */
+	} else if (i != -EAGAIN) {
+		/* Error: Free blocks */
+		dev_err(&ti->head.dev,
+			"raw_io failed (%i), cannot arm trigger\n", i);
+		chan_for_each(chan, cset) {
+			zbuf->b_op->free_block(chan->bi, chan->active_block);
+		}
+	}
+
 	return i;
 }
 
