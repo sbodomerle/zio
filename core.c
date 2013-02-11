@@ -83,6 +83,11 @@ static int __init zio_init(void)
 {
 	int err;
 
+	/* The attribute 'version' must be the last attributes */
+	BUILD_BUG_ON(_ZIO_DEV_ATTR_STD_NUM != ZIO_ATTR_VERSION + 1);
+	BUILD_BUG_ON(_ZIO_TRG_ATTR_STD_NUM != ZIO_ATTR_VERSION + 1);
+	BUILD_BUG_ON(_ZIO_BUF_ATTR_STD_NUM != ZIO_ATTR_VERSION + 1);
+
 	/* Some compile-time checks, so developers are free to hack around */
 	BUILD_BUG_ON(_ZIO_DEV_ATTR_STD_NUM != ARRAY_SIZE(zio_zdev_attr_names));
 	BUILD_BUG_ON(_ZIO_BUF_ATTR_STD_NUM != ARRAY_SIZE(zio_zbuf_attr_names));

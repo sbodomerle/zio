@@ -34,6 +34,7 @@ const char zio_zdev_attr_names[_ZIO_DEV_ATTR_STD_NUM][ZIO_NAME_LEN] = {
 	[ZIO_ATTR_NBITS]		= "resolution-bits",
 	[ZIO_ATTR_MAXRATE]		= "max-sample-rate",
 	[ZIO_ATTR_VREFTYPE]		= "vref-src",
+	[ZIO_ATTR_DEV_VERSION]	= "version",
 };
 EXPORT_SYMBOL(zio_zdev_attr_names);
 
@@ -41,12 +42,14 @@ const char zio_trig_attr_names[_ZIO_TRG_ATTR_STD_NUM][ZIO_NAME_LEN] = {
 	[ZIO_ATTR_TRIG_N_SHOTS]		= "nshots",
 	[ZIO_ATTR_TRIG_PRE_SAMP]	= "pre-samples",
 	[ZIO_ATTR_TRIG_POST_SAMP]	= "post-samples",
+	[ZIO_ATTR_TRIG_VERSION]		= "version",
 };
 EXPORT_SYMBOL(zio_trig_attr_names);
 
 const char zio_zbuf_attr_names[_ZIO_BUF_ATTR_STD_NUM][ZIO_NAME_LEN] = {
 	[ZIO_ATTR_ZBUF_MAXLEN]	= "max-buffer-len",
 	[ZIO_ATTR_ZBUF_MAXKB]	= "max-buffer-kb",
+	[ZIO_ATTR_ZBUF_VERSION]	= "version",
 };
 EXPORT_SYMBOL(zio_zbuf_attr_names);
 
@@ -859,6 +862,24 @@ struct device_type bi_device_type = {
 	.groups = def_bi_groups_ptr,
 };
 
+
+static ssize_t zio_show_attr_version(struct device *dev,
+					 struct device_attribute *attr,
+					 char *buf)
+{
+	struct zio_attribute *zattr = to_zio_zattr(attr);
+	unsigned int major, minor, flags;
+
+	major = (zattr->value & 0xFF000000) >> 24;
+	minor = (zattr->value & 0x00FF0000) >> 16;
+	flags = (zattr->value & 0xFFFF);
+	if (flags)
+		return sprintf(buf, "%d.%d 0x%04x\n", major, minor, flags);
+	else
+		return sprintf(buf, "%d.%d\n", major, minor);
+}
+
+
 int __check_dev_zattr(struct zio_attribute_set *parent,
 		      struct zio_attribute_set *this)
 {
@@ -959,9 +980,13 @@ int zattr_set_create(struct zio_obj_head *head,
 		case 0:
 			/* valid attribute */
 			groups[g]->attrs[a_count++] = attr;
-			zattr_set->std_zattr[i].attr.show = zattr_show;
-			zattr_set->std_zattr[i].attr.store = zattr_store;
-			zattr_set->std_zattr[i].s_op = s_op;
+			if (i == ZIO_ATTR_VERSION) {
+				zattr->attr.show = zio_show_attr_version;
+			} else { /* All other attributes */
+				zattr_set->std_zattr[i].attr.show = zattr_show;
+				zattr_set->std_zattr[i].attr.store = zattr_store;
+				zattr_set->std_zattr[i].s_op = s_op;
+			}
 			zattr_set->std_zattr[i].index = i;
 			break;
 		case -EINVAL: /* unused std attribute */

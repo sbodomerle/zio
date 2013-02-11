@@ -71,24 +71,37 @@ struct zio_attribute_set {
 	unsigned int		n_ext_attr;
 };
 
+#define ZIO_ATTR_VERSION (ZIO_MAX_STD_ATTR - 1)
 enum zio_dev_std_attr {
 	ZIO_ATTR_NBITS,	/* number of bits per sample */
 	ZIO_ATTR_GAIN,	/* gain for signal, integer in 0.001 steps */
 	ZIO_ATTR_OFFSET,	/* microvolts */
 	ZIO_ATTR_MAXRATE,	/* hertz */
 	ZIO_ATTR_VREFTYPE,	/* source of Vref (0 = default) */
-	_ZIO_DEV_ATTR_STD_NUM,	/* used to size arrays */
+
+	/* Specials attributes */
+	ZIO_ATTR_DEV_VERSION = ZIO_ATTR_VERSION,	/* attribute set version */
+
+	_ZIO_DEV_ATTR_STD_NUM,	/* used to size arrays and check ZIO */
 };
 enum zio_trg_std_attr {
 	ZIO_ATTR_TRIG_N_SHOTS = 0,/* trigger programmed shots (0: infinite) */
 	ZIO_ATTR_TRIG_POST_SAMP,	/* samples after trigger fire */
 	ZIO_ATTR_TRIG_PRE_SAMP,	/* samples before trigger fire */
-	_ZIO_TRG_ATTR_STD_NUM,	/* used to size arrays */
+
+	/* Specials attributes */
+	ZIO_ATTR_TRIG_VERSION = ZIO_ATTR_VERSION,	/* attribute set version */
+
+	_ZIO_TRG_ATTR_STD_NUM,	/* used to size arrays and check ZIO */
 };
 enum zio_buf_std_attr {
 	ZIO_ATTR_ZBUF_MAXLEN = 0,	/* max number of element in buffer */
 	ZIO_ATTR_ZBUF_MAXKB,	/* max number of kB in buffer */
-	_ZIO_BUF_ATTR_STD_NUM,	/* used to size arrays */
+
+	/* Specials attributes */
+	ZIO_ATTR_ZBUF_VERSION = ZIO_ATTR_VERSION,	/* attribute set version */
+
+	_ZIO_BUF_ATTR_STD_NUM,	/* used to size arrays and check ZIO */
 };
 enum zio_chn_bin_attr {
 	ZIO_BIN_CTRL = 0,	/* current control */
@@ -107,7 +120,6 @@ extern const char zio_zbuf_attr_names[_ZIO_BUF_ATTR_STD_NUM][ZIO_NAME_LEN];
  * @ZIO_ATTR: define a zio attribute
  * @ZIO_ATTR_EXT: define a zio extended attribute
  * @ZIO_PARAM_EXT: define a zio attribute parameter (not included in ctrl)
-
  */
 #define ZIO_ATTR(zobj, _type, _mode, _add, _val)[_type] = {		\
 		.attr = {						\
@@ -133,5 +145,24 @@ extern const char zio_zbuf_attr_names[_ZIO_BUF_ATTR_STD_NUM][ZIO_NAME_LEN];
 		.flags = 0,						\
 }
 
+/*
+ * This macro defines the standard attribute 'version' for an attribute_set of
+ * a zio object. In the macro there is an explicit reference to the device
+ * (zdev) but it does not care because the show function and the sysfs name it
+ * is the same for every ZIO object.
+ *
+ * The ZIO core handles directly this attribute without useing the driver,
+ * trigger or buffer sysfs operations
+ */
+#define ZIO_SET_ATTR_VERSION(_hexversion) \
+	ZIO_ATTR(zdev, ZIO_ATTR_VERSION, ZIO_RO_PERM, 0, _hexversion)
+
+/*
+ * The attribute set version is in the format (a.b c). Fields 'a' and 'b' are
+ * the major and minor version number. The field 'c' is free choice of the
+ * driver developer
+ */
+#define ZIO_HEX_VERSION(_a, _b, _c) (((_a & 0xFF) << 24) + \
+		((_b & 0xFF) << 16) + (_c & 0xFFFF))
 
 #endif /* ZIO_SYSFS_H_ */

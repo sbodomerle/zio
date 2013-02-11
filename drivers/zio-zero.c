@@ -15,8 +15,15 @@
 #include <linux/zio.h>
 #include <linux/zio-buffer.h>
 
+#define ZZERO_VERSION ZIO_HEX_VERSION(1, 1, 0)
+
 ZIO_PARAM_TRIGGER(zzero_trigger);
 ZIO_PARAM_BUFFER(zzero_buffer);
+
+
+ZIO_ATTR_DEFINE_STD(ZIO_DEV, zzero_zattr_dev) = {
+	ZIO_SET_ATTR_VERSION(ZZERO_VERSION),
+};
 
 ZIO_ATTR_DEFINE_STD(ZIO_DEV, zzero_zattr_cset8) = {
 	/* 8 bit -> ssize = 1 */
@@ -154,6 +161,9 @@ static struct zio_device zzero_tmpl = {
 	.cset =			zzero_cset,
 	.n_cset =		ARRAY_SIZE(zzero_cset),
 	.s_op =			&zzero_sysfs_ops,
+	.zattr_set = {
+		.std_zattr = zzero_zattr_dev,
+	}
 };
 
 static struct zio_device *zzero_dev;
