@@ -942,6 +942,7 @@ int zattr_set_create(struct zio_obj_head *head,
 	int i, err, a_count, g_count = 0, g = 0;
 	const struct attribute_group **groups;
 	struct zio_attribute_set *zattr_set;
+	struct zio_attribute *zattr;
 	struct attribute *attr;
 
 	pr_debug("%s\n", __func__);
@@ -974,7 +975,8 @@ int zattr_set_create(struct zio_obj_head *head,
 	if (IS_ERR(groups[g]))
 		return PTR_ERR(groups[g]);
 	for (i = 0, a_count = 0; i < zattr_set->n_std_attr; ++i) {
-		attr = &zattr_set->std_zattr[i].attr.attr;
+		zattr = &zattr_set->std_zattr[i];
+		attr = &zattr->attr.attr;
 		err = __check_attr(attr, s_op);
 		switch (err) {
 		case 0:
@@ -983,14 +985,14 @@ int zattr_set_create(struct zio_obj_head *head,
 			if (i == ZIO_ATTR_VERSION) {
 				zattr->attr.show = zio_show_attr_version;
 			} else { /* All other attributes */
-				zattr_set->std_zattr[i].attr.show = zattr_show;
-				zattr_set->std_zattr[i].attr.store = zattr_store;
-				zattr_set->std_zattr[i].s_op = s_op;
+				zattr->attr.show = zattr_show;
+				zattr->attr.store = zattr_store;
+				zattr->s_op = s_op;
 			}
-			zattr_set->std_zattr[i].index = i;
+			zattr->index = i;
 			break;
 		case -EINVAL: /* unused std attribute */
-			zattr_set->std_zattr[i].index = ZIO_ATTR_INDEX_NONE;
+			zattr->index = ZIO_ATTR_INDEX_NONE;
 			break;
 		default:
 			return err;
@@ -1005,17 +1007,19 @@ ext:
 	if (IS_ERR(groups[g]))
 		return PTR_ERR(groups[g]);
 	for (i = 0, a_count = 0; i < zattr_set->n_ext_attr; ++i) {
-		attr = &zattr_set->ext_zattr[i].attr.attr;
+		zattr = &zattr_set->ext_zattr[i];
+		attr = &zattr->attr.attr;
 		err = __check_attr(attr, s_op);
 		if (err)
 			return err;
 		/* valid attribute */
 		groups[g]->attrs[a_count++] = attr;
-		zattr_set->ext_zattr[i].attr.show = zattr_show;
-		zattr_set->ext_zattr[i].attr.store = zattr_store;
-		zattr_set->ext_zattr[i].s_op = s_op;
-		zattr_set->ext_zattr[i].index = i;
-		zattr_set->ext_zattr[i].flags |= ZIO_ATTR_TYPE_EXT;
+
+		zattr->attr.show = zattr_show;
+		zattr->attr.store = zattr_store;
+		zattr->s_op = s_op;
+		zattr->index = i;
+		zattr->flags |= ZIO_ATTR_TYPE_EXT;
 	}
 	++g;
 
