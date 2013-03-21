@@ -1,0 +1,50 @@
+Where:		/sys/bus/zio/devices/<zdev>/<cset>/<chan>/buffer/
+Date:		April 2013
+Kernel Version:	3.x
+Contact:	zio@ohwr.org (mailing list)
+Description:	This is a collection of ZIO buffer attributes. It
+		contains both: standard attributes (described later) and
+		extended attributes defined by each driver (not described
+		in this document). This collection refers to a single
+		instance of a buffer implementation. Each buffer
+		implementation can decide to support or not the standard
+		attributes; if it supports the standard attributes it
+		works as described in this document.
+
+		Finally, remember that there is a buffer instance of the
+		same implementation for	each channel within the same
+		channel-set of your devices
+
+		Note: The permission on the standard attributes depend on
+		the buffer implementation
+Users:
+
+
+Where:		/sys/bus/zio/devices/<zdev>/<cset>/<chan>/buffer/version
+Date:		April 2013
+Kernel Version:	3.x
+Contact:	zio@ohwr.org (mailing list)
+Description:	This attribute define the version of the collection of
+		attributes that a buffer implementation exports. A
+		collection can change during the time. This attribute allow
+		an user-space program to recognize if it can work with a
+		particular version or not
+Users:
+
+
+Where:		/sys/bus/zio/devices/<zdev>/<cset>/<chan>/buffer/max-buffer-len
+Date:		April 2013
+Kernel Version:	3.x
+Contact:	zio@ohwr.org (mailing list)
+Description:	This attribute define the maximum number of blocks that
+		the buffer instance can store.
+Users:
+
+
+Where:		/sys/bus/zio/devices/<zdev>/<cset>/<chan>/buffer/max-buffer-kb
+Date:		April 2013
+Kernel Version:	3.x
+Contact:	zio@ohwr.org (mailing list)
+Description:	This attribute define the maximum kilo-byte of data (only
+		data not block) that the buffer instance can store.
+Users:

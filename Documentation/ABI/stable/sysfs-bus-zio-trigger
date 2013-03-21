@@ -1,0 +1,61 @@
+Where:		/sys/bus/zio/devices/<zdev>/<cset>/trigger/
+Date:		April 2013
+Kernel Version:	3.x
+Contact:	zio@ohwr.org (mailing list)
+Description:	This is a collection of ZIO trigger attributes. It
+		contains both: standard attributes (described later) and
+		extended attributes defined by each driver (not described
+		in this document). This collection refers to a single
+		instance of a trigger implementation. Each trigger
+		implementation can decide to support or not the standard
+		attributes; if it supports the standard attributes it
+		works as described in this document.
+
+		Finally, remember that there is a trigger instance of the
+		same implementation for	each channel-set of your devices
+
+		Note: The permission on the standard attributes depend on
+		the trigger implementation
+Users:
+
+
+Where:		/sys/bus/zio/devices/<zdev>/<cset>/trigger/version
+Date:		April 2013
+Kernel Version:	3.x
+Contact:	zio@ohwr.org (mailing list)
+Description:	This attribute define the version of the collection of
+		attributes that a trigger implementation exports. A
+		collection can change during the time. This attribute allow
+		an user-space program to recognize if it can work with a
+		particular version or not
+Users:
+
+
+Where:		/sys/bus/zio/devices/<zdev>/<cset>/trigger/nshots
+Date:		April 2013
+Kernel Version:	3.x
+Contact:	zio@ohwr.org (mailing list)
+Description:	This attribute define the number of consecutive shots that
+		a trigger must perform. The value '0' mean infinite; not
+		all trigger implementation supports this feature. If a
+		trigger does not support infinite shots, it must prevents
+		the user to set '0' in this attribute.
+Users:
+
+
+Where:		/sys/bus/zio/devices/<zdev>/<cset>/trigger/pre-samples
+Date:		April 2013
+Kernel Version:	3.x
+Contact:	zio@ohwr.org (mailing list)
+Description:	This attribute define the number of pre-samples acquire for
+		each programmed shots.
+Users:
+
+
+Where:		/sys/bus/zio/devices/<zdev>/<cset>/trigger/post-samples
+Date:		April 2013
+Kernel Version:	3.x
+Contact:	zio@ohwr.org (mailing list)
+Description:	This attribute define the number of post-samples acquire for
+		each programmed shots.
+Users:

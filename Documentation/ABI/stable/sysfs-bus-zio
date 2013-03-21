@@ -1,0 +1,88 @@
+Where:		/sys/bus/zio/version
+Date:		April 2013
+Kernel Version:	3.x
+Contact:	zio@ohwr.org (mailing list)
+Description:	This attribute return the version of the ZIO framework in use.
+Users:
+
+
+Where:		/sys/bus/zio/available_buffers
+Date:		April 2013
+Kernel Version:	3.x
+Contact:	zio@ohwr.org (mailing list)
+Description:	This attribute return the list of available buffer types.
+Users:
+
+
+Where:		/sys/bus/zio/available_triggers
+Date:		April 2013
+Kernel Version:	3.x
+Contact:	zio@ohwr.org (mailing list)
+Description:	This attribute return the list of available trigger types.
+Users:
+
+
+Where:		/sys/bus/zio/devices/hw-<zdev>/
+Date:		April 2013
+Kernel Version:	3.x
+Contact:	zio@ohwr.org (mailing list)
+Description:	This directory represents a fake instance of a device the
+		real device (<zdev>). Once the device match with a ZIO
+		driver, then it creates the real device directory.
+Users:
+
+
+Where:		/sys/bus/zio/devices/<zdev>/
+Date:		April 2013
+Kernel Version:	3.x
+Contact:	zio@ohwr.org (mailing list)
+Description:	This directory represents a real device; it is child of
+		the fake device. This is the highest level of the device
+		hierarchy.
+Users:
+
+
+Where:		/sys/bus/zio/devices/<zdev>/name
+		/sys/bus/zio/devices/<zdev>/<cset>/name
+		/sys/bus/zio/devices/<zdev>/<cset>/<chan>/name
+		/sys/bus/zio/devices/<zdev>/<cset>/trigger/name
+		/sys/bus/zio/devices/<zdev>/<cset>/<chan>/buffer/name
+Date:		April 2013
+Kernel Version:	3.x
+Contact:	zio@ohwr.org (mailing list)
+Description:	This attribute returns the name of a ZIO object. It is a
+		read only attribute.
+Users:
+
+
+Where:		/sys/bus/zio/devices/<zdev>/enable
+		/sys/bus/zio/devices/<zdev>/<cset>/enable
+		/sys/bus/zio/devices/<zdev>/<cset>/<chan>/enable
+		/sys/bus/zio/devices/<zdev>/<cset>/trigger/enable
+		/sys/bus/zio/devices/<zdev>/<cset>/<chan>/buffer/enable
+Date:		April 2013
+Kernel Version:	3.x
+Contact:	zio@ohwr.org (mailing list)
+Description:	This attribute enable/disable a ZIO object. To enable a
+		ZIO object you must write '1', to disable '0'
+Users:
+
+
+Where:		/sys/bus/zio/devices/<zdev>/<cset>/current_buffer
+Date:		April 2013
+Kernel Version:	3.x
+Contact:	zio@ohwr.org (mailing list)
+Description:	This attribute return the current buffer in use by the
+		channel within the channel-set. You can change the kind of
+		buffer by writing its name in this attribute.
+Users:
+
+
+Where:		/sys/bus/zio/devices/<zdev>/<cset>/current_trigger
+Date:		April 2013
+Kernel Version:	3.x
+Contact:	zio@ohwr.org (mailing list)
+Description:	This attribute return the current trigger in use by the
+		channel-set. You can change the kind of trigger by writing
+		its name in this attribute.
+Users:

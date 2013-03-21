@@ -1,0 +1,96 @@
+Where:		/sys/bus/zio/devices/<zdev>/
+		/sys/bus/zio/devices/<zdev>/<cset>/
+		/sys/bus/zio/devices/<zdev>/<cset>/<chan>/
+Date:		April 2013
+Kernel Version:	3.x
+Contact:	zio@ohwr.org (mailing list)
+Description:	These are collections of attributes of the ZIO device
+		hierarchy. Each collection contains both: standard
+		attributes (described later) and extended attributes
+		defined by each driver (not described in this document).
+		A standard attribute can appear *only* one time in the
+		device hierarchy (e.g. The attribute X can be in a <cset>,
+		but it cannot be, at the same time, in a <chan> or a <zdev>
+		level). In this documentation we indicate each attribute
+		at all level, but remember that it can be available only
+		in one level. If an attribute appears only on a single
+		level it means that it can leave only there.
+		Attributes that live in an high level automatically apply
+		the configuration on all lower levels.
+
+		This collection refers to a single instance of a device.
+		Each driver can decide to support or not the standard
+		attributes; if it supports the standard attributes it works
+		as described in this document.
+
+		Note: The permission on the standard attributes depend on
+		the driver implementation
+Users:
+
+
+Where:		/sys/bus/zio/devices/<zdev>/version
+		/sys/bus/zio/devices/<zdev>/<cset>/version
+		/sys/bus/zio/devices/<zdev>/<cset>/<chan>/version
+Date:		April 2013
+Kernel Version:	3.x
+Contact:	zio@ohwr.org (mailing list)
+Description:	This attribute define the version of the collection of
+		attributes that a device driver exports. A
+		collection can change during the time. This attribute allow
+		an user-space program to recognize if it can work with a
+		particular version or not
+Users:
+
+
+Where:		/sys/bus/zio/devices/<zdev>/gain_factor
+		/sys/bus/zio/devices/<zdev>/<cset>/gain_factor
+		/sys/bus/zio/devices/<zdev>/<cset>/<chan>/gain_factor
+Date:		April 2013
+Kernel Version:	3.x
+Contact:	zio@ohwr.org (mailing list)
+Description:	This attribute define the gain factor of an I/O signal.
+Users:
+
+
+Where:		/sys/bus/zio/devices/<zdev>/offset
+		/sys/bus/zio/devices/<zdev>/<cset>/offset
+		/sys/bus/zio/devices/<zdev>/<cset>/<chan>/offset
+Date:		April 2013
+Kernel Version:	3.x
+Contact:	zio@ohwr.org (mailing list)
+Description:	This attribute define the offset to apply on an I/O
+		signal.
+Users:
+
+
+Where:		/sys/bus/zio/devices/<zdev>/resolution-bits
+		/sys/bus/zio/devices/<zdev>/<cset>/resolution-bits
+		/sys/bus/zio/devices/<zdev>/<cset>/<chan>/resolution-bits
+Date:		April 2013
+Kernel Version:	3.x
+Contact:	zio@ohwr.org (mailing list)
+Description:	This attribute define the resolution bit of a digitalized
+		I/O signal.
+Users:
+
+
+Where:		/sys/bus/zio/devices/<zdev>/max-sample-rate
+		/sys/bus/zio/devices/<zdev>/<cset>/max-sample-rate
+		/sys/bus/zio/devices/<zdev>/<cset>/<chan>/max-sample-rate
+Date:		April 2013
+Kernel Version:	3.x
+Contact:	zio@ohwr.org (mailing list)
+Description:	This attribute define the maximum sample rate of the I/O
+		signal.
+Users:
+
+
+Where:		/sys/bus/zio/devices/<zdev>/vref-src
+		/sys/bus/zio/devices/<zdev>/<cset>/vref-src
+		/sys/bus/zio/devices/<zdev>/<cset>/<chan>/vref-src
+Date:		April 2013
+Kernel Version:	3.x
+Contact:	zio@ohwr.org (mailing list)
+Description:	This attribute define the Volt reference source for the I/O
+		signal.
+Users:
