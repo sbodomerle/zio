@@ -188,9 +188,6 @@ struct zio_cset {
 	struct zio_channel	*chan;
 	unsigned int		n_chan;
 
-	int			(*init)(struct zio_cset *cset);
-	void			(*exit)(struct zio_cset *cset);
-
 	void			*priv_d;	/* private for the device */
 
 	struct list_head	list_cset;	/* for cset global list */

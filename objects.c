@@ -768,12 +768,7 @@ static int cset_register(struct zio_cset *cset, struct zio_cset *cset_t)
 		if (err)
 			goto out_reg;
 	}
-	/* Private initialization function */
-	if (cset->init) {
-		err = cset->init(cset);
-		if (err)
-			goto out_reg;
-	}
+
 	spin_lock(&zstat->lock);
 	list_add(&cset->list_cset, &zstat->list_cset);
 	spin_unlock(&zstat->lock);
@@ -825,9 +820,6 @@ static void cset_unregister(struct zio_cset *cset)
 	spin_unlock(&zstat->lock);
 	/* Make it idle */
 	zio_trigger_abort_disable(cset, 1);
-	/* Private exit function */
-	if (cset->exit)
-		cset->exit(cset);
 	/* Unregister all child channels */
 	for (i = 0; i < cset->n_chan; i++)
 		chan_unregister(&cset->chan[i]);
