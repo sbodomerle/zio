@@ -1110,18 +1110,22 @@ static int __zdev_match_child(struct device *dev, void *data)
 }
 void zio_unregister_device(struct zio_device *zdev)
 {
+	struct device *parent = &zdev->head.dev;
 	struct device *dev;
 
 	/*
 	 * the child of a generic zio_device could be only a real zio_device.
 	 * If it exists, unregister it
 	 */
-	dev = device_find_child(&zdev->head.dev, NULL, __zdev_match_child);
-	if (dev)
+	dev = device_find_child(parent, NULL, __zdev_match_child);
+	if (dev) {
 		__zdev_unregister(to_zio_dev(dev));
+	} else {
+		dev_warn(parent, " Cannot find device any child\n");
+	}
 
-	pr_info("ZIO: device %s removed\n", dev_name(&zdev->head.dev));
-	device_unregister(&zdev->head.dev);
+	dev_info(parent, "device removed\n");
+	device_unregister(parent);
 }
 EXPORT_SYMBOL(zio_unregister_device);
 
