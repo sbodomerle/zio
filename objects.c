@@ -985,7 +985,7 @@ out_copy:
 	kfree(zdev);
 	return err;
 }
-static void __zdev_unregister(struct zio_device *zdev)
+void __zdev_unregister(struct zio_device *zdev)
 {
 	int i;
 
@@ -1100,21 +1100,28 @@ static int __zdev_match_child(struct device *dev, void *data)
 		return 1;
 	return 0;
 }
+
+/*
+ * zio_device_find_child
+ * It return the real zio_device from the fake zio_device
+ */
+struct zio_device *zio_device_find_child(struct zio_device *parent)
+{
+	struct device *dev;
+
+	dev = device_find_child(&parent->head.dev, NULL, __zdev_match_child);
+
+	return to_zio_dev(dev);
+}
+
 void zio_unregister_device(struct zio_device *zdev)
 {
 	struct device *parent = &zdev->head.dev;
-	struct device *dev;
+	struct zio_device *child;
 
-	/*
-	 * the child of a generic zio_device could be only a real zio_device.
-	 * If it exists, unregister it
-	 */
-	dev = device_find_child(parent, NULL, __zdev_match_child);
-	if (dev) {
-		__zdev_unregister(to_zio_dev(dev));
-	} else {
-		dev_warn(parent, " Cannot find device any child\n");
-	}
+	child = zio_device_find_child(zdev);
+	if (child)
+		__zdev_unregister(child);
 
 	dev_info(parent, "device removed\n");
 	device_unregister(parent);

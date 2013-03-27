@@ -71,8 +71,6 @@ extern int zio_default_trigger_init(void);
 extern void zio_default_trigger_exit(void);
 
 /* Defined in sysfs.c */
-extern int __zdev_register(struct zio_device *parent,
-			   const struct zio_device_id *id);
 extern int __zattr_set_copy(struct zio_attribute_set *dest,
 			    struct zio_attribute_set *src);
 extern void __zattr_set_free(struct zio_attribute_set *zattr_set);
@@ -86,6 +84,10 @@ extern int __check_dev_zattr(struct zio_attribute_set *parent,
 extern int __zattr_dev_init_ctrl(struct zio_device *zdev);
 
 /* Defined in objects.c */
+extern int __zdev_register(struct zio_device *parent,
+			   const struct zio_device_id *id);
+extern void __zdev_unregister(struct zio_device *zdev);
+extern struct zio_device *zio_device_find_child(struct zio_device *parent);
 extern int zio_change_current_trigger(struct zio_cset *cset, char *name);
 extern int zio_change_current_buffer(struct zio_cset *cset, char *name);
 

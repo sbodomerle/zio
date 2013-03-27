@@ -120,6 +120,8 @@ static int zio_match_device(struct device *dev, struct device_driver *drv)
 {
 	const struct zio_driver *zdrv = to_zio_drv(drv);
 	const struct zio_device_id *id;
+	struct zio_device *child;
+	int err = 0;
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
 	if (!zdrv->id_table)
@@ -132,7 +134,28 @@ static int zio_match_device(struct device *dev, struct device_driver *drv)
 	if (dev->type == &zdevhw_device_type) {
 		/* Register the real zio device */
 		pr_debug("%s:%d\n", __func__, __LINE__);
-		__zdev_register(to_zio_dev(dev), id);
+		err = __zdev_register(to_zio_dev(dev), id);
+		if (err) {
+			pr_err("ZIO: Cannot register real zio_device (%d)\n",
+				err);
+			return 0;
+		}
+		child = zio_device_find_child(to_zio_dev(dev));
+		/*
+		 * Probe the device because the real device always match. We
+		 * cannot do probe when the zio_device is registered because
+		 * we need also its sub-devices for a safe probe. More over it
+		 * allow us to easily remove the device on probe failure.
+		 */
+		if (zdrv->probe)
+			err = zdrv->probe(child);
+		if (err) {
+			dev_err(&child->head.dev, "probe() fail with error %d",
+				err);
+			__zdev_unregister(child);
+		} else {
+			dev_info(&child->head.dev, "device loaded\n");
+		}
 		return 0;
 	} else if (dev->type == &zdev_device_type) {
 		pr_debug("%s:%d\n", __func__, __LINE__);
@@ -147,25 +170,6 @@ struct bus_type zio_bus_type = {
 	.match = zio_match_device,
 };
 
-
-/*
- * zio_drv_probe
- * @dev device to probe
- *
- * It invokes the ZIO driver probe function
- */
-static int zio_drv_probe(struct device *dev)
-{
-	struct zio_driver *zdrv = to_zio_drv(dev->driver);
-	struct zio_device *zdev = to_zio_dev(dev);
-
-	pr_debug("%s:%d %p %p\n", __func__, __LINE__, zdrv, zdrv->probe);
-	if (zdrv->probe)
-		return zdrv->probe(zdev);
-	pr_debug("%s:%d\n", __func__, __LINE__);
-
-	return 0;
-}
 
 /*
  * zio_drv_remove
@@ -253,7 +257,6 @@ int zio_register_driver(struct zio_driver *zdrv)
 	}
 
 	zdrv->driver.bus = &zio_bus_type;
-	zdrv->driver.probe = zio_drv_probe;
 	zdrv->driver.remove = zio_drv_remove;
 
 	return driver_register(&zdrv->driver);
