@@ -10,13 +10,15 @@
 #endif
 
 /* Defined in sysfs.c */
+extern const struct attribute_group *def_zdev_groups_ptr[];
+extern const struct attribute_group *def_cset_groups_ptr[];
+extern const struct attribute_group *def_chan_groups_ptr[];
+extern const struct attribute_group *def_ti_groups_ptr[];
+extern const struct attribute_group *def_bi_groups_ptr[];
+extern struct bin_attribute zio_bin_attr[];
+/* Defined in object.c, used also in bus.c  */
 extern struct device_type zdevhw_device_type;
 extern struct device_type zdev_device_type;
-extern struct device_type cset_device_type;
-extern struct device_type chan_device_type;
-extern struct device_type ti_device_type;
-extern struct device_type bi_device_type;
-extern struct bin_attribute zio_bin_attr[];
 
 /* This list is used in the core to keep track of registered objects */
 struct zio_object_list {

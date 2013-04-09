@@ -799,75 +799,34 @@ static const struct attribute_group zio_groups[] = {
 	},
 };
 /* default groups for whole-device */
-static const struct attribute_group *def_zdev_groups_ptr[] = {
+const struct attribute_group *def_zdev_groups_ptr[] = {
 	&zio_groups[ZIO_DAG_ALL],
 	&zio_groups[ZIO_DAG_HIE],
 	NULL,
 };
 /* default groups for channel set */
-static const struct attribute_group *def_cset_groups_ptr[] = {
+const struct attribute_group *def_cset_groups_ptr[] = {
 	&zio_groups[ZIO_DAG_ALL],
 	&zio_groups[ZIO_DAG_CSET],
 	&zio_groups[ZIO_DAG_HIE],
 	NULL,
 };
 /* default groups for channel */
-static const struct attribute_group *def_chan_groups_ptr[] = {
+const struct attribute_group *def_chan_groups_ptr[] = {
 	&zio_groups[ZIO_DAG_ALL],
 	&zio_groups[ZIO_DAG_CHAN],
 	&zio_groups[ZIO_DAG_HIE],
 	NULL,
 };
 /* default groups for trigger instance */
-static const struct attribute_group *def_ti_groups_ptr[] = {
+const struct attribute_group *def_ti_groups_ptr[] = {
 	&zio_groups[ZIO_DAG_ALL],
 	NULL,
  };
 /* default groups for buffer instance */
-static const struct attribute_group *def_bi_groups_ptr[] = {
+const struct attribute_group *def_bi_groups_ptr[] = {
 	&zio_groups[ZIO_DAG_BI],
 	NULL,
-};
-
-/* Device types */
-void zio_device_release(struct device *dev)
-{
-	pr_debug("RELEASE %s\n", dev_name(dev));
-	return;
-}
-void __zio_generic_device_release(struct device *dev)
-{
-	pr_debug("RELEASE %s\n", dev_name(dev));
-	return;
-}
-struct device_type zdevhw_device_type = {
-	.name = zdevhw_device_type_name,
-	.release = __zio_generic_device_release,
-};
-struct device_type zdev_device_type = {
-	.name = zdev_device_type_name,
-	.release = zio_device_release,
-	.groups = def_zdev_groups_ptr,
-};
-struct device_type cset_device_type = {
-	.name = cset_device_type_name,
-	.release = zio_device_release,
-	.groups = def_cset_groups_ptr,
-};
-struct device_type chan_device_type = {
-	.name = chan_device_type_name,
-	.release = zio_device_release,
-	.groups = def_chan_groups_ptr,
-};
-struct device_type ti_device_type = {
-	.name = ti_device_type_name,
-	.release = zio_device_release,
-	.groups = def_ti_groups_ptr,
-};
-struct device_type bi_device_type = {
-	.name = bi_device_type_name,
-	.release = zio_device_release,
-	.groups = def_bi_groups_ptr,
 };
 
 
