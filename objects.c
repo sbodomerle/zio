@@ -1218,8 +1218,11 @@ void zio_unregister_device(struct zio_device *zdev)
 	struct zio_device *child;
 
 	child = zio_device_find_child(zdev);
-	if (child)
+	if (child) {
 		__zdev_unregister(child);
+		/* We done everything with child */
+		put_device(&child->head.dev);
+	}
 
 	dev_info(parent, "device removed\n");
 	device_unregister(parent);

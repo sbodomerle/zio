@@ -156,6 +156,8 @@ static int zio_match_device(struct device *dev, struct device_driver *drv)
 		} else {
 			dev_info(&child->head.dev, "device loaded\n");
 		}
+		/* We done everything with child */
+		put_device(&child->head.dev);
 		return 0;
 	} else if (dev->type == &zdev_device_type) {
 		pr_debug("%s:%d\n", __func__, __LINE__);
