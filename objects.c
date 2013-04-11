@@ -23,7 +23,6 @@ static void zio_buffer_put(struct zio_buffer_type *zbuf,
 static void zobj_unregister(struct zio_object_list *zlist,
 			    struct zio_obj_head *head);
 static void __bi_destroy(struct zio_buffer_type *zbuf, struct zio_bi *bi);
-static void __bi_unregister(struct zio_buffer_type *zbuf, struct zio_bi *bi);
 
 static struct zio_status *zstat = &zio_global_status; /* Always use ptr */
 
@@ -219,30 +218,46 @@ static void zio_trigger_put(struct zio_trigger_type *trig, struct module *dev_ow
 		module_put(trig->owner);
 }
 
-/* create and initialize a new buffer instance */
-static struct zio_bi *__bi_create_and_init(struct zio_buffer_type *zbuf,
-					   struct zio_channel *chan)
+/**
+ * The function creates, initialize and register a new buffer instance of
+ * a given type.
+ *
+ * @param zbuf is the pointer to the kind of buffer to create
+ * @param cset is the channel to associate to the new buffer instance
+ * @param name is the name of the new buffer instance
+ * @return the pointer to the buffer instance, on error ERR_PTR()
+ */
+static struct zio_bi *__bi_create(struct zio_buffer_type *zbuf,
+				  struct zio_channel *chan,
+				  const char *name)
 {
 	struct zio_bi *bi;
-	int err;
+	int err = 0;
 
 	pr_debug("%s\n", __func__);
+
 	/* Create buffer, ensuring it's not reentrant */
 	spin_lock(&zbuf->lock);
 	bi = zbuf->b_op->create(zbuf, chan);
 	spin_unlock(&zbuf->lock);
 	if (IS_ERR(bi)) {
-		pr_err("ZIO %s: can't create buffer, error %ld\n",
-		       __func__, PTR_ERR(bi));
+		err = PTR_ERR(bi);
+		pr_err("ZIO %s: can't create buffer, error %d\n",
+		       __func__, err);
 		goto out;
 	}
+
+
 	/* Initialize buffer */
+	dev_set_name(&bi->head.dev, name);
 	spin_lock_init(&bi->lock);
 	atomic_set(&bi->use_count, 0);
 	bi->b_op = zbuf->b_op;
 	bi->f_op = zbuf->f_op;
 	bi->v_op = zbuf->v_op;
 	bi->flags |= (chan->flags & ZIO_DIR);
+	init_waitqueue_head(&bi->q);
+
 	/* Initialize head */
 	bi->head.dev.type = &bi_device_type;
 	bi->head.dev.parent = &chan->head.dev;
@@ -250,56 +265,54 @@ static struct zio_bi *__bi_create_and_init(struct zio_buffer_type *zbuf,
 	snprintf(bi->head.name, ZIO_NAME_LEN, "%s-%s-%d-%d",
 		 zbuf->head.name, chan->cset->zdev->head.name,
 		 chan->cset->index, chan->index);
-	init_waitqueue_head(&bi->q);
+
+
 	/* Copy sysfs attribute from buffer type */
 	err = __zattr_set_copy(&bi->zattr_set, &zbuf->zattr_set);
-	if (err) {
-		zbuf->b_op->destroy(bi);
-		bi = ERR_PTR(err);
-	}
-out:
-	return bi;
-}
-static void __bi_destroy(struct zio_buffer_type *zbuf, struct zio_bi *bi)
-{
-	pr_debug("%s\n", __func__);
-	zbuf->b_op->destroy(bi);
-	__zattr_set_free(&bi->zattr_set);
-}
-static int __bi_register(struct zio_buffer_type *zbuf, struct zio_channel *chan,
-			 struct zio_bi *bi, const char *name)
-{
-	int err;
+	if (err)
+		goto out_destory;
 
-	pr_debug("%s\n", __func__);
-	dev_set_name(&bi->head.dev, name);
 	/* Create attributes */
 	err = zattr_set_create(&bi->head, zbuf->s_op);
 	if (err)
-		goto out;
+		goto out_free;
+
+
 	/* Register buffer instance */
 	err = device_register(&bi->head.dev);
 	if (err)
-		goto out_reg;
+		goto out_remove;
 
 	/* Add to buffer instance list */
 	spin_lock(&zbuf->lock);
 	list_add(&bi->list, &zbuf->list);
 	spin_unlock(&zbuf->lock);
+
 	bi->cset = chan->cset;
 	bi->chan = chan;
 	/* Done. This bi->chan marks everything is running */
 
-	return 0;
+	return bi;
 
-out_reg:
+out_remove:
 	zattr_set_remove(&bi->head);
+out_free:
+	__zattr_set_free(&bi->zattr_set);
+out_destory:
+	zbuf->b_op->destroy(bi);
 out:
-	return err;
+	return ERR_PTR(err);
 }
-static void __bi_unregister(struct zio_buffer_type *zbuf, struct zio_bi *bi)
+/**
+ * The function destroys a given buffer instance.
+ *
+ * @param zbuf the kind of buffer instance to destroy
+ * @param bi is the instance to destroy
+ */
+static void __bi_destroy(struct zio_buffer_type *zbuf, struct zio_bi *bi)
 {
-	pr_debug("%s\n", __func__);
+	dev_dbg(&bi->head.dev, "destroying buffer instance\n");
+
 	/* Remove from buffer instance list */
 	spin_lock(&zbuf->lock);
 	list_del(&bi->list);
@@ -520,17 +533,10 @@ int zio_change_current_buffer(struct zio_cset *cset, char *name)
 
 	/* Create a new buffer instance for each channel of the cset */
 	for (i = 0; i < cset->n_chan; ++i) {
-		bi_vector[i] = __bi_create_and_init(zbuf, &cset->chan[i]);
+		bi_vector[i] = __bi_create(zbuf, &cset->chan[i], "buffer-tmp");
 		if (IS_ERR(bi_vector[i])) {
 			pr_err("%s can't create buffer instance\n", __func__);
 			err = PTR_ERR(bi_vector[i]);
-			goto out_create;
-		}
-		err = __bi_register(zbuf, &cset->chan[i], bi_vector[i],
-				    "buffer-tmp");
-		if (err) {
-			pr_err("%s can't register buffer instance\n", __func__);
-			__bi_destroy(zbuf, bi_vector[i]);
 			goto out_create;
 		}
 	}
@@ -538,7 +544,7 @@ int zio_change_current_buffer(struct zio_cset *cset, char *name)
 
 	for (i = 0; i < cset->n_chan; ++i) {
 		/* Delete old buffer instance */
-		__bi_unregister(zbuf_old, cset->chan[i].bi);
+		__bi_destroy(zbuf_old, cset->chan[i].bi);
 		/* Assign new buffer instance */
 		cset->chan[i].bi = bi_vector[i];
 		/* Rename buffer-tmp to trigger */
@@ -564,7 +570,7 @@ int zio_change_current_buffer(struct zio_cset *cset, char *name)
 
 out_create:
 	for (j = i-1; j >= 0; --j) {
-		__bi_unregister(zbuf, bi_vector[j]);
+		__bi_destroy(zbuf, bi_vector[j]);
 	}
 	kfree(bi_vector);
 out_put:
@@ -728,14 +734,11 @@ static int chan_register(struct zio_channel *chan, struct zio_channel *chan_t)
 		}
 	}
 	/* Create buffer */
-	bi = __bi_create_and_init(chan->cset->zbuf, chan);
+	bi = __bi_create(chan->cset->zbuf, chan, "buffer");
 	if (IS_ERR(bi)) {
 		err = PTR_ERR(bi);
 		goto out_bin_attr;
 	}
-	err = __bi_register(chan->cset->zbuf, chan, bi, "buffer");
-	if (err)
-		goto out_buf_reg;
 	/* Assign the buffer instance to this channel */
 	chan->bi = bi;
 	/* Create channel char devices*/
@@ -746,8 +749,6 @@ static int chan_register(struct zio_channel *chan, struct zio_channel *chan_t)
 	return 0;
 
 out_cdev_create:
-	__bi_unregister(chan->cset->zbuf, bi);
-out_buf_reg:
 	__bi_destroy(chan->cset->zbuf, bi);
 out_bin_attr:
 	if (ZIO_HAS_BINARY_CONTROL) {
@@ -777,7 +778,7 @@ static void chan_unregister(struct zio_channel *chan)
 		return;
 	zio_destroy_chan_devices(chan);
 	/* destroy buffer instance */
-	__bi_unregister(chan->cset->zbuf, chan->bi);
+	__bi_destroy(chan->cset->zbuf, chan->bi);
 	if (ZIO_HAS_BINARY_CONTROL)
 		for (i = 0; i < __ZIO_BIN_ATTR_NUM; ++i)
 			sysfs_remove_bin_file(&chan->head.dev.kobj,
