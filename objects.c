@@ -307,89 +307,99 @@ static void __bi_unregister(struct zio_buffer_type *zbuf, struct zio_bi *bi)
 	device_unregister(&bi->head.dev);
 }
 
-/* create and initialize a new disabled trigger instance */
-static struct zio_ti *__ti_create_and_init(struct zio_trigger_type *trig,
-					   struct zio_cset *cset)
+/**
+ * The function creates, initialize and register a new trigger instance of
+ * a given type.
+ *
+ * @param trig is the pointer to the kind of trigger to create
+ * @param cset is the channel set to associate to the new trigger instance
+ * @param name is the name of the new trigger instance
+ * @return the pointer to the trigger instance, on error ERR_PTR()
+ */
+static struct zio_ti *__ti_create(struct zio_trigger_type *trig,
+				  struct zio_cset *cset,
+				  const char *name)
 {
-	int err;
 	struct zio_ti *ti;
+	int err = 0;
 
 	pr_debug("%s\n", __func__);
+
 	/* Create trigger, ensuring it's not reentrant */
 	spin_lock(&trig->lock);
 	ti = trig->t_op->create(trig, cset, NULL, 0 /* FIXME: fmode_t */);
 	spin_unlock(&trig->lock);
 	if (IS_ERR(ti)) {
-		pr_err("ZIO %s: can't create trigger, error %ld\n",
-		       __func__, PTR_ERR(ti));
+		err = PTR_ERR(ti);
+		pr_err("ZIO %s: can't create trigger, error %d\n",
+		       __func__, err);
 		goto out;
 	}
+
 	/* This is a new requirement: warn our users */
 	WARN(ti->cset != cset, "Trigger creation should set \"cset\" field\n");
 
+
 	/* Initialize trigger */
+	dev_set_name(&ti->head.dev, name);
 	spin_lock_init(&ti->lock);
 	ti->t_op = trig->t_op;
 	ti->flags |= cset->flags & ZIO_DIR;
+
 	/* Initialize head */
 	ti->head.dev.type = &ti_device_type;
 	ti->head.dev.parent = &cset->head.dev;
 	ti->head.zobj_type = ZIO_TI;
 	snprintf(ti->head.name, ZIO_NAME_LEN, "%s-%s-%d",
 		 trig->head.name, cset->zdev->head.name, cset->index);
+
+
 	/* Copy sysfs attribute from trigger type */
 	err = __zattr_set_copy(&ti->zattr_set, &trig->zattr_set);
-	if (err) {
-		trig->t_op->destroy(ti);
-		return ERR_PTR(err);
-	}
+	if (err)
+		goto out_destroy;
+
 	/* Special case: nsamples */
 	__ctrl_update_nsamples(ti);
 
-out:
-	return ti;
-
-}
-static void __ti_destroy(struct zio_trigger_type *trig, struct zio_ti *ti)
-{
-	pr_debug("%s\n", __func__);
-	trig->t_op->destroy(ti);
-	__zattr_set_free(&ti->zattr_set);
-}
-static int __ti_register(struct zio_trigger_type *trig, struct zio_cset *cset,
-			 struct zio_ti *ti, const char *name)
-{
-	int err;
-
-	pr_debug("%s\n", __func__);
-	dev_set_name(&ti->head.dev, name);
-	/* Create attributes */
+	/* Create attributes group */
 	err = zattr_set_create(&ti->head, trig->s_op);
 	if (err)
-		goto out;
+		goto out_free;
+
+
 	/* Register trigger instance */
 	err = device_register(&ti->head.dev);
 	if (err)
-		goto out_reg;
+		goto out_remove;
+
 	/* Add to trigger instance list */
 	spin_lock(&trig->lock);
 	list_add(&ti->list, &trig->list);
 	spin_unlock(&trig->lock);
 
-	return 0;
+	return ti;
 
-out_reg:
+out_remove:
 	zattr_set_remove(&ti->head);
+out_free:
+	__zattr_set_free(&ti->zattr_set);
+out_destroy:
+	trig->t_op->destroy(ti);
 out:
-	return err;
+	return (err ? ERR_PTR(err) : ti);
 }
 
-/* The trigger must not be armed when calling this helper */
-static void __ti_unregister(struct zio_trigger_type *trig, struct zio_ti *ti)
+/**
+ * The function destroys a given trigger instance.
+ *
+ * @param trig the kind of trigger instance to destroy
+ * @param ti is the instance to destroy
+ */
+static void __ti_destroy(struct zio_trigger_type *trig, struct zio_ti *ti)
 {
-	pr_debug("%s\n", __func__);
+	dev_dbg(&ti->head.dev, "destroying trigger instance\n");
 
-	/* Remove from trigger instance list */
 	spin_lock(&trig->lock);
 	list_del(&ti->list);
 	spin_unlock(&trig->lock);
@@ -416,18 +426,15 @@ int zio_change_current_trigger(struct zio_cset *cset, char *name)
 		return PTR_ERR(trig);
 
 	/* Create and register the new trigger instance */
-	ti = __ti_create_and_init(trig, cset);
+	ti = __ti_create(trig, cset, "trigger-tmp");
 	if (IS_ERR(ti)) {
 		err = PTR_ERR(ti);
 		goto out_put;
 	}
-	err = __ti_register(trig, cset, ti, "trigger-tmp");
-	if (err)
-		goto out_destroy;
 
 	/* Ok, we are done. Kill the current trigger to replace it*/
 	zio_trigger_abort_disable(cset, 1);
-	__ti_unregister(trig_old, ti_old);
+	__ti_destroy(trig_old, ti_old);
 	zio_trigger_put(trig_old, cset->zdev->owner);
 
 	/* Set new trigger and rename "trigger-tmp" to "trigger" */
@@ -455,8 +462,6 @@ int zio_change_current_trigger(struct zio_cset *cset, char *name)
 
 	return 0;
 
-out_destroy:
-	__ti_destroy(trig, ti);
 out_put:
 	zio_trigger_put(trig, cset->zdev->owner);
 	return err;
@@ -848,14 +853,12 @@ static int cset_register(struct zio_cset *cset, struct zio_cset *cset_t)
 	err = cset_set_trigger(cset);
 	if (err)
 		goto out_trig;
-	ti = __ti_create_and_init(cset->trig, cset);
+
+	ti = __ti_create(cset->trig, cset, "trigger");
 	if (IS_ERR(ti)) {
 		err = PTR_ERR(ti);
 		goto out_trig;
 	}
-	err = __ti_register(cset->trig, cset, ti, "trigger");
-	if (err)
-		goto out_tr;
 	cset->ti = ti;
 	pr_debug("%s:%d\n", __func__, __LINE__);
 	/* Allocate a new vector of channel for the new zio cset instance */
@@ -901,8 +904,6 @@ out_reg:
 		chan_unregister(&cset->chan[j]);
 	kfree(cset->chan);
 out_n_chan:
-	__ti_unregister(cset->trig, ti);
-out_tr:
 	__ti_destroy(cset->trig, ti);
 out_trig:
 	zio_trigger_put(cset->trig, cset->zdev->owner);
@@ -938,7 +939,7 @@ static void cset_unregister(struct zio_cset *cset)
 		chan_unregister(&cset->chan[i]);
 
 	/* destroy instance and decrement trigger usage */
-	__ti_unregister(cset->trig, cset->ti);
+	__ti_destroy(cset->trig, cset->ti);
 
 	device_unregister(&cset->head.dev);
 }
