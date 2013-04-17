@@ -274,6 +274,8 @@ static int zio_read_mask(struct zio_f_priv *priv)
 	struct zio_bi *bi = chan->bi;
 	const int can_read =  POLLIN | POLLRDNORM;
 
+	dev_dbg(&bi->head.dev, "%s: channel %d in cset %d", __func__,
+		bi->chan->index, bi->chan->cset->index);
 	if (!chan->user_block)
 		chan->user_block = bi->b_op->retr_block(bi);
 	if (!chan->user_block)
@@ -310,6 +312,9 @@ static int zio_write_mask(struct zio_f_priv *priv)
 	struct zio_block *block = chan->user_block;
 	const int can_write = POLLOUT | POLLWRNORM;
 
+	dev_dbg(&bi->head.dev, "%s: channel %d in cset %d", __func__,
+		bi->chan->index, bi->chan->cset->index);
+
 	if (unlikely(priv->type == ZIO_CDEV_CTRL)) {
 		/* A control can be replaced before store */
 		if (block)
@@ -343,7 +348,7 @@ static ssize_t zio_generic_read(struct file *f, char __user *ubuf,
 	struct zio_bi *bi = chan->bi;
 	struct zio_block *block;
 
-	pr_debug("%s:%d type %s\n", __func__, __LINE__,
+	dev_dbg(&bi->head.dev, "%s:%d type %s\n", __func__, __LINE__,
 		priv->type == ZIO_CDEV_CTRL ? "ctrl" : "data");
 
 	if ((bi->flags & ZIO_DIR) == ZIO_DIR_OUTPUT)
@@ -392,7 +397,7 @@ static ssize_t zio_generic_write(struct file *f, const char __user *ubuf,
 	struct zio_bi *bi = chan->bi;
 	struct zio_block *block;
 
-	pr_debug("%s:%d type %s\n", __func__, __LINE__,
+	dev_dbg(&bi->head.dev, "%s:%d type %s\n", __func__, __LINE__,
 		priv->type == ZIO_CDEV_CTRL ? "ctrl" : "data");
 
 	if ((bi->flags & ZIO_DIR) == ZIO_DIR_INPUT)
@@ -443,6 +448,8 @@ static int zio_generic_mmap(struct file *f, struct vm_area_struct *vma)
 	struct zio_bi *bi = priv->chan->bi;
 	const struct vm_operations_struct *v_op = bi->v_op;
 
+	dev_dbg(&bi->head.dev, "%s: channel %d in cset %d", __func__,
+		bi->chan->index, bi->chan->cset->index);
 	if (!v_op)
 		return -ENODEV; /* according to man page */
 	/* The buffer instance may usecount, so notifiy it and allow
@@ -459,6 +466,8 @@ static unsigned int zio_generic_poll(struct file *f,
 	struct zio_f_priv *priv = f->private_data;
 	struct zio_bi *bi = priv->chan->bi;
 
+	dev_dbg(&bi->head.dev, "%s: channel %d in cset %d", __func__,
+		bi->chan->index, bi->chan->cset->index);
 	poll_wait(f, &bi->q, w);
 	if ((bi->flags & ZIO_DIR) == ZIO_DIR_OUTPUT)
 		return zio_write_mask(priv);

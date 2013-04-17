@@ -342,7 +342,7 @@ static void __zobj_enable(struct device *dev, unsigned int enable)
 	struct zio_cset *cset;
 	struct zio_ti *ti;
 
-	pr_debug("%s\n", __func__);
+	dev_dbg(dev, "enable = %d\n", enable);
 	head = to_zio_head(dev);
 
 	zf = zio_get_from_obj(to_zio_head(dev), flags);
@@ -354,7 +354,7 @@ static void __zobj_enable(struct device *dev, unsigned int enable)
 	*zf = (*zf & (~ZIO_STATUS)) | status;
 	switch (head->zobj_type) {
 	case ZIO_DEV:
-		pr_debug("%s: zdev\n", __func__);
+		dev_dbg(dev, "(dev)\n");
 
 		zdev = to_zio_dev(dev);
 		/* enable/disable all cset */
@@ -363,7 +363,7 @@ static void __zobj_enable(struct device *dev, unsigned int enable)
 		/* device callback */
 		break;
 	case ZIO_CSET:
-		pr_debug("%s: zcset\n", __func__);
+		dev_dbg(dev, "(cset)\n");
 
 		cset = to_zio_cset(dev);
 		/* enable/disable trigger instance */
@@ -374,11 +374,12 @@ static void __zobj_enable(struct device *dev, unsigned int enable)
 		/* cset callback */
 		break;
 	case ZIO_CHAN:
-		pr_debug("%s: zchan\n", __func__);
+		dev_dbg(dev, "(chan)\n");
+
 		/* channel callback */
 		break;
 	case ZIO_TI:
-		pr_debug("%s: zti\n", __func__);
+		dev_dbg(dev, "(ti)\n");
 
 		ti = to_zio_ti(dev);
 		zio_trigger_abort_disable(ti->cset, 0);
@@ -392,7 +393,7 @@ static void __zobj_enable(struct device *dev, unsigned int enable)
 	case ZIO_BUF:
 	case ZIO_TRG:
 	case ZIO_BI:
-		pr_debug("%s: others\n", __func__);
+		dev_dbg(dev, "(buf)\n");
 		/* buffer instance callback */
 		break;
 	default:
@@ -427,6 +428,7 @@ static ssize_t zobj_store_cur_trig(struct device *dev,
 	struct zio_cset *cset;
 	int err = 0;
 
+	dev_dbg(dev, "Changing trigger to: %s\n", buf);
 	if (strlen(buf) > ZIO_OBJ_NAME_LEN+1)
 		return -EINVAL; /* name too long */
 	sscanf(buf, "%s\n", buf_tmp);
@@ -451,6 +453,7 @@ static ssize_t zobj_store_cur_zbuf(struct device *dev,
 	struct zio_cset *cset;
 	int err = 0;
 
+	dev_dbg(dev, "Changing buffer to: %s\n", buf);
 	if (strlen(buf) > ZIO_OBJ_NAME_LEN+1)
 		return -EINVAL; /* name too long */
 	sscanf(buf, "%s\n", buf_tmp);
@@ -508,7 +511,6 @@ static ssize_t zattr_show(struct device *dev, struct device_attribute *attr,
 	struct zio_attribute *zattr = to_zio_zattr(attr);
 	ssize_t len = 0;
 
-
 	pr_debug("%s\n", __func__);
 	if (!zattr->s_op)
 		goto out;
@@ -524,6 +526,9 @@ static ssize_t zattr_show(struct device *dev, struct device_attribute *attr,
 		if (err)
 			return err;
 	}
+
+	dev_dbg(dev, "read value %d from sysfs attribute %s\n",
+		zattr->value, attr->attr.name);
 out:
 	len = sprintf(buf, "%i\n", zattr->value);
 	return len;
@@ -546,6 +551,9 @@ static ssize_t zattr_store(struct device *dev, struct device_attribute *attr,
 	/* device attributes */
 	if (!zattr->s_op->conf_set)
 		return -EINVAL;
+
+	dev_dbg(dev, "writing value %ld to sysfs attribute %s\n",
+		val, attr->attr.name);
 
 	lock = __get_spinlock(head);
 	spin_lock(lock);
@@ -978,6 +986,8 @@ int zattr_set_create(struct zio_obj_head *head,
 		zattr = &zattr_set->std_zattr[i];
 		attr = &zattr->attr.attr;
 		err = __check_attr(attr, s_op);
+		dev_vdbg(&head->dev, "%s(std): %s %d %s\n", __func__, head->name, i,
+			attr->name);
 		switch (err) {
 		case 0:
 			/* valid attribute */
@@ -1012,6 +1022,8 @@ ext:
 		err = __check_attr(attr, s_op);
 		if (err)
 			return err;
+		dev_vdbg(&head->dev, "%s(ext): %s %d %s\n", __func__, head->name, i,
+			attr->name);
 		/* valid attribute */
 		groups[g]->attrs[a_count++] = attr;
 
