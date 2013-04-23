@@ -51,6 +51,8 @@ enum zattr_flags {
 	ZIO_ATTR_TYPE_STD	= 0x00,
 	ZIO_ATTR_TYPE_EXT	= 0x10,
 	ZIO_ATTR_CONTROL	= 0x20,
+	ZIO_ATTR_DEV_DRIVEN	= 0x40, /* It marks that the attribute value
+	 	 	 	 	 * can be modified by the hardware */
 };
 
 struct zio_sysfs_operations {

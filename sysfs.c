@@ -581,6 +581,10 @@ static ssize_t zattr_show(struct device *dev, struct device_attribute *attr,
 
 	if (!zattr->s_op)
 		goto out;
+
+	/* FIXME add && (zattr->flags & ZIO_ATTR_DEV_DRIVEN) to the statement
+	 * when we are sure it does not brake anything. It is incompatible
+	 * with old driver */
 	if (zattr->s_op->info_get) {
 		struct zio_obj_head *head = to_zio_head(dev);
 		spinlock_t *lock;
