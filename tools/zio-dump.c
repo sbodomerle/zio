@@ -139,7 +139,7 @@ void read_channel(int cfd, int dfd, FILE *log)
 	printf("Ctrl: alarms 0x%02x 0x%02x\n",
 	       ctrl.zio_alarms, ctrl.drv_alarms);
 	printf("Ctrl: seq %i, n %i, size %i, bits %i, "
-	       "flags %08x (%s)\n",
+	       "flags %08x (%s), tlv %i\n",
 	       ctrl.seq_num,
 	       ctrl.nsamples,
 	       ctrl.ssize,
@@ -148,7 +148,8 @@ void read_channel(int cfd, int dfd, FILE *log)
 	       ctrl.flags & ZIO_CONTROL_LITTLE_ENDIAN
 	       ? "little-endian" :
 	       ctrl.flags & ZIO_CONTROL_BIG_ENDIAN
-	       ? "big-endian" : "unknown-endian");
+	       ? "big-endian" : "unknown-endian",
+	       ctrl.tlv[0].type);
 	printf("Ctrl: stamp %lli.%09lli (%lli)\n",
 	       (long long)ctrl.tstamp.secs,
 	       (long long)ctrl.tstamp.ticks,
