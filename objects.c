@@ -15,7 +15,131 @@
 #include <linux/zio-trigger.h>
 #include "zio-internal.h"
 
+/* Prototypes */
+static void zio_trigger_put(struct zio_trigger_type *trig,
+			    struct module *dev_owner);
+static void zio_buffer_put(struct zio_buffer_type *zbuf,
+			   struct module *dev_owner);
+static void zobj_unregister(struct zio_object_list *zlist,
+			    struct zio_obj_head *head);
+static void __bi_destroy(struct zio_buffer_type *zbuf, struct zio_bi *bi);
+
 static struct zio_status *zstat = &zio_global_status; /* Always use ptr */
+
+
+/* Device types */
+static void __zdevhw_release(struct device *dev)
+{
+	dev_dbg(dev, "releasing HW device\n");
+}
+
+static void __zdev_release(struct device *dev)
+{
+	struct zio_device *zdev = to_zio_dev(dev);
+
+	dev_dbg(dev, "releasing device\n");
+
+	zobj_unregister(&zstat->all_devices, &zdev->head);
+	zattr_set_remove(&zdev->head);
+	__zattr_set_free(&zdev->zattr_set);
+	kfree(zdev->cset);
+	kfree(zdev);
+}
+static void __cset_release(struct device *dev)
+{
+	struct zio_cset *cset = to_zio_cset(dev);
+
+	dev_dbg(dev, "releasing channel set\n");
+
+	/* release buffer and trigger */
+	zio_trigger_put(cset->trig, cset->zdev->owner);
+	zio_buffer_put(cset->zbuf, cset->zdev->owner);
+	cset->trig = NULL;
+	cset->zbuf = NULL;
+
+	/* Release attributes */
+	zattr_set_remove(&cset->head);
+	__zattr_set_free(&cset->zattr_set);
+
+	/* Release the group of minors */
+	zio_minorbase_put(cset);
+
+	/* Release allocated memory for children channels */
+	kfree(cset->chan);
+}
+
+static void __chan_release(struct device *dev)
+{
+	struct zio_channel *chan = to_zio_chan(dev);
+
+	dev_dbg(dev, "releasing channel\n");
+
+	zio_free_control(chan->current_ctrl);
+
+	/* Release attributes*/
+	zattr_set_remove(&chan->head);
+	if (chan->cset->flags & ZIO_CSET_CHAN_TEMPLATE)
+		__zattr_set_free(&chan->zattr_set);
+}
+
+static void __ti_release(struct device *dev)
+{
+	struct zio_ti *ti = to_zio_ti(dev);
+
+	dev_dbg(dev, "releasing trigger\n");
+	/* Remove zio attributes */
+	zattr_set_remove(&ti->head);
+	/* Release attributes */
+	__zattr_set_free(&ti->zattr_set);
+	/* Destroy trigger instance. It frees trigger resources */
+	ti->t_op->destroy(ti);
+}
+
+static void __bi_release(struct device *dev)
+{
+	struct zio_bi *bi = to_zio_bi(dev);
+
+	dev_dbg(dev, "releasing buffer\n");
+
+	/* Remove zio attribute */
+	zattr_set_remove(&bi->head);
+	/* Release attributes */
+	__zattr_set_free(&bi->zattr_set);
+	/* Destroy buffer instance. It frees buffer resources */
+	bi->b_op->destroy(bi);
+
+}
+
+struct device_type zdevhw_device_type = {
+	.name = zdevhw_device_type_name,
+	.release = __zdevhw_release,
+};
+struct device_type zdev_device_type = {
+	.name = zdev_device_type_name,
+	.release = __zdev_release,
+	.groups = def_zdev_groups_ptr,
+};
+struct device_type cset_device_type = {
+	.name = cset_device_type_name,
+	.release = __cset_release,
+	.groups = def_cset_groups_ptr,
+};
+struct device_type chan_device_type = {
+	.name = chan_device_type_name,
+	.release = __chan_release,
+	.groups = def_chan_groups_ptr,
+};
+struct device_type ti_device_type = {
+	.name = ti_device_type_name,
+	.release = __ti_release,
+	.groups = def_ti_groups_ptr,
+};
+struct device_type bi_device_type = {
+	.name = bi_device_type_name,
+	.release = __bi_release,
+	.groups = def_bi_groups_ptr,
+};
+
 
 /*
  * Top-level ZIO objects has a unique name.
@@ -94,30 +218,46 @@ static void zio_trigger_put(struct zio_trigger_type *trig, struct module *dev_ow
 		module_put(trig->owner);
 }
 
-/* create and initialize a new buffer instance */
-static struct zio_bi *__bi_create_and_init(struct zio_buffer_type *zbuf,
-					   struct zio_channel *chan)
+/**
+ * The function creates, initialize and register a new buffer instance of
+ * a given type.
+ *
+ * @param zbuf is the pointer to the kind of buffer to create
+ * @param cset is the channel to associate to the new buffer instance
+ * @param name is the name of the new buffer instance
+ * @return the pointer to the buffer instance, on error ERR_PTR()
+ */
+static struct zio_bi *__bi_create(struct zio_buffer_type *zbuf,
+				  struct zio_channel *chan,
+				  const char *name)
 {
 	struct zio_bi *bi;
-	int err;
+	int err = 0;
 
 	pr_debug("%s\n", __func__);
+
 	/* Create buffer, ensuring it's not reentrant */
 	spin_lock(&zbuf->lock);
 	bi = zbuf->b_op->create(zbuf, chan);
 	spin_unlock(&zbuf->lock);
 	if (IS_ERR(bi)) {
-		pr_err("ZIO %s: can't create buffer, error %ld\n",
-		       __func__, PTR_ERR(bi));
+		err = PTR_ERR(bi);
+		pr_err("ZIO %s: can't create buffer, error %d\n",
+		       __func__, err);
 		goto out;
 	}
+
+
 	/* Initialize buffer */
+	dev_set_name(&bi->head.dev, name);
 	spin_lock_init(&bi->lock);
 	atomic_set(&bi->use_count, 0);
 	bi->b_op = zbuf->b_op;
 	bi->f_op = zbuf->f_op;
 	bi->v_op = zbuf->v_op;
 	bi->flags |= (chan->flags & ZIO_DIR);
+	init_waitqueue_head(&bi->q);
+
 	/* Initialize head */
 	bi->head.dev.type = &bi_device_type;
 	bi->head.dev.parent = &chan->head.dev;
@@ -125,154 +265,158 @@ static struct zio_bi *__bi_create_and_init(struct zio_buffer_type *zbuf,
 	snprintf(bi->head.name, ZIO_NAME_LEN, "%s-%s-%d-%d",
 		 zbuf->head.name, chan->cset->zdev->head.name,
 		 chan->cset->index, chan->index);
-	init_waitqueue_head(&bi->q);
+
+
 	/* Copy sysfs attribute from buffer type */
 	err = __zattr_set_copy(&bi->zattr_set, &zbuf->zattr_set);
-	if (err) {
-		zbuf->b_op->destroy(bi);
-		bi = ERR_PTR(err);
-	}
-out:
-	return bi;
-}
-static void __bi_destroy(struct zio_buffer_type *zbuf, struct zio_bi *bi)
-{
-	pr_debug("%s\n", __func__);
-	zbuf->b_op->destroy(bi);
-	__zattr_set_free(&bi->zattr_set);
-}
-static int __bi_register(struct zio_buffer_type *zbuf, struct zio_channel *chan,
-			 struct zio_bi *bi, const char *name)
-{
-	int err;
+	if (err)
+		goto out_destory;
 
-	pr_debug("%s\n", __func__);
-	dev_set_name(&bi->head.dev, name);
 	/* Create attributes */
 	err = zattr_set_create(&bi->head, zbuf->s_op);
 	if (err)
-		goto out;
+		goto out_free;
+
+
 	/* Register buffer instance */
 	err = device_register(&bi->head.dev);
 	if (err)
-		goto out_reg;
+		goto out_remove;
 
 	/* Add to buffer instance list */
 	spin_lock(&zbuf->lock);
 	list_add(&bi->list, &zbuf->list);
 	spin_unlock(&zbuf->lock);
+
 	bi->cset = chan->cset;
 	bi->chan = chan;
 	/* Done. This bi->chan marks everything is running */
 
-	return 0;
+	return bi;
 
-out_reg:
+out_remove:
 	zattr_set_remove(&bi->head);
+out_free:
+	__zattr_set_free(&bi->zattr_set);
+out_destory:
+	zbuf->b_op->destroy(bi);
 out:
-	return err;
+	return ERR_PTR(err);
 }
-static void __bi_unregister(struct zio_buffer_type *zbuf, struct zio_bi *bi)
+/**
+ * The function destroys a given buffer instance.
+ *
+ * @param zbuf the kind of buffer instance to destroy
+ * @param bi is the instance to destroy
+ */
+static void __bi_destroy(struct zio_buffer_type *zbuf, struct zio_bi *bi)
 {
-	pr_debug("%s\n", __func__);
+	dev_dbg(&bi->head.dev, "destroying buffer instance\n");
+
 	/* Remove from buffer instance list */
 	spin_lock(&zbuf->lock);
 	list_del(&bi->list);
 	spin_unlock(&zbuf->lock);
 	device_unregister(&bi->head.dev);
-	/* Remove zio attribute */
-	zattr_set_remove(&bi->head);
 }
 
-/* create and initialize a new disabled trigger instance */
-static struct zio_ti *__ti_create_and_init(struct zio_trigger_type *trig,
-					   struct zio_cset *cset)
+/**
+ * The function creates, initialize and register a new trigger instance of
+ * a given type.
+ *
+ * @param trig is the pointer to the kind of trigger to create
+ * @param cset is the channel set to associate to the new trigger instance
+ * @param name is the name of the new trigger instance
+ * @return the pointer to the trigger instance, on error ERR_PTR()
+ */
+static struct zio_ti *__ti_create(struct zio_trigger_type *trig,
+				  struct zio_cset *cset,
+				  const char *name)
 {
-	int err;
 	struct zio_ti *ti;
+	int err = 0;
 
 	pr_debug("%s\n", __func__);
+
 	/* Create trigger, ensuring it's not reentrant */
 	spin_lock(&trig->lock);
 	ti = trig->t_op->create(trig, cset, NULL, 0 /* FIXME: fmode_t */);
 	spin_unlock(&trig->lock);
 	if (IS_ERR(ti)) {
-		pr_err("ZIO %s: can't create trigger, error %ld\n",
-		       __func__, PTR_ERR(ti));
+		err = PTR_ERR(ti);
+		pr_err("ZIO %s: can't create trigger, error %d\n",
+		       __func__, err);
 		goto out;
 	}
+
 	/* This is a new requirement: warn our users */
 	WARN(ti->cset != cset, "Trigger creation should set \"cset\" field\n");
 
+
 	/* Initialize trigger */
+	dev_set_name(&ti->head.dev, name);
 	spin_lock_init(&ti->lock);
 	ti->t_op = trig->t_op;
 	ti->flags |= cset->flags & ZIO_DIR;
+
 	/* Initialize head */
 	ti->head.dev.type = &ti_device_type;
 	ti->head.dev.parent = &cset->head.dev;
 	ti->head.zobj_type = ZIO_TI;
 	snprintf(ti->head.name, ZIO_NAME_LEN, "%s-%s-%d",
 		 trig->head.name, cset->zdev->head.name, cset->index);
+
+
 	/* Copy sysfs attribute from trigger type */
 	err = __zattr_set_copy(&ti->zattr_set, &trig->zattr_set);
-	if (err) {
-		trig->t_op->destroy(ti);
-		return ERR_PTR(err);
-	}
+	if (err)
+		goto out_destroy;
+
 	/* Special case: nsamples */
 	__ctrl_update_nsamples(ti);
 
-out:
-	return ti;
-
-}
-static void __ti_destroy(struct zio_trigger_type *trig, struct zio_ti *ti)
-{
-	pr_debug("%s\n", __func__);
-	trig->t_op->destroy(ti);
-	__zattr_set_free(&ti->zattr_set);
-}
-static int __ti_register(struct zio_trigger_type *trig, struct zio_cset *cset,
-			 struct zio_ti *ti, const char *name)
-{
-	int err;
-
-	pr_debug("%s\n", __func__);
-	dev_set_name(&ti->head.dev, name);
-	/* Create attributes */
+	/* Create attributes group */
 	err = zattr_set_create(&ti->head, trig->s_op);
 	if (err)
-		goto out;
+		goto out_free;
+
+
 	/* Register trigger instance */
 	err = device_register(&ti->head.dev);
 	if (err)
-		goto out_reg;
+		goto out_remove;
+
 	/* Add to trigger instance list */
 	spin_lock(&trig->lock);
 	list_add(&ti->list, &trig->list);
 	spin_unlock(&trig->lock);
 
-	return 0;
+	return ti;
 
-out_reg:
+out_remove:
 	zattr_set_remove(&ti->head);
+out_free:
+	__zattr_set_free(&ti->zattr_set);
+out_destroy:
+	trig->t_op->destroy(ti);
 out:
-	return err;
+	return (err ? ERR_PTR(err) : ti);
 }
 
-/* The trigger must not be armed when calling this helper */
-static void __ti_unregister(struct zio_trigger_type *trig, struct zio_ti *ti)
+/**
+ * The function destroys a given trigger instance.
+ *
+ * @param trig the kind of trigger instance to destroy
+ * @param ti is the instance to destroy
+ */
+static void __ti_destroy(struct zio_trigger_type *trig, struct zio_ti *ti)
 {
-	pr_debug("%s\n", __func__);
+	dev_dbg(&ti->head.dev, "destroying trigger instance\n");
 
-	/* Remove from trigger instance list */
 	spin_lock(&trig->lock);
 	list_del(&ti->list);
 	spin_unlock(&trig->lock);
 	device_unregister(&ti->head.dev);
-	/* Remove zio attributes */
-	zattr_set_remove(&ti->head);
 }
 
 /* This is only called in process context (through a sysfs operation) */
@@ -295,18 +439,14 @@ int zio_change_current_trigger(struct zio_cset *cset, char *name)
 		return PTR_ERR(trig);
 
 	/* Create and register the new trigger instance */
-	ti = __ti_create_and_init(trig, cset);
+	ti = __ti_create(trig, cset, "trigger-tmp");
 	if (IS_ERR(ti)) {
 		err = PTR_ERR(ti);
 		goto out_put;
 	}
-	err = __ti_register(trig, cset, ti, "trigger-tmp");
-	if (err)
-		goto out_destroy;
 
 	/* Ok, we are done. Kill the current trigger to replace it*/
 	zio_trigger_abort_disable(cset, 1);
-	__ti_unregister(trig_old, ti_old);
 	__ti_destroy(trig_old, ti_old);
 	zio_trigger_put(trig_old, cset->zdev->owner);
 
@@ -335,8 +475,6 @@ int zio_change_current_trigger(struct zio_cset *cset, char *name)
 
 	return 0;
 
-out_destroy:
-	__ti_destroy(trig, ti);
 out_put:
 	zio_trigger_put(trig, cset->zdev->owner);
 	return err;
@@ -395,17 +533,10 @@ int zio_change_current_buffer(struct zio_cset *cset, char *name)
 
 	/* Create a new buffer instance for each channel of the cset */
 	for (i = 0; i < cset->n_chan; ++i) {
-		bi_vector[i] = __bi_create_and_init(zbuf, &cset->chan[i]);
+		bi_vector[i] = __bi_create(zbuf, &cset->chan[i], "buffer-tmp");
 		if (IS_ERR(bi_vector[i])) {
 			pr_err("%s can't create buffer instance\n", __func__);
 			err = PTR_ERR(bi_vector[i]);
-			goto out_create;
-		}
-		err = __bi_register(zbuf, &cset->chan[i], bi_vector[i],
-				    "buffer-tmp");
-		if (err) {
-			pr_err("%s can't register buffer instance\n", __func__);
-			__bi_destroy(zbuf, bi_vector[i]);
 			goto out_create;
 		}
 	}
@@ -413,7 +544,6 @@ int zio_change_current_buffer(struct zio_cset *cset, char *name)
 
 	for (i = 0; i < cset->n_chan; ++i) {
 		/* Delete old buffer instance */
-		__bi_unregister(zbuf_old, cset->chan[i].bi);
 		__bi_destroy(zbuf_old, cset->chan[i].bi);
 		/* Assign new buffer instance */
 		cset->chan[i].bi = bi_vector[i];
@@ -440,7 +570,6 @@ int zio_change_current_buffer(struct zio_cset *cset, char *name)
 
 out_create:
 	for (j = i-1; j >= 0; --j) {
-		__bi_unregister(zbuf, bi_vector[j]);
 		__bi_destroy(zbuf, bi_vector[j]);
 	}
 	kfree(bi_vector);
@@ -605,14 +734,11 @@ static int chan_register(struct zio_channel *chan, struct zio_channel *chan_t)
 		}
 	}
 	/* Create buffer */
-	bi = __bi_create_and_init(chan->cset->zbuf, chan);
+	bi = __bi_create(chan->cset->zbuf, chan, "buffer");
 	if (IS_ERR(bi)) {
 		err = PTR_ERR(bi);
 		goto out_bin_attr;
 	}
-	err = __bi_register(chan->cset->zbuf, chan, bi, "buffer");
-	if (err)
-		goto out_buf_reg;
 	/* Assign the buffer instance to this channel */
 	chan->bi = bi;
 	/* Create channel char devices*/
@@ -623,8 +749,6 @@ static int chan_register(struct zio_channel *chan, struct zio_channel *chan_t)
 	return 0;
 
 out_cdev_create:
-	__bi_unregister(chan->cset->zbuf, bi);
-out_buf_reg:
 	__bi_destroy(chan->cset->zbuf, bi);
 out_bin_attr:
 	if (ZIO_HAS_BINARY_CONTROL) {
@@ -654,17 +778,12 @@ static void chan_unregister(struct zio_channel *chan)
 		return;
 	zio_destroy_chan_devices(chan);
 	/* destroy buffer instance */
-	__bi_unregister(chan->cset->zbuf, chan->bi);
 	__bi_destroy(chan->cset->zbuf, chan->bi);
 	if (ZIO_HAS_BINARY_CONTROL)
 		for (i = 0; i < __ZIO_BIN_ATTR_NUM; ++i)
 			sysfs_remove_bin_file(&chan->head.dev.kobj,
 					      &zio_bin_attr[i]);
 	device_unregister(&chan->head.dev);
-	zio_free_control(chan->current_ctrl);
-	zattr_set_remove(&chan->head);
-	if (chan->cset->flags & ZIO_CSET_CHAN_TEMPLATE)
-		__zattr_set_free(&chan->zattr_set);
 }
 
 /*
@@ -735,14 +854,12 @@ static int cset_register(struct zio_cset *cset, struct zio_cset *cset_t)
 	err = cset_set_trigger(cset);
 	if (err)
 		goto out_trig;
-	ti = __ti_create_and_init(cset->trig, cset);
+
+	ti = __ti_create(cset->trig, cset, "trigger");
 	if (IS_ERR(ti)) {
 		err = PTR_ERR(ti);
 		goto out_trig;
 	}
-	err = __ti_register(cset->trig, cset, ti, "trigger");
-	if (err)
-		goto out_tr;
 	cset->ti = ti;
 	pr_debug("%s:%d\n", __func__, __LINE__);
 	/* Allocate a new vector of channel for the new zio cset instance */
@@ -788,8 +905,6 @@ out_reg:
 		chan_unregister(&cset->chan[j]);
 	kfree(cset->chan);
 out_n_chan:
-	__ti_unregister(cset->trig, ti);
-out_tr:
 	__ti_destroy(cset->trig, ti);
 out_trig:
 	zio_trigger_put(cset->trig, cset->zdev->owner);
@@ -823,22 +938,11 @@ static void cset_unregister(struct zio_cset *cset)
 	/* Unregister all child channels */
 	for (i = 0; i < cset->n_chan; i++)
 		chan_unregister(&cset->chan[i]);
-	kfree(cset->chan);
-	/* destroy instance and decrement trigger usage */
-	__ti_unregister(cset->trig, cset->ti);
-	__ti_destroy(cset->trig,  cset->ti);
-	zio_trigger_put(cset->trig, cset->zdev->owner);
-	cset->trig = NULL;
 
-	/* decrement buffer usage */
-	zio_buffer_put(cset->zbuf, cset->zdev->owner);
-	cset->zbuf = NULL;
+	/* destroy instance and decrement trigger usage */
+	__ti_destroy(cset->trig, cset->ti);
 
 	device_unregister(&cset->head.dev);
-	zattr_set_remove(&cset->head);
-	__zattr_set_free(&cset->zattr_set);
-	/* Release the group of minors */
-	zio_minorbase_put(cset);
 }
 
 /*
@@ -869,6 +973,7 @@ static int zobj_register(struct zio_object_list *zlist,
 	spin_unlock(&zstat->lock);
 	return 0;
 }
+
 static void zobj_unregister(struct zio_object_list *zlist,
 		struct zio_obj_head *head)
 {
@@ -991,12 +1096,7 @@ void __zdev_unregister(struct zio_device *zdev)
 
 	for (i = 0; i < zdev->n_cset; ++i)
 		cset_unregister(&zdev->cset[i]);
-	kfree(zdev->cset);
 	device_unregister(&zdev->head.dev);
-	zobj_unregister(&zstat->all_devices, &zdev->head);
-	zattr_set_remove(&zdev->head);
-	__zattr_set_free(&zdev->zattr_set);
-	kfree(zdev);
 }
 
 struct zio_device *zio_allocate_device(void)
@@ -1120,8 +1220,11 @@ void zio_unregister_device(struct zio_device *zdev)
 	struct zio_device *child;
 
 	child = zio_device_find_child(zdev);
-	if (child)
+	if (child) {
 		__zdev_unregister(child);
+		/* We done everything with child */
+		put_device(&child->head.dev);
+	}
 
 	dev_info(parent, "device removed\n");
 	device_unregister(parent);
