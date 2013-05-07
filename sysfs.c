@@ -394,7 +394,13 @@ static void __zobj_enable(struct device *dev, unsigned int enable)
 	case ZIO_TRG:
 	case ZIO_BI:
 		dev_dbg(dev, "(buf)\n");
-		/* buffer instance callback */
+		/*
+		 * The buffer instance cannot be enabled/disabled by sysfs. A
+		 * buffer instance is usually enabled, even if its channel is
+		 * disabled. This allow users to fill a channel buffer, even if
+		 * the channel is disabled. Only ZIO can disable a buffer
+		 * instance during flush.
+		 */
 		break;
 	default:
 		WARN(1, "ZIO: unknown zio object %i\n", head->zobj_type);
