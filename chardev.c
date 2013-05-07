@@ -277,7 +277,7 @@ static int zio_read_mask(struct zio_f_priv *priv)
 	dev_dbg(&bi->head.dev, "%s: channel %d in cset %d", __func__,
 		bi->chan->index, bi->chan->cset->index);
 	if (!chan->user_block)
-		chan->user_block = bi->b_op->retr_block(bi);
+		chan->user_block = zio_buffer_retr_block(bi);
 	if (!chan->user_block)
 		return 0;
 
@@ -291,7 +291,7 @@ static int zio_read_mask(struct zio_f_priv *priv)
 
 	/* We want to re-read control. Get a new block */
 	bi->b_op->free_block(bi, chan->user_block);
-	chan->user_block = bi->b_op->retr_block(bi);
+	chan->user_block = zio_buffer_retr_block(bi);
 	return chan->user_block ? can_read : 0;
 }
 
@@ -302,7 +302,7 @@ static struct zio_block *__zio_write_allocblock(struct zio_bi *bi)
 	size_t datalen;
 
 	datalen = cset->ssize * cset->ti->nsamples;
-	return bi->b_op->alloc_block(bi, datalen, GFP_KERNEL);
+	return zio_buffer_alloc_block(bi, datalen, GFP_KERNEL);
 }
 
 static int zio_write_mask(struct zio_f_priv *priv)
@@ -423,7 +423,7 @@ static ssize_t zio_generic_write(struct file *f, const char __user *ubuf,
 		*offp += count;
 
 		if (!chan->cset->ssize) { /* data-less: store it now */
-			bi->b_op->store_block(bi, block); /* can't fail */
+			zio_buffer_store_block(bi, block);
 			chan->user_block = NULL;
 		}
 		return count;
@@ -436,7 +436,7 @@ static ssize_t zio_generic_write(struct file *f, const char __user *ubuf,
 	*offp += count;
 	block->uoff += count;
 	if (block->uoff == block->datalen) {
-		bi->b_op->store_block(bi, block); /* can't fail */
+		zio_buffer_store_block(bi, block);
 		chan->user_block = NULL;
 	}
 	return count;

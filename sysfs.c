@@ -394,7 +394,13 @@ static void __zobj_enable(struct device *dev, unsigned int enable)
 	case ZIO_TRG:
 	case ZIO_BI:
 		dev_dbg(dev, "(buf)\n");
-		/* buffer instance callback */
+		/*
+		 * The buffer instance cannot be enabled/disabled by sysfs. A
+		 * buffer instance is usually enabled, even if its channel is
+		 * disabled. This allow users to fill a channel buffer, even if
+		 * the channel is disabled. Only ZIO can disable a buffer
+		 * instance during flush.
+		 */
 		break;
 	default:
 		WARN(1, "ZIO: unknown zio object %i\n", head->zobj_type);
@@ -645,6 +651,48 @@ static ssize_t zio_store_alarm(struct device *dev,
 	return count;
 }
 
+/**
+ * The function is associated to the sysfs buffer's attribute 'flush'. On
+ * write, it flushes all blocks from the given buffer. While the buffer
+ * is flushing, nor store nor retrieve operations are allowed on it. Because
+ * of this, if the user perform a flush while the trigger is running he
+ * may loose some blocks. The flashing operation can disable the trigger but it
+ * does not do it; it leaves the user application free to enable/disable the
+ * trigger during flush
+ */
+static ssize_t zio_buf_flush(struct device *dev,
+			    struct device_attribute *attr,
+			    const char *buf, size_t count)
+{
+	struct zio_bi *bi = to_zio_bi(dev);
+	struct zio_block *block;
+	unsigned long flags;
+	struct zio_ti *ti;
+	int n = 0;
+
+	ti = bi->cset->ti;
+	if (!(ti->flags & ZIO_DISABLED))
+		dev_warn(dev, "Flushing while trigger is active\n");
+
+	/* Disable buffer. No store/retrieve are allowed */
+	spin_lock_irqsave(&bi->lock, flags);
+	bi->flags |= ZIO_DISABLED;
+	spin_unlock_irqrestore(&bi->lock, flags);
+
+	/* Flushing blocks. It does not use helpers to prevent deadlock */
+	while((block = bi->b_op->retr_block(bi))) {
+		dev_dbg(dev, "Flushing ... (%d)\n", n++);
+		bi->b_op->free_block(bi, block);
+	}
+
+	/* Flushing is over. Enable buffer */
+	spin_lock_irqsave(&bi->lock, flags);
+	bi->flags &= ~ZIO_DISABLED;
+	spin_unlock_irqrestore(&bi->lock, flags);
+
+	return count;
+}
+
 #if ZIO_HAS_BINARY_CONTROL
 /*
  * zobj_read_cur_ctrl
@@ -738,6 +786,8 @@ static struct device_attribute zio_default_attributes[] = {
 				zobj_show_devname, NULL),
 	[ZIO_DAN_TYPE] = __ATTR(devtype, ZIO_RO_PERM,
 				zobj_show_dev_type, NULL),
+	[ZIO_DAN_FLUS] = __ATTR(flush, ZIO_WO_PERM,
+				NULL, zio_buf_flush),
 	[ZIO_DAN_ALAR] = __ATTR(alarms, ZIO_RW_PERM,
 				zio_show_alarm, zio_store_alarm),
 	__ATTR_NULL,
@@ -768,6 +818,7 @@ static struct attribute *def_chan_attrs_ptr[] = {
 /* default attributes for buffer instance */
 static struct attribute *def_bi_attrs_ptr[] = {
 	&zio_default_attributes[ZIO_DAN_NAME].attr,
+	&zio_default_attributes[ZIO_DAN_FLUS].attr,
 	NULL,
 };
 

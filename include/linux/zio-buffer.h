@@ -137,4 +137,56 @@ struct zio_f_priv {
 	enum zio_cdev_type type;
 };
 
+/* Buffer helpers */
+static inline struct zio_block *zio_buffer_retr_block(struct zio_bi *bi)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&bi->lock, flags);
+	if (unlikely(bi->flags & ZIO_DISABLED)) {
+		spin_unlock_irqrestore(&bi->lock, flags);
+		dev_err(&bi->head.dev, "Buffer disabled, cannot retrieve\n");
+		return NULL;
+	}
+	spin_unlock_irqrestore(&bi->lock, flags);
+
+	return bi->b_op->retr_block(bi);
+}
+
+/**
+ * The helper store a given block into a buffer. If the store procedure fails,
+ * this helper automatically free the given block.
+ */
+static inline void zio_buffer_store_block(struct zio_bi *bi, struct zio_block *block)
+{
+	unsigned long flags;
+	int ret;
+
+	spin_lock_irqsave(&bi->lock, flags);
+	if (unlikely(bi->flags & ZIO_DISABLED)) {
+		spin_unlock_irqrestore(&bi->lock, flags);
+		dev_err(&bi->head.dev, "Buffer disabled, cannot store\n");
+		bi->b_op->free_block(bi, block);
+	}
+	spin_unlock_irqrestore(&bi->lock, flags);
+
+	ret = bi->b_op->store_block(bi, block);
+	if (ret)
+		bi->b_op->free_block(bi, block);
+}
+
+static inline int zio_buffer_free_block(struct zio_bi *bi,
+					struct zio_block *block)
+{
+	bi->b_op->free_block(bi, block);
+
+	return 0;
+}
+
+static inline struct zio_block *zio_buffer_alloc_block(struct zio_bi *bi,
+					size_t datalen, gfp_t gfp)
+{
+	return bi->b_op->alloc_block(bi, datalen, gfp);
+}
+
 #endif /* __ZIO_BUFFER_H__ */
