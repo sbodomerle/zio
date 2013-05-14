@@ -27,10 +27,10 @@ struct zio_control *zio_alloc_control(gfp_t gfp)
 {
 	struct zio_control *ctrl;
 
-	ctrl = kmem_cache_alloc(zio_ctrl_slab, gfp);
+	ctrl = kmem_cache_zalloc(zio_ctrl_slab, gfp);
 	if (!ctrl)
 		return NULL;
-	memset(ctrl, 0, sizeof(*ctrl));
+
 	ctrl->major_version = ZIO_MAJOR_VERSION;
 	ctrl->minor_version = ZIO_MINOR_VERSION;
 	if (ntohl(1) == 1)
