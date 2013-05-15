@@ -167,6 +167,7 @@ static inline void zio_buffer_store_block(struct zio_bi *bi, struct zio_block *b
 		spin_unlock_irqrestore(&bi->lock, flags);
 		dev_err(&bi->head.dev, "Buffer disabled, cannot store\n");
 		bi->b_op->free_block(bi, block);
+		return;
 	}
 	spin_unlock_irqrestore(&bi->lock, flags);
 
