@@ -162,4 +162,30 @@ static inline void zio_generic_data_done(struct zio_cset *cset)
 		chan->active_block = zio_buffer_retr_block(chan->bi);
 }
 
+/**
+ * This helper try to push a block to the trigger
+ */
+static inline int zio_trigger_try_push(struct zio_bi *bi,
+				       struct zio_channel *chan,
+				       struct zio_block *block)
+{
+	struct zio_ti *ti = chan->cset->ti;
+	int pushed;
+
+	/* chek if trigger is disabled */
+	if (unlikely((ti->flags & ZIO_STATUS) == ZIO_DISABLED))
+		return 0;
+	/*
+	 * If push succeeds and the device eats data immediately,
+	 * the trigger may call retr_block right now.  So
+	 * release the lock but also say we can't retrieve now.
+	 */
+	bi->flags |= ZIO_BI_PUSHING;
+	spin_unlock(&bi->lock); /* Don't irqrestore here, keep them disabled */
+	pushed = (ti->t_op->push_block(ti, chan, block) == 0);
+	spin_lock(&bi->lock);
+	bi->flags &=  ~ZIO_BI_PUSHING;
+	return pushed;
+}
+
 #endif /* __ZIO_TRIGGER_H__ */

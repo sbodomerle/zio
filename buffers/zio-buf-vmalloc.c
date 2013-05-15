@@ -173,29 +173,6 @@ static void zbk_try_merge(struct zbk_instance *zbki, struct zbk_item *item)
 	kmem_cache_free(zbk_slab, item);
 }
 
-/* When write() stores the first block, we try pushing it */
-static inline int __try_push(struct zio_bi *bi, struct zio_channel *chan,
-			     struct zio_block *block)
-{
-	struct zio_ti *ti = chan->cset->ti;
-	int pushed;
-
-	/* chek if trigger is disabled */
-	if (unlikely((ti->flags & ZIO_STATUS) == ZIO_DISABLED))
-		return 0;
-	/*
-	 * If push succeeds and the device eats data immediately,
-	 * the trigger may call retr_block right now.  So
-	 * release the lock but also say we can't retrieve now.
-	 */
-	bi->flags |= ZIO_BI_PUSHING;
-	spin_unlock(&bi->lock);
-	pushed = (ti->t_op->push_block(ti, chan, block) == 0);
-	spin_lock(&bi->lock);
-	bi->flags &=  ~ZIO_BI_PUSHING;
-	return pushed;
-}
-
 /* Store is called by the trigger (for input) or by f->write (for output) */
 static int zbk_store_block(struct zio_bi *bi, struct zio_block *block)
 {
@@ -218,7 +195,7 @@ static int zbk_store_block(struct zio_bi *bi, struct zio_block *block)
 	list_add_tail(&item->list, &zbki->list);
 	if (first) {
 		if (unlikely(output))
-			pushed = __try_push(bi, chan, block);
+			pushed = zio_trigger_try_push(bi, chan, block);
 		else
 			awake = 1;
 	}
