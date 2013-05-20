@@ -146,8 +146,8 @@ static inline void __zattr_valcpy(struct zio_ctrl_attr *ctrl,
 
 void __ctrl_update_nsamples(struct zio_ti *ti)
 {
-	ti->nsamples = ti->zattr_set.std_zattr[ZIO_ATTR_TRIG_PRE_SAMP].value +
-		       ti->zattr_set.std_zattr[ZIO_ATTR_TRIG_POST_SAMP].value;
+	ti->nsamples = zio_ti_std_val(ti, ZIO_ATTR_TRIG_PRE_SAMP) +
+		       zio_ti_std_val(ti, ZIO_ATTR_TRIG_POST_SAMP);
 }
 static void __zattr_propagate_value(struct zio_obj_head *head,
 			       struct zio_attribute *zattr)

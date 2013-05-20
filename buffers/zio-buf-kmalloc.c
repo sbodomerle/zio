@@ -74,7 +74,7 @@ static struct zio_block *zbk_alloc_block(struct zio_bi *bi,
 
 	/* alloc fails if we overflow the buffer size */
 	spin_lock_irqsave(&bi->lock, flags);
-	if (zbki->nitem >= bi->zattr_set.std_zattr[ZIO_ATTR_ZBUF_MAXLEN].value)
+	if (zbki->nitem >= zio_bi_std_val(bi, ZIO_ATTR_ZBUF_MAXLEN))
 		goto out_unlock;
 	zbki->nitem++;
 	spin_unlock_irqrestore(&bi->lock, flags);
@@ -118,7 +118,7 @@ static void zbk_free_block(struct zio_bi *bi, struct zio_block *block)
 
 	spin_lock_irqsave(&bi->lock, flags);
 	if ( ((bi->flags & ZIO_DIR) == ZIO_DIR_OUTPUT) &&
-	     zbki->nitem < bi->zattr_set.std_zattr[ZIO_ATTR_ZBUF_MAXLEN].value)
+	     zbki->nitem < zio_bi_std_val(bi, ZIO_ATTR_ZBUF_MAXLEN))
 		awake = 1;
 	zbki->nitem--;
 	spin_unlock_irqrestore(&bi->lock, flags);

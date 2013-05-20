@@ -87,6 +87,14 @@ enum zio_bi_flag_mask {
 	ZIO_BI_PUSHING = 0x10,	/* a push is being performed */
 };
 
+/**
+ * This helper returns the value of a sysfs attribute of a buffer instance
+ */
+static inline uint32_t zio_bi_std_val(struct zio_bi *bi,
+				      enum zio_buf_std_attr attr)
+{
+	return bi->zattr_set.std_zattr[attr].value;
+}
 
 /*
  * Each buffer implementation must provide the following methods, because
