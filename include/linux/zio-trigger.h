@@ -186,15 +186,10 @@ static inline int zio_trigger_try_push(struct zio_bi *bi,
 	/* chek if trigger is disabled */
 	if (unlikely((ti->flags & ZIO_STATUS) == ZIO_DISABLED))
 		return 0;
-	/*
-	 * If push succeeds and the device eats data immediately,
-	 * the trigger may call retr_block right now.  So
-	 * release the lock but also say we can't retrieve now.
-	 */
+
+	/* Keep the lock, but mark we are pushing so trigger-user won't retr */
 	bi->flags |= ZIO_BI_PUSHING;
-	spin_unlock(&bi->lock); /* Don't irqrestore here, keep them disabled */
 	pushed = (ti->t_op->push_block(ti, chan, block) == 0);
-	spin_lock(&bi->lock);
 	bi->flags &=  ~ZIO_BI_PUSHING;
 	return pushed;
 }

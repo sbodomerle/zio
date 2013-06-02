@@ -138,6 +138,12 @@ static void zbk_free_block(struct zio_bi *bi, struct zio_block *block)
 	item = to_item(block);
 	zbki = item->instance;
 
+	if (bi->flags & ZIO_BI_PUSHING) {
+		/* freed while pushing: we hold the bi lock already */
+		zbki->nitem--;
+		goto out_free;
+	}
+
 	spin_lock_irqsave(&bi->lock, flags);
 	if ( ((bi->flags & ZIO_DIR) == ZIO_DIR_OUTPUT) &&
 	     zbki->nitem < bi->zattr_set.std_zattr[ZIO_ATTR_ZBUF_MAXLEN].value)
@@ -145,6 +151,7 @@ static void zbk_free_block(struct zio_bi *bi, struct zio_block *block)
 	zbki->nitem--;
 	spin_unlock_irqrestore(&bi->lock, flags);
 
+out_free:
 	kfree(block->data);
 	zio_free_control(zio_get_ctrl(block));
 	kmem_cache_free(zbk_slab, item);
@@ -167,15 +174,14 @@ static int zbk_store_block(struct zio_bi *bi, struct zio_block *block)
 	/* add to the buffer instance or push to the trigger */
 	spin_lock_irqsave(&bi->lock, flags);
 	isempty = list_empty(&zbki->list);
-	list_add_tail(&item->list, &zbki->list);
 	if (isempty) {
 		if (unlikely(output))
 			pushed = zio_trigger_try_push(bi, chan, block);
 		else
 			awake = 1;
 	}
-	if (pushed)
-		list_del(&item->list);
+	if (!pushed)
+		list_add_tail(&item->list, &zbki->list);
 
 	spin_unlock_irqrestore(&bi->lock, flags);
 
@@ -196,8 +202,13 @@ static struct zio_block *zbk_retr_block(struct zio_bi *bi)
 
 	zbki = to_zbki(bi);
 
+	/* PUSHING is only active temporarily during locked context */
+	if (bi->flags & ZIO_BI_PUSHING)
+		return NULL;
+
+	/* There is no trig->push in our call trace, proceed to get the lock */
 	spin_lock_irqsave(&bi->lock, flags);
-	if (list_empty(&zbki->list) || bi->flags & ZIO_BI_PUSHING)
+	if (list_empty(&zbki->list))
 		goto out_unlock;
 	first = zbki->list.next;
 	item = list_entry(first, struct zbk_item, list);

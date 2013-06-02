@@ -140,15 +140,10 @@ struct zio_f_priv {
 /* Buffer helpers */
 static inline struct zio_block *zio_buffer_retr_block(struct zio_bi *bi)
 {
-	unsigned long flags;
-
-	spin_lock_irqsave(&bi->lock, flags);
 	if (unlikely(bi->flags & ZIO_DISABLED)) {
-		spin_unlock_irqrestore(&bi->lock, flags);
 		dev_err(&bi->head.dev, "Buffer disabled, cannot retrieve\n");
 		return NULL;
 	}
-	spin_unlock_irqrestore(&bi->lock, flags);
 
 	return bi->b_op->retr_block(bi);
 }
@@ -159,17 +154,13 @@ static inline struct zio_block *zio_buffer_retr_block(struct zio_bi *bi)
  */
 static inline void zio_buffer_store_block(struct zio_bi *bi, struct zio_block *block)
 {
-	unsigned long flags;
 	int ret;
 
-	spin_lock_irqsave(&bi->lock, flags);
 	if (unlikely(bi->flags & ZIO_DISABLED)) {
-		spin_unlock_irqrestore(&bi->lock, flags);
 		dev_err(&bi->head.dev, "Buffer disabled, cannot store\n");
 		bi->b_op->free_block(bi, block);
 		return;
 	}
-	spin_unlock_irqrestore(&bi->lock, flags);
 
 	ret = bi->b_op->store_block(bi, block);
 	if (unlikely(ret)) {
