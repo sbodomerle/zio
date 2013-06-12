@@ -875,6 +875,7 @@ static int cset_register(struct zio_cset *cset, struct zio_cset *cset_t)
 		cset->chan[i].index = i;
 		cset->chan[i].cset = cset;
 		cset->chan[i].ti = cset->ti;
+		mutex_init(&cset->chan[i].user_lock);
 		cset->chan[i].flags |= cset->flags & ZIO_DIR;
 		chan_tmp = NULL;
 		if (cset->chan_template)
