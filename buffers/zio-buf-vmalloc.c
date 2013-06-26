@@ -33,6 +33,7 @@ struct zbk_instance {
 	struct list_head list; /* items, one per block */
 	struct zio_ffa *ffa;
 	void *data;
+	atomic_t map_count;
 	unsigned long size;
 	unsigned long flags;
 };
@@ -58,7 +59,8 @@ enum {
 };
 
 static ZIO_ATTR_DEFINE_STD(ZIO_BUF, zbk_std_zattr) = {
-	ZIO_ATTR(zbuf, ZIO_ATTR_ZBUF_MAXKB, ZIO_RW_PERM, 0x0, 128),
+	ZIO_ATTR(zbuf, ZIO_ATTR_ZBUF_MAXKB, ZIO_RW_PERM,
+		 ZIO_ATTR_ZBUF_MAXKB /* ID for the switch below */, 128),
 };
 
 static struct zio_attribute zbk_ext_attr[] = {
@@ -71,18 +73,46 @@ static int zbk_conf_set(struct device *dev, struct zio_attribute *zattr,
 {
 	struct zio_bi *bi = to_zio_bi(dev);
 	struct zbk_instance *zbki = to_zbki(bi);
+	struct zio_block *block;
+	unsigned long flags, bflags;
+	void *data;
+	int ret = 0;
 
 	switch(zattr->id) {
 	case ZIO_ATTR_ZBUF_MAXKB:
-		if (0) {
-			zattr->value = usr_val;
-		} else {
-			/* Temporarily, until I keep track of active maps */
+		/* Lock and disable */
+		spin_lock_irqsave(&bi->lock, flags);
+		if (atomic_read(&zbki->map_count)) {
+			spin_unlock_irqrestore(&bi->lock, flags);
 			return -EBUSY;
 		}
-		break;
+		bflags = bi->flags;
+		bi->flags |= ZIO_DISABLED;
+		spin_unlock_irqrestore(&bi->lock, flags);
+
+		/* Flush the buffer */
+		while((block = bi->b_op->retr_block(bi)))
+			bi->b_op->free_block(bi, block);
+
+		/* Change size */
+		data = vmalloc(usr_val * 1024);
+		if (data) {
+			vfree(zbki->data);
+			zio_ffa_destroy(zbki->ffa);
+			zbki->ffa = zio_ffa_create(0, usr_val * 1024);
+			/* FIXME: what if this malloc failed? */
+			zbki->size = usr_val * 1024;
+			zbki->data = data;
+		} else {
+			ret = -ENOMEM;
+		}
+		/* Lock and restore flags */
+		spin_lock_irqsave(&bi->lock, flags);
+		bi->flags = bflags;
+		spin_unlock_irqrestore(&bi->lock, flags);
+		return ret;
+
 	case ZBK_ATTR_MERGE_DATA:
-		printk("write merge data: %i\n", usr_val);
 		if (usr_val)
 			zbki->flags |= ZBK_FLAG_MERGE_DATA;
 		else
@@ -321,6 +351,25 @@ static const struct zio_buffer_operations zbk_buffer_ops = {
  * refcounting later, to safely change the buffer size (which we
  * refuse by now)
  */
+static void zbk_open(struct vm_area_struct *vma)
+{
+	struct file *f = vma->vm_file;
+	struct zio_f_priv *priv = f->private_data;
+	struct zio_bi *bi = priv->chan->bi;
+	struct zbk_instance *zbki = to_zbki(bi);
+
+	atomic_inc(&zbki->map_count);
+}
+
+static void zbk_close(struct vm_area_struct *vma)
+{
+	struct file *f = vma->vm_file;
+	struct zio_f_priv *priv = f->private_data;
+	struct zio_bi *bi = priv->chan->bi;
+	struct zbk_instance *zbki = to_zbki(bi);
+
+	atomic_dec(&zbki->map_count);
+}
 static int zbk_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 {
 	struct file *f = vma->vm_file;
@@ -348,7 +397,8 @@ static int zbk_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 }
 
 static struct vm_operations_struct zbk_vma_ops = {
-	/* FIXME: open and close for refcounting */
+	.open = zbk_open,
+	.close = zbk_close,
 	.fault = zbk_fault,
 };
 

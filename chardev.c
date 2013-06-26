@@ -563,17 +563,25 @@ static int zio_generic_mmap(struct file *f, struct vm_area_struct *vma)
 	struct zio_f_priv *priv = f->private_data;
 	struct zio_bi *bi = priv->chan->bi;
 	const struct vm_operations_struct *v_op = bi->v_op;
+	unsigned long flags;
+	int ret;
 
 	dev_dbg(&bi->head.dev, "%s: channel %d in cset %d", __func__,
 		bi->chan->index, bi->chan->cset->index);
 	if (!v_op)
 		return -ENODEV; /* according to man page */
-	/* The buffer instance may usecount, so notifiy it and allow
-	   it to fail */
-	vma->vm_ops = v_op;
-	if (v_op->open)
-		v_op->open(vma); /* returns void */
-	return 0;
+	spin_lock_irqsave(&bi->lock, flags);
+	if (bi->flags & ZIO_DISABLED) {
+		ret = -EBUSY;
+	} else {
+		ret = 0;
+		/* The buffer instance may usecount, so notifiy it */
+		vma->vm_ops = v_op;
+		if (v_op->open)
+			v_op->open(vma); /* returns void */
+	}
+	spin_unlock_irqrestore(&bi->lock, flags);
+	return ret;
 }
 
 static unsigned int zio_generic_poll(struct file *f,
