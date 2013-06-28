@@ -51,6 +51,16 @@ enum zio_ti_flag_mask {
 };
 
 #define to_zio_ti(obj) container_of(obj, struct zio_ti, head.dev)
+
+/**
+ * This helper returns the value of a sysfs attribute of a trigger instance
+ */
+static inline uint32_t zio_ti_std_val(struct zio_ti *ti,
+				      enum zio_trg_std_attr attr)
+{
+	return ti->zattr_set.std_zattr[attr].value;
+}
+
 void zio_arm_trigger(struct zio_ti *ti);
 
 /*

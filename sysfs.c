@@ -131,8 +131,8 @@ void __ctrl_update_nsamples(struct zio_ti *ti)
 {
 	struct zio_cset *cset = ti->cset;
 
-	ti->nsamples = ti->zattr_set.std_zattr[ZIO_ATTR_TRIG_PRE_SAMP].value +
-		       ti->zattr_set.std_zattr[ZIO_ATTR_TRIG_POST_SAMP].value;
+	ti->nsamples = zio_ti_std_val(ti, ZIO_ATTR_TRIG_PRE_SAMP) +
+		       zio_ti_std_val(ti, ZIO_ATTR_TRIG_POST_SAMP);
 
 	/*
 	 * If a cset is interleaved only or the interleaved channel is enabled,
