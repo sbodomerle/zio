@@ -22,6 +22,8 @@
 #include <linux/zio-buffer.h>
 #include <linux/zio-trigger.h>
 
+#define ZTT_FLAGS_PENDING (1 << 0)
+
 struct ztt_instance {
 	struct zio_ti		ti;
 	struct hrtimer		timer;
@@ -30,6 +32,7 @@ struct ztt_instance {
 	uint32_t		scalar_l; /* temporary storage */
 	uint32_t		slack;
 	uint32_t		period;
+	unsigned long		flags;
 };
 #define to_ztt_instance(ti) container_of(ti, struct ztt_instance, ti)
 
@@ -101,6 +104,7 @@ static int ztt_conf_set(struct device *dev, struct zio_attribute *zattr,
 		ztt->ts.tv_sec = usr_val;
 		ztt->scalar = ztt->ts.tv_sec * NSEC_PER_SEC + ztt->ts.tv_nsec;
 		ktime = timespec_to_ktime(ztt->ts),
+		ztt->flags |= ZTT_FLAGS_PENDING;
 		hrtimer_start_range_ns(&ztt->timer, ktime, ztt->slack,
 				       HRTIMER_MODE_ABS);
 		break;
@@ -119,6 +123,7 @@ static int ztt_conf_set(struct device *dev, struct zio_attribute *zattr,
 			ztt->scalar += ktime_to_ns(timespec_to_ktime(now));
 		}
 		ktime = ns_to_ktime(ztt->scalar);
+		ztt->flags |= ZTT_FLAGS_PENDING;
 		hrtimer_start_range_ns(&ztt->timer, ktime, ztt->slack,
 				       HRTIMER_MODE_ABS);
 		break;
@@ -153,6 +158,8 @@ static enum hrtimer_restart ztt_fn(struct hrtimer *timer)
 		hrtimer_add_expires_ns(&ztt->timer, ztt->period);
 		return HRTIMER_RESTART;
 	}
+
+	ztt->flags &= ~ZTT_FLAGS_PENDING;
 	return HRTIMER_NORESTART;
 }
 
@@ -244,8 +251,10 @@ static void ztt_change_status(struct zio_ti *ti, unsigned int status)
 	pr_debug("%s:%d status=%d\n", __func__, __LINE__, status);
 	ztt = to_ztt_instance(ti);
 
-	if (!status) {	/* enable: it may be already configured and pending */
-		hrtimer_restart(&ztt->timer);
+	if (!status) {
+		/* enable: it may be already configured and pending. */
+		if (ztt->flags & ZTT_FLAGS_PENDING)
+			hrtimer_restart(&ztt->timer);
 	} else {	/* disable */
 		hrtimer_cancel(&ztt->timer);
 	}
