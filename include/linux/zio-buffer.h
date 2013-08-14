@@ -172,8 +172,10 @@ static inline void zio_buffer_store_block(struct zio_bi *bi, struct zio_block *b
 	spin_unlock_irqrestore(&bi->lock, flags);
 
 	ret = bi->b_op->store_block(bi, block);
-	if (ret)
+	if (unlikely(ret)) {
+		bi->chan->current_ctrl->zio_alarms |= ZIO_ALARM_LOST_BLOCK;
 		bi->b_op->free_block(bi, block);
+	}
 }
 
 static inline int zio_buffer_free_block(struct zio_bi *bi,
