@@ -32,6 +32,9 @@ ZIO_ATTR_DEFINE_STD(ZIO_DEV, zzero_zattr_cset8) = {
 ZIO_ATTR_DEFINE_STD(ZIO_DEV, zzero_zattr_cset32) = {
 	/* 32 bit -> ssize = 4 */
 	ZIO_ATTR(zdev, ZIO_ATTR_NBITS, ZIO_RO_PERM, 0, 32),
+	ZIO_ATTR(zdev, ZIO_ATTR_OFFSET, ZIO_RW_PERM, 0, 0),
+	ZIO_ATTR(zdev, ZIO_ATTR_GAIN, ZIO_RW_PERM, 0, 1),
+
 };
 /* This attribute is the sequence point for input channel number 0 of cset 2 */
 enum zzero_ext {
@@ -49,9 +52,12 @@ static void zzero_get_sequence(struct zio_channel *chan,
 {
 	uint32_t *ptr = data;
 	uint32_t *value = &chan->cset->zattr_set.ext_zattr[ZZERO_SEQ].value;
+	uint32_t gain = chan->cset->zattr_set.std_zattr[ZIO_ATTR_GAIN].value;
+	uint32_t offset = chan->cset->zattr_set.std_zattr[ZIO_ATTR_OFFSET].value;
 
 	while (datalen >= 4) {
-		put_unaligned_le32((*value)++, ptr);
+		put_unaligned_le32((*value * gain) + offset, ptr);
+		(*value)++;
 		datalen -= 4;
 		ptr++;
 	}
@@ -134,8 +140,8 @@ static int zzero_conf_set(struct device *dev, struct zio_attribute *zattr,
 		      uint32_t  usr_val)
 {
 	/*
-	 * This function is called only to change sequence number.
-	 * Any number is valid.
+	 * This function is called to change sequence number and its gain and
+	 * offset values. Any number is valid.
 	 */
 	return 0;
 }
