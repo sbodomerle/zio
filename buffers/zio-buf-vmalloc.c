@@ -35,6 +35,7 @@ struct zbk_instance {
 	void *data;
 	atomic_t map_count;
 	unsigned long size;
+	unsigned long alloc_size; /* allocated size */
 	unsigned long flags;
 };
 #define to_zbki(bi) container_of(bi, struct zbk_instance, bi)
@@ -61,6 +62,8 @@ enum {
 static ZIO_ATTR_DEFINE_STD(ZIO_BUF, zbk_std_zattr) = {
 	ZIO_ATTR(zbuf, ZIO_ATTR_ZBUF_MAXKB, ZIO_RW_PERM,
 		 ZIO_ATTR_ZBUF_MAXKB /* ID for the switch below */, 128),
+	ZIO_ATTR(zbuf, ZIO_ATTR_ZBUF_ALLOC_KB, ZIO_RO_PERM,
+		 ZIO_ATTR_ZBUF_ALLOC_KB, 0),
 };
 
 static struct zio_attribute zbk_ext_attr[] = {
@@ -123,8 +126,27 @@ static int zbk_conf_set(struct device *dev, struct zio_attribute *zattr,
 	}
 	return 0;
 }
+
+static int zbk_info_get(struct device *dev, struct zio_attribute *zattr,
+			 uint32_t *usr_val)
+{
+	struct zio_bi *bi = to_zio_bi(dev);
+	struct zbk_instance *zbki = to_zbki(bi);
+
+	switch (zattr->id) {
+	case ZIO_ATTR_ZBUF_ALLOC_KB:
+		*usr_val = zbki->alloc_size / 1024;
+		break;
+	case ZIO_ATTR_ZBUF_MAXKB:
+	default:
+		break;
+	}
+
+	return 0;
+}
 struct zio_sysfs_operations zbk_sysfs_ops = {
 	.conf_set = zbk_conf_set,
+	.info_get = zbk_info_get,
 };
 
 /* Alloc is called by the trigger (for input) or by f->write (for output) */
@@ -134,7 +156,7 @@ static struct zio_block *zbk_alloc_block(struct zio_bi *bi,
 	struct zbk_instance *zbki = to_zbki(bi);
 	struct zbk_item *item;
 	struct zio_control *ctrl;
-	unsigned long offset;
+	unsigned long offset, flags;
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
 
@@ -150,6 +172,10 @@ static struct zio_block *zbk_alloc_block(struct zio_bi *bi,
 	item->block.data = zbki->data + offset;
 	item->block.datalen = datalen;
 	item->instance = zbki;
+
+	spin_lock_irqsave(&bi->lock, flags);
+	zbki->alloc_size += item->len;
+	spin_unlock_irqrestore(&bi->lock, flags);
 	/* mem_offset in current_ctrl is the last allocated */
 	bi->chan->current_ctrl->mem_offset = offset;
 	zio_set_ctrl(&item->block, ctrl);
@@ -169,12 +195,18 @@ static void zbk_free_block(struct zio_bi *bi, struct zio_block *block)
 	struct zbk_item *item;
 	struct zbk_instance *zbki;
 	struct zio_control *ctrl;
+	unsigned long flags;
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
 	ctrl = zio_get_ctrl(block);
 	item = to_item(block);
 	zbki = item->instance;
 	zio_ffa_free_s(zbki->ffa, item->begin, item->len);
+
+	spin_lock_irqsave(&bi->lock, flags);
+	zbki->alloc_size -= item->len;
+	spin_unlock_irqrestore(&bi->lock, flags);
+
 	zio_free_control(ctrl);
 	kmem_cache_free(zbk_slab, item);
 }
@@ -231,6 +263,7 @@ static int zbk_store_block(struct zio_bi *bi, struct zio_block *block)
 	}
 	if (pushed)
 		list_del(&item->list);
+
 	if (!first && zbki->flags & ZBK_FLAG_MERGE_DATA)
 		zbk_try_merge(zbki, item);
 	spin_unlock_irqrestore(&bi->lock, flags);

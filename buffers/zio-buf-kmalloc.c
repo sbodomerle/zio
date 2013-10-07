@@ -25,7 +25,7 @@
 /* This is an instance of a buffer, associated to two cdevs */
 struct zbk_instance {
 	struct zio_bi bi;
-	int nitem;
+	int nitem;		/* allocated item */
 	struct list_head list; /* items list and lock */
 };
 #define to_zbki(bi) container_of(bi, struct zbk_instance, bi)
@@ -38,11 +38,14 @@ struct zbk_item {
 	struct zio_block block;
 	struct list_head list;	/* item list */
 	struct zbk_instance *instance;
+	size_t len; /* block.datalen may change, so save this */
 };
 #define to_item(block) container_of(block, struct zbk_item, block)
 
 static ZIO_ATTR_DEFINE_STD(ZIO_BUF, zbk_std_zattr) = {
-	ZIO_ATTR(zbuf, ZIO_ATTR_ZBUF_MAXLEN, ZIO_RW_PERM, 0x0, 16),
+	ZIO_ATTR(zbuf, ZIO_ATTR_ZBUF_MAXLEN, ZIO_RW_PERM, ZIO_ATTR_ZBUF_MAXLEN, 16),
+	ZIO_ATTR(zbuf, ZIO_ATTR_ZBUF_ALLOC_LEN, ZIO_RO_PERM,
+		 ZIO_ATTR_ZBUF_ALLOC_LEN, 0),
 };
 
 static int zbk_conf_set(struct device *dev, struct zio_attribute *zattr,
@@ -55,8 +58,26 @@ static int zbk_conf_set(struct device *dev, struct zio_attribute *zattr,
 
 	return 0;
 }
+static int zbk_info_get(struct device *dev, struct zio_attribute *zattr,
+			 uint32_t *usr_val)
+{
+	struct zio_bi *bi = to_zio_bi(dev);
+	struct zbk_instance *zbki = to_zbki(bi);
+
+	switch (zattr->id) {
+	case ZIO_ATTR_ZBUF_ALLOC_LEN:
+		*usr_val = zbki->nitem;
+		break;
+	case ZIO_ATTR_ZBUF_MAXLEN:
+	default:
+		break;
+	}
+
+	return 0;
+}
 struct zio_sysfs_operations zbk_sysfs_ops = {
 	.conf_set = zbk_conf_set,
+	.info_get = zbk_info_get,
 };
 
 
@@ -88,6 +109,7 @@ static struct zio_block *zbk_alloc_block(struct zio_bi *bi,
 	memset(item, 0, sizeof(*item));
 	item->block.data = data;
 	item->block.datalen = datalen;
+	item->len = datalen;
 	item->instance = zbki;
 	zio_set_ctrl(&item->block, ctrl);
 	return &item->block;
@@ -154,6 +176,7 @@ static int zbk_store_block(struct zio_bi *bi, struct zio_block *block)
 	}
 	if (pushed)
 		list_del(&item->list);
+
 	spin_unlock_irqrestore(&bi->lock, flags);
 
 	/* if first input, awake user space */
