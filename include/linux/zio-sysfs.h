@@ -97,6 +97,8 @@ enum zio_trg_std_attr {
 enum zio_buf_std_attr {
 	ZIO_ATTR_ZBUF_MAXLEN = 0,/* max number of element in buffer */
 	ZIO_ATTR_ZBUF_MAXKB,	/* max number of kB in buffer */
+	ZIO_ATTR_ZBUF_ALLOC_LEN,/* number of allocated elements in buffer */
+	ZIO_ATTR_ZBUF_ALLOC_KB,	/* number of allocated  kB in buffer */
 
 	/* Specials attributes */
 	ZIO_ATTR_ZBUF_VERSION = ZIO_ATTR_VERSION,	/* attribute set version */

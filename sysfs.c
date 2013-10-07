@@ -50,6 +50,8 @@ EXPORT_SYMBOL(zio_trig_attr_names);
 const char zio_zbuf_attr_names[_ZIO_BUF_ATTR_STD_NUM][ZIO_NAME_LEN] = {
 	[ZIO_ATTR_ZBUF_MAXLEN]	= "max-buffer-len",
 	[ZIO_ATTR_ZBUF_MAXKB]	= "max-buffer-kb",
+	[ZIO_ATTR_ZBUF_ALLOC_LEN]	= "allocated-buffer-len",
+	[ZIO_ATTR_ZBUF_ALLOC_KB]	= "allocated-buffer-kb",
 	[ZIO_ATTR_ZBUF_VERSION]	= "version",
 };
 EXPORT_SYMBOL(zio_zbuf_attr_names);
