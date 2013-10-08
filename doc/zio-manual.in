@@ -1041,7 +1041,7 @@ the fields are not yet being filled by the core.
 
 	Attributes for the channel and the trigger. Each structure
         is 200 bytes long and includes both standard and extended attributes.
-        The attributes are described in @ref{The Attributes}.
+        The attributes are described in @ref{The Attributes and the Control}.
 
 @item tlv
 
@@ -2461,9 +2461,205 @@ This is the specific role of each method in the structure:
 @node The Attributes
 @section The Attributes
 
-This section is till to be written. Feel free to express your interest
-in this section to the mailing list. Meanwhile, please refer to
-current code.
+ZIO uses sysfs attribute to export configuration parameters or device/driver
+status information to user-space. The main idea behind a ZIO
+attribute is that generally what is a sysfs attribute is also a
+register in a I/O peripheral. Moreover, ZIO attributes can be used
+also to stimulate the device/driver to perform some action.
+
+The ZIO attribute is defined as follows:
+
+@smallexample
+struct zio_attribute {
+       struct device_attribute           attr;
+       uint32_t                          flags;
+       int                               index;
+       unsigned long                     id;
+       uint32_t                          value;
+       const struct zio_sysfs_operations *s_op;
+};
+@end smallexample
+
+@table @code
+
+@item attr
+
+The ZIO attribute is just a wrapper around the sysfs device
+attribute. This field is necessary in order to use the sysfs
+subsystem. 
+
+@item flags
+
+It contains information about the attribute. It currently
+provides information about the type of attribute. For
+more details read @ref{The Attribute Type}
+
+@item index
+
+It is the position of the ZIO attribute value in the
+@code{zio_control}'s attribute arrays. For more details read
+@ref{The Attributes and the Control}
+
+@item id
+
+It is an unique identifier with driver scope. This identifier
+helps the driver to recognize different attributes. There is no
+specific meaning of this attribute, so you can use a device-specific address,
+an hash value, o a sequential value; the only requirement
+is that it must be unique in the driver.
+
+@item value
+
+It is the last value assigned to this ZIO attribute. 
+
+@item s_op
+
+It is the set of operations to read/write the value from
+the hardware registers. It will be described later in
+@ref{The Attribute Operations} 
+
+@end table
+
+@c -------------------------------------------------------------------------
+@node The Attribute Type
+@subsection The Attribute Type
+
+ZIO have two types of attributes: @i{standard} and @i{extended}.
+
+@table @i
+@item standard
+
+They are the most common attributes of a particular ZIO object.
+They have static names and static indexes in all ZIO drivers.
+
+In the ZIO header file @file{include/zio/zio-sysfs.h} there
+are all standard attributes available for each type of ZIO object.
+In ZIO file @file{sysfs.c}, you find their user-visible names.
+
+@item extended
+
+They are those attributes that are
+specific to a particular device driver. Their names and indexes
+depends on driver implementation, and are found in driver-specific
+source code.
+@end table
+
+
+ZIO uses the attribute flag @code{ZIO_ATTR_TYPE} to distinguish
+between these two types. ZIO also uses the flag @code{ZIO_ATTR_CONTROL}
+to make another distinction withiin the @i{extended} attribute family.
+The flag @code{ZIO_ATTR_CONTROL} tells ZIO to include the
+attribute in the control structure; an extended attribute without this
+flag set is a named @i{parameter}, present in sysfs but not
+copied to user space within the
+ZIO control structure.
+
+@c -------------------------------------------------------------------------
+@node The Attributes and the Control
+@subsection The Attributes and the Control
+
+Except for buffer's attributes and parameters, all ZIO attributes
+are exported in the ZIO control structure.
+As described in @ref{The Control Structure}, the ZIO control contains
+the attributes of the trigger and the channel (and its hierarchy behind).
+
+ZIO uses the following structure to export the values to the control structure:
+
+@smallexample
+struct zio_ctrl_attr {
+        uint16_t std_mask;
+        uint16_t unused;
+        uint32_t ext_mask;
+        uint32_t std_val[ZIO_MAX_STD_ATTR];
+        uint32_t ext_val[ZIO_MAX_EXT_ATTR];
+};
+@end smallexample
+
+The fields @code{std|ext_mask} contains a bit mask of valid
+values in the arrays. The arrays @code{std|ext_val}
+contains the ZIO attribute values.
+
+This structure takes track only of the ZIO values; an user space
+application must know the position of each attribute value in the
+arrays. As explained in @ref{The Attribute Type}, standard
+attributes have static indexes:
+every user space application can know what a standard value is.
+Extended attributes are device-specific, so the end points of the
+ZIO transport chain must agree about their meaning -- typically, this
+means the application producing or consuming data must be built
+with the device-specific header file.
+
+
+@c -------------------------------------------------------------------------
+@node The Attribute Operations
+@subsection The Attribute Operations
+
+In order to complete the sysfs attribute flow, ZIO drivers must
+define
+the methods to read and write attributes. The
+@code{zio_sysfs_operations} structure provides them:
+
+@smallexample
+struct zio_sysfs_operations {
+        int (*info_get)(struct device *dev, struct zio_attribute *zattr,
+                        uint32_t *usr_val);
+        int (*conf_set)(struct device *dev, struct zio_attribute *zattr,
+                        uint32_t  usr_val);
+};
+@end smallexample
+
+@table @code
+@item info_get
+
+ZIO calls this operation every time a user reads a sysfs
+file associated with an attribute.
+
+This operation is optional for the attributes that are only
+changed by the user, or the ones that have write only
+permission.  If an attribute has read permission and its value
+may change for user-independent reasons (for example, it
+reflects internal device status), the operation must be implemented
+by the driver, to access the current hardware-dependent value
+to be returned to user space.  When it is not implemented, ZIO returns the
+current value of the attribute.
+
+
+@item conf_set
+
+ZIO calls this operation every time an user changes an attribute
+value by writing to the associated sysfs attribute.
+
+This operation is optional for the attribute that have read-only
+permission; otherwise it must be implemented in order to 
+apply the value, or a modified value, to the device.
+
+@end table
+
+
+These two operations are the only functions that can modify
+the ZIO attribute @code{value}. Before it calls each of these
+two functions, the ZIO core takes care of ASCII conversion between ZIO and
+sysfs because ZIO attributes must all be integer values (32-bit). ZIO also ensures
+that access to @code{info_get()} and @code{conf_set()} is
+serialized, by using spinlocks at device scope. Serialization is
+thus provided among all configuration calls, even if related to
+different csets. This avoids the need to implement locking policies
+in each driver; however, in the unlikely case where two devices share the
+same hardware peripherals, the low-level device must deal with concurrency
+issues. The spinlocks for sysfs attributes are defined in each ZIO object as
+a field called @t{lock}.
+
+The two prototypes are very similar. Both receive a pointer to the
+@code{device} that owns the ZIO attribute. Both receive a pointer to
+the @code{zio_attribute} for which the
+user is performing an action (read or  write). Finally, the parameter
+@code{usr_val} is different in the two methods;
+in @code{info_get()} it is a pointer, so the driver can use it to write
+the appropriate value; in @code{conf_set()} is just the user-specified value
+that the method should apply to hardware (possibly changing it,
+for example trimming to the available range, or to a set of allowed values.
+
+Both functions return 0 for success or a negative error code.
 
 @c ##########################################################################
 @node Available Modules
