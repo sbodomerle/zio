@@ -144,7 +144,7 @@ static struct zio_cset zld_cset[] = {
 	{
 		.n_chan =	ZLD_NCHAN,
 		.ssize =	ZLD_SSIZE,
-		.flags =	ZIO_DIR_INPUT | ZCSET_TYPE_ANALOG,
+		.flags =	ZIO_DIR_INPUT | ZIO_CSET_TYPE_ANALOG,
 		.raw_io =	zld_input,
 	},
 };
