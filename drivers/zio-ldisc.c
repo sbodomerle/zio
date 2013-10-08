@@ -185,10 +185,10 @@ static void zld_close(struct tty_struct *tty)
 
 static int __init zld_init(void)
 {
-        if (zld_trigger)
-                zld_dev.preferred_trigger = zld_trigger;
-        if (zld_buffer)
-                zld_dev.preferred_buffer = zld_buffer;
+	if (zld_trigger)
+		zld_dev.preferred_trigger = zld_trigger;
+	if (zld_buffer)
+		zld_dev.preferred_buffer = zld_buffer;
 	return tty_register_ldisc(ZLD_NUMBER, &zld_ldisc);
 }
 static void __exit zld_exit(void)
