@@ -75,7 +75,8 @@ static int __zld_parse(struct zio_cset *cset, unsigned char *b, int blen)
 		datum = get_unaligned_le16(b + 4 + i * 2);
 		chan = zld_cset->chan + i;
 		spin_lock_irqsave(&zdev->lock, flags);
-		if (!(block = chan->active_block)) {
+		block = chan->active_block;
+		if (!block) {
 			spin_unlock_irqrestore(&zdev->lock, flags);
 			continue;
 		}
