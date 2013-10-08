@@ -167,7 +167,7 @@ static int zld_open(struct tty_struct *tty)
 		pr_err("%s: line discipline in use\n", __func__);
 		return -EBUSY;
 	}
-	err = zio_register_dev(&zld_dev, "zio-ldisc");
+	err = zio_register_device(&zld_dev, "zio-ldisc", 0);
 	if (err) {
 		clear_bit(0, &zld_in_use);
 		return err;
@@ -178,7 +178,7 @@ static int zld_open(struct tty_struct *tty)
 
 static void zld_close(struct tty_struct *tty)
 {
-	zio_unregister_dev(&zld_dev);
+	zio_unregister_device(&zld_dev);
 	clear_bit(0, &zld_in_use);
 	pr_info("%s: released ZIO ldisc\n", __func__);
 }
