@@ -17,12 +17,6 @@ ZIO_PARAM_TRIGGER(zld_trigger);
 #define ZLD_SSIZE 2
 
 /*
- * We have no concept of driver instance yet, until we have the bus
- * abstraction implemented. So this is just one instance, with global data
- */
-static struct zio_cset zld_cset[]; /* Declared later, needed in ldisc */
-
-/*
  * In prospective, this is the complete protocol:
  * Bytes 0, 1:  start of packet: 0xff 0xff
  * Byte 2: protocol and ssize:   0x02 (4-bit protocol == 0, sample size is 2)
@@ -73,7 +67,7 @@ static int __zld_parse(struct zio_cset *cset, unsigned char *b, int blen)
 		struct zio_block *block;
 
 		datum = get_unaligned_le16(b + 4 + i * 2);
-		chan = zld_cset->chan + i;
+		chan = zdev->cset->chan + i;
 		spin_lock_irqsave(&zdev->lock, flags);
 		block = chan->active_block;
 		if (!block) {
@@ -105,6 +99,7 @@ static int __zld_parse(struct zio_cset *cset, unsigned char *b, int blen)
 static void zld_receive_buf(struct tty_struct *tty, const unsigned char *cp,
 			 char *fp, int count)
 {
+	struct zio_device *zdev = tty->disc_data;
 	static unsigned char buffer[512]; /* FIXME: only one instance by now */
 	static int bpos;
 	int eaten;
@@ -116,7 +111,7 @@ static void zld_receive_buf(struct tty_struct *tty, const unsigned char *cp,
 	bpos += count;
 
 	/* Loop over data, while packets are there */
-	while ( (eaten = __zld_parse(zld_cset, buffer, bpos)) ) {
+	while ( (eaten = __zld_parse(zdev->cset, buffer, bpos)) ) {
 		memmove(buffer, buffer + eaten, bpos - eaten);
 		bpos -= eaten;
 	}
@@ -149,12 +144,7 @@ static struct zio_cset zld_cset[] = {
 		.raw_io =	zld_input,
 	},
 };
-static struct zio_device zld_dev = {
-	.owner =		THIS_MODULE,
-	.cset =			zld_cset,
-	.n_cset =		ARRAY_SIZE(zld_cset),
 
-};
 static struct zio_device zld_dev_tmpl = {
 	.owner =		THIS_MODULE,
 	.cset =			zld_cset,
@@ -167,6 +157,7 @@ static unsigned long zld_in_use;
 
 static int zld_open(struct tty_struct *tty)
 {
+	struct zio_device *zdev;
 	int err;
 
 	if (test_and_set_bit(0, &zld_in_use)) {
@@ -174,7 +165,13 @@ static int zld_open(struct tty_struct *tty)
 		pr_err("%s: line discipline in use\n", __func__);
 		return -EBUSY;
 	}
-	err = zio_register_device(&zld_dev, "zio-ldisc", 0);
+	zdev = zio_allocate_device();
+	if (IS_ERR(zdev))
+		return PTR_ERR(zdev);
+
+	zdev->owner = THIS_MODULE;
+	tty->disc_data = (void *) zdev;
+	err = zio_register_device(zdev, KBUILD_MODNAME, 0);
 	if (err) {
 		clear_bit(0, &zld_in_use);
 		return err;
@@ -185,7 +182,10 @@ static int zld_open(struct tty_struct *tty)
 
 static void zld_close(struct tty_struct *tty)
 {
-	zio_unregister_device(&zld_dev);
+	struct zio_device *zdev = tty->disc_data;
+
+	zio_unregister_device(zdev);
+	zio_free_device(zdev);
 	clear_bit(0, &zld_in_use);
 	pr_info("%s: released ZIO ldisc\n", __func__);
 }
