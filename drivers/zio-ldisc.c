@@ -97,7 +97,7 @@ static int __zld_parse(struct zio_cset *cset, unsigned char *b, int blen)
 			   __func__, done, ZLD_NCHAN);
 	}
 	if (done)
-		cset->ti->t_op->data_done(cset);
+		zio_trigger_data_done(cset);
 	return ZLD_PACKET;
 }
 
