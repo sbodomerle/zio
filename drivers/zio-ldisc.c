@@ -155,6 +155,12 @@ static struct zio_device zld_dev = {
 	.n_cset =		ARRAY_SIZE(zld_cset),
 
 };
+static struct zio_device zld_dev_tmpl = {
+	.owner =		THIS_MODULE,
+	.cset =			zld_cset,
+	.n_cset =		ARRAY_SIZE(zld_cset),
+
+};
 
 /* we register when the line discipline is activated */
 static unsigned long zld_in_use;
@@ -184,17 +190,52 @@ static void zld_close(struct tty_struct *tty)
 	pr_info("%s: released ZIO ldisc\n", __func__);
 }
 
+static int zld_probe(struct zio_device *zdev)
+{
+	return 0;
+}
+
+static int zld_remove(struct zio_device *zdev)
+{
+	return 0;
+}
+
+/* List of supported boards */
+static const struct zio_device_id zld_table[] = {
+	{KBUILD_MODNAME, &zld_dev_tmpl},
+	{},
+};
+
+static struct zio_driver zld_zdrv = {
+	.driver = {
+		.name = KBUILD_MODNAME,
+		.owner = THIS_MODULE,
+	},
+	.id_table = zld_table,
+	.probe = zld_probe,
+	.remove = zld_remove,
+};
+
 static int __init zld_init(void)
 {
+	int err;
+
 	if (zld_trigger)
-		zld_dev.preferred_trigger = zld_trigger;
+		zld_dev_tmpl.preferred_trigger = zld_trigger;
 	if (zld_buffer)
-		zld_dev.preferred_buffer = zld_buffer;
-	return tty_register_ldisc(ZLD_NUMBER, &zld_ldisc);
+		zld_dev_tmpl.preferred_buffer = zld_buffer;
+	err = tty_register_ldisc(ZLD_NUMBER, &zld_ldisc);
+	if (err) {
+		tty_unregister_ldisc(ZLD_NUMBER);
+		return err;
+	}
+
+	return zio_register_driver(&zld_zdrv);
 }
 static void __exit zld_exit(void)
 {
 	tty_unregister_ldisc(ZLD_NUMBER);
+	zio_unregister_driver(&zld_zdrv);
 }
 
 module_init(zld_init);
