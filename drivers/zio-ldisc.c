@@ -154,19 +154,12 @@ static struct zio_device zld_dev_tmpl = {
 
 };
 
-/* we register when the line discipline is activated */
-static unsigned long zld_in_use;
 
 static int zld_open(struct tty_struct *tty)
 {
 	struct zio_device *zdev;
 	int err;
 
-	if (test_and_set_bit(0, &zld_in_use)) {
-		/* already in use */
-		pr_err("%s: line discipline in use\n", __func__);
-		return -EBUSY;
-	}
 	zdev = zio_allocate_device();
 	if (IS_ERR(zdev))
 		return PTR_ERR(zdev);
@@ -174,10 +167,9 @@ static int zld_open(struct tty_struct *tty)
 	zdev->owner = THIS_MODULE;
 	tty->disc_data = (void *) zdev;
 	err = zio_register_device(zdev, KBUILD_MODNAME, 0);
-	if (err) {
-		clear_bit(0, &zld_in_use);
+	if (err)
 		return err;
-	}
+
 	pr_info("%s: activated ldisc for ADC\n", __func__);
 	return 0;
 }
@@ -188,7 +180,6 @@ static void zld_close(struct tty_struct *tty)
 
 	zio_unregister_device(zdev);
 	zio_free_device(zdev);
-	clear_bit(0, &zld_in_use);
 	pr_info("%s: released ZIO ldisc\n", __func__);
 }
 
