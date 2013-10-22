@@ -84,11 +84,13 @@ static int __zld_parse(struct zio_cset *cset, unsigned char *b, int blen)
 			block->uoff = 0; /* FIXME: use priv_d */
 		}
 		spin_unlock_irqrestore(&zdev->lock, flags);
-		printk("%s: chan %i uoff %i\n", __func__, i, block->uoff);
+		dev_dbg(&zdev->head.dev, "%s: chan %i uoff %i\n",
+			__func__, i, block->uoff);
 	}
 	if (unlikely(done && done != ZLD_NCHAN)) {
-		pr_warning("%s: some blocks are full, but not all (%i/%i)\n",
-			   __func__, done, ZLD_NCHAN);
+		dev_warn(&zdev->head.dev,
+			 "%s: some blocks are full, but not all (%i/%i)\n",
+			 __func__, done, ZLD_NCHAN);
 	}
 	if (done)
 		zio_trigger_data_done(cset);
@@ -104,7 +106,7 @@ static void zld_receive_buf(struct tty_struct *tty, const unsigned char *cp,
 	static int bpos;
 	int eaten;
 
-	printk("%i (%i)\n", count, bpos);
+	dev_dbg(&zdev->head.dev, "%i (%i)\n", count, bpos);
 	if (count + bpos > sizeof(buffer))
 		count = sizeof(buffer) - bpos;
 	memcpy(buffer + bpos, cp, count);
