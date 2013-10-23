@@ -39,6 +39,12 @@ ZIO_PARAM_TRIGGER(zld_trigger);
 static int zld_open(struct tty_struct *tty);
 static void zld_close(struct tty_struct *tty);
 
+/*
+ * identification counter, used to assign a different dev_id for each
+ * zio device instance
+ */
+static uint16_t id_counter = 0;
+
 /* This looks for one packet-worth of data in a buffer, returns handled bytes */
 static int __zld_parse(struct zio_cset *cset, unsigned char *b, int blen)
 {
@@ -166,9 +172,11 @@ static int zld_open(struct tty_struct *tty)
 
 	zdev->owner = THIS_MODULE;
 	tty->disc_data = (void *) zdev;
-	err = zio_register_device(zdev, KBUILD_MODNAME, 0);
+	err = zio_register_device(zdev, KBUILD_MODNAME, id_counter);
 	if (err)
 		return err;
+
+	id_counter++;
 
 	pr_info("%s: activated ldisc for ADC\n", __func__);
 	return 0;
