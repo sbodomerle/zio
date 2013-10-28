@@ -290,7 +290,7 @@ static int zio_can_r_ctrl(struct zio_f_priv *priv)
 {
 	struct zio_channel *chan = priv->chan;
 	struct zio_bi *bi = chan->bi;
-	const int can_read =  POLLIN | POLLRDNORM;
+	const int ret_ok =  POLLIN | POLLRDNORM;
 	int ret;
 
 	dev_dbg(&bi->head.dev, "%s: channel %d in cset %d", __func__,
@@ -306,12 +306,12 @@ static int zio_can_r_ctrl(struct zio_f_priv *priv)
 			chan->user_block = NULL;
 		} else{
 			mutex_unlock(&chan->user_lock);
-			return can_read;
+			return ret_ok;
 		}
 	}
 	/* We want to re-read control. Get a new block */
 	chan->user_block = zio_buffer_retr_block(bi);
-	ret = chan->user_block ? can_read : 0;
+	ret = chan->user_block ? ret_ok : 0;
 	mutex_unlock(&chan->user_lock);
 	return ret;
 }
@@ -321,7 +321,7 @@ static int zio_can_r_data(struct zio_f_priv *priv)
 	struct zio_channel *chan = priv->chan;
 	struct zio_block *block;
 	struct zio_bi *bi = chan->bi;
-	const int can_read =  POLLIN | POLLRDNORM;
+	const int ret_ok =  POLLIN | POLLRDNORM;
 
 	if (!chan->cset->ssize)
 		return 0;
@@ -330,12 +330,12 @@ static int zio_can_r_data(struct zio_f_priv *priv)
 	block = chan->user_block;
 	if (block) {
 		mutex_unlock(&chan->user_lock);
-		return can_read;
+		return ret_ok;
 	}
 	block = chan->user_block = zio_buffer_retr_block(bi);
 	mutex_unlock(&chan->user_lock);
 	if (block)
-		return can_read;
+		return ret_ok;
 	return 0;
 }
 
@@ -354,7 +354,7 @@ static int zio_can_w_ctrl(struct zio_f_priv *priv)
 	struct zio_bi *bi = chan->bi;
 	struct zio_block *block;
 	struct zio_control *ctrl;
-	const int can_write = POLLOUT | POLLWRNORM;
+	const int ret_ok = POLLOUT | POLLWRNORM;
 
 	/*
 	 * A control can always be written. Writing a control means a
@@ -379,7 +379,7 @@ static int zio_can_w_ctrl(struct zio_f_priv *priv)
 	if (!block)
 		block = chan->user_block = __zio_write_allocblock(bi);
 	mutex_unlock(&chan->user_lock);
-	return block ? can_write : 0;
+	return block ? ret_ok : 0;
 }
 
 static int zio_can_w_data(struct zio_f_priv *priv)
@@ -387,7 +387,7 @@ static int zio_can_w_data(struct zio_f_priv *priv)
 	struct zio_channel *chan = priv->chan;
 	struct zio_bi *bi = chan->bi;
 	struct zio_block *block;
-	const int can_write = POLLOUT | POLLWRNORM;
+	const int ret_ok = POLLOUT | POLLWRNORM;
 
 	if (!chan->cset->ssize)
 		return 0;
@@ -397,7 +397,7 @@ static int zio_can_w_data(struct zio_f_priv *priv)
 	if (!block)
 		block = chan->user_block = __zio_write_allocblock(bi);
 	mutex_unlock(&chan->user_lock);
-	return block ? can_write : 0;
+	return block ? ret_ok : 0;
 }
 
 /*
