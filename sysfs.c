@@ -12,6 +12,7 @@
 #include <linux/fs.h>
 #include <linux/cdev.h>
 #include <linux/device.h>
+#include <linux/sched.h>
 #include <linux/spinlock.h>
 #include <linux/sysfs.h>
 #include <linux/version.h>
@@ -446,12 +447,19 @@ static void __zobj_enable(struct device *dev, unsigned int enable)
 		dev_dbg(dev, "(ti)\n");
 
 		ti = to_zio_ti(dev);
+		cset = ti->cset;
 		zio_trigger_abort_disable(ti->cset, 0);
 		spin_lock_irqsave(&ti->cset->lock, flags);
 		if (ti->t_op->change_status)
 			ti->t_op->change_status(ti, status);
 		spin_unlock_irqrestore(&ti->cset->lock, flags);
+		/* A user-forced disable sends POLLERR to waiters */
+		for (i = 0; i < cset->n_chan; ++i) {
+			chan = cset->chan + i;
+			wake_up_interruptible(&chan->bi->q);
+		}
 		break;
+
 	/* following objects can't be enabled/disabled */
 	case ZIO_BI:
 		dev_dbg(dev, "(buf)\n");
