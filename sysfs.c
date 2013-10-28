@@ -553,18 +553,14 @@ static ssize_t zobj_store_enable(struct device *dev,
 	spinlock_t *lock;
 
 	err = strict_strtol(buf, 0, &val);
-	if (err)
+	if (err || val < 0 || val > 1)
 		return -EINVAL;
 
 	lock = __get_spinlock(to_zio_head(dev));
-	/* change enable status */
-	if (unlikely(strcmp(attr->attr.name, ZOBJ_SYSFS_ENABLE) == 0 &&
-	    (val == 0 || val == 1))) {
-		spin_lock(lock);
-		__zobj_enable(dev, val);
-		spin_unlock(lock);
-		return count;
-	}
+	spin_lock(lock);
+	__zobj_enable(dev, val);
+	spin_unlock(lock);
+	return count;
 
 	return count;
 }
