@@ -16,6 +16,8 @@ GIT_VERSION = $(shell cd $(src); git describe --dirty --long --tags)
 # WARNING: the line below doesn't work in-kernel if you compile with O=
 ccflags-y += -I$(obj)/include/ -DGIT_VERSION=\"$(GIT_VERSION)\"
 
+ccflags-$(CONFIG_ZIO_DEBUG) += -DDEBUG
+
 all: modules tools
 
 modules:
