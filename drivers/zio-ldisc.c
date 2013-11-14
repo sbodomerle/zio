@@ -177,6 +177,7 @@ static int zld_open(struct tty_struct *tty)
 		return err;
 
 	id_counter++;
+	tty->receive_room = 65536;
 
 	pr_info("%s: activated ldisc for ADC\n", __func__);
 	return 0;
