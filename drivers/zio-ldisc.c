@@ -15,6 +15,7 @@ ZIO_PARAM_TRIGGER(zld_trigger);
 
 #define ZLD_NCHAN 8
 #define ZLD_SSIZE 2
+#define ZLD_BUF_SIZE 512
 
 /*
  * In prospective, this is the complete protocol:
@@ -43,6 +44,9 @@ static void zld_close(struct tty_struct *tty);
 struct zld_instance {
 	struct zio_device *zhw;
 	struct zio_device *zdev;
+
+	unsigned char buffer[ZLD_BUF_SIZE];
+	int bpos;
 };
 /*
  * identification counter, used to assign a different dev_id for each
@@ -114,20 +118,19 @@ static void zld_receive_buf(struct tty_struct *tty, const unsigned char *cp,
 {
 	struct zld_instance *zldi = tty->disc_data;
 	struct zio_device *zdev = zldi->zdev;
-	static unsigned char buffer[512]; /* FIXME: only one instance by now */
-	static int bpos;
+	unsigned char *buffer = zldi->buffer;
 	int eaten;
 
-	dev_dbg(&zdev->head.dev, "%i (%i)\n", count, bpos);
-	if (count + bpos > sizeof(buffer))
-		count = sizeof(buffer) - bpos;
-	memcpy(buffer + bpos, cp, count);
-	bpos += count;
+	dev_dbg(&zdev->head.dev, "%i (%i)\n", count, zldi->bpos);
+	if (count + zldi->bpos > ZLD_BUF_SIZE)
+		count = ZLD_BUF_SIZE - zldi->bpos;
 
+	memcpy(buffer + zldi->bpos, cp, count);
+	zldi->bpos += count;
 	/* Loop over data, while packets are there */
-	while ( (eaten = __zld_parse(zdev->cset, buffer, bpos)) ) {
-		memmove(buffer, buffer + eaten, bpos - eaten);
-		bpos -= eaten;
+	while ( (eaten = __zld_parse(zdev->cset, buffer, zldi->bpos)) ) {
+		memmove(buffer, buffer + eaten, zldi->bpos - eaten);
+		zldi->bpos -= eaten;
 	}
 }
 
