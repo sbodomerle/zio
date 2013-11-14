@@ -80,27 +80,31 @@ static int __zld_parse(struct zio_cset *cset, unsigned char *b, int blen)
 	/* So, the header is there and we have enough data: eat it */
 	for (i = 0; i < ZLD_NCHAN; i++) {
 		struct zio_block *block;
+		unsigned long block_pos;
 
 		datum = get_unaligned_le16(b + 4 + i * 2);
 		chan = zdev->cset->chan + i;
+		block_pos = (unsigned long) chan->priv_d;
+
 		spin_lock_irqsave(&zdev->lock, flags);
 		block = chan->active_block;
 		if (!block) {
 			spin_unlock_irqrestore(&zdev->lock, flags);
 			continue;
 		}
-		if (block->uoff < block->datalen) {
-			((typeof(datum)*)(block->data + block->uoff))[0]
+		if (block_pos < block->datalen) {
+			((typeof(datum)*)(block->data + block_pos))[0]
 				= datum;
-			block->uoff += sizeof(datum);
+			block_pos += sizeof(datum);
 		}
-		if (block->uoff == block->datalen) {
+		if (block_pos == block->datalen) {
 			done++;
-			block->uoff = 0; /* FIXME: use priv_d */
+			block_pos = 0;
 		}
+		chan->priv_d = (void *) block_pos;
 		spin_unlock_irqrestore(&zdev->lock, flags);
-		dev_dbg(&zdev->head.dev, "%s: chan %i uoff %i\n",
-			__func__, i, block->uoff);
+		dev_dbg(&zdev->head.dev, "%s: chan %i block_pos %i/%i\n",
+			__func__, i, block_pos, block->datalen);
 	}
 	if (unlikely(done && done != ZLD_NCHAN)) {
 		dev_warn(&zdev->head.dev,
@@ -220,8 +224,13 @@ static void zld_close(struct tty_struct *tty)
 static int zld_probe(struct zio_device *zdev)
 {
 	struct zld_instance *zldi = zdev->priv_d;
+	struct zio_channel *chan;
 
 	zldi->zdev = zdev;
+
+	/* Initialize block position */
+	chan_for_each(chan, zdev->cset)
+		chan->priv_d = 0;
 
 	return 0;
 }
