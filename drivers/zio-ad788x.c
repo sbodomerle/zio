@@ -133,13 +133,34 @@ static void ad788x_complete(void *cont)
 	kfree(context);
 }
 
-static int ad788x_input_cset(struct zio_cset *cset)
+static inline uint16_t *ad788x_build_command(struct ad788x *ad788x,
+					     struct ad788x_context *context,
+					     uint32_t size)
 {
-	int i, k, err = -EBUSY;
-	struct ad788x *ad788x;
-	struct ad788x_context *context;
 	struct zio_channel *chan;
 	uint16_t *command;
+	int i, k;
+
+	/* configure transfer buffer*/
+	command = kmalloc(size, GFP_ATOMIC);
+	if (!command) {
+		return ERR_PTR(-ENOMEM);
+	}
+	/* configure transfer buffer*/
+	for (i = 0,  k = 0; i < context->nsamples; ++i)
+		chan_for_each(chan, context->cset)
+			command[k++] = (chan->index << AD788x_ADDR_SHIFT) |
+							ad788x->cmd;
+	command[k] = ad788x->cmd;
+
+	return command;
+}
+
+static int ad788x_input_cset(struct zio_cset *cset)
+{
+	int err = -EBUSY;
+	struct ad788x *ad788x;
+	struct ad788x_context *context;
 	uint32_t size, nsamples;
 
 	/* alloc context */
@@ -168,18 +189,11 @@ static int ad788x_input_cset(struct zio_cset *cset)
 	}
 
 	/* configure transfer buffer*/
-	context->transfer.tx_buf = kmalloc(size, GFP_ATOMIC);
-	if (!context->transfer.tx_buf) {
-		err = -ENOMEM;
+	context->transfer.tx_buf = ad788x_build_command(ad788x, context, size);
+	if (IS_ERR(context->transfer.tx_buf)) {
+		err = PTR_ERR(context->transfer.tx_buf);
 		goto err_alloc_tx;
 	}
-	command = (uint16_t *)context->transfer.tx_buf;
-	/* configure transfer buffer*/
-	for (i = 0,  k = 0; i < nsamples; ++i)
-		chan_for_each(chan, cset)
-			command[k++] = (chan->index << AD788x_ADDR_SHIFT) |
-							ad788x->cmd;
-	command[k] = ad788x->cmd;
 
 	spi_message_add_tail(&context->transfer, &context->message);
 
