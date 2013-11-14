@@ -14,11 +14,13 @@ ZIO_PARAM_TRIGGER(ad788x_trigger);
 ZIO_PARAM_BUFFER(ad788x_buffer);
 
 enum ad788x_devices {
+	ID_AD7476,
 	ID_AD7887,
 	ID_AD7888,
 };
 
 static const struct spi_device_id ad788x_id[] = {
+	{"ad7476", ID_AD7476},
 	{"ad7887", ID_AD7887},
 	{"ad7888", ID_AD7888},
 	{}
@@ -67,6 +69,10 @@ static ZIO_ATTR_DEFINE_STD(ZIO_DEV, zattr_dev_ad7888) = {
 	/* vref_src can be internal (0) or external (1)*/
 	ZIO_ATTR(zdev, ZIO_ATTR_VREFTYPE, ZIO_RW_PERM,
 		 AD7888_VREF_ADDR, 0),
+};
+/* Standard attributes for AD7476*/
+static ZIO_ATTR_DEFINE_STD(ZIO_DEV, zattr_dev_ad7476) = {
+	ZIO_ATTR(zdev, ZIO_ATTR_NBITS, ZIO_RO_PERM, 0, 12),
 };
 /* Extended attributes for AD7887 */
 static struct zio_attribute zattr_dev_ext_ad7887[] = {
@@ -140,6 +146,9 @@ static inline uint16_t *ad788x_build_command(struct ad788x *ad788x,
 	struct zio_channel *chan;
 	uint16_t *command;
 	int i, k;
+
+	if (ad788x->type < ID_AD7887)
+		return NULL;
 
 	/* configure transfer buffer*/
 	command = kmalloc(size, GFP_ATOMIC);
@@ -243,7 +252,25 @@ static struct zio_cset ad7888_ain_cset[] = { /* ad7888 cset */
 			 ZIO_DIR_INPUT		/* is input */,
 	},
 };
+static struct zio_cset ad7476_ain_cset[] = { /* ad7476 cset */
+	{
+		.raw_io = ad788x_input_cset,
+		.ssize = 2,
+		.n_chan = 1,
+		.flags = ZIO_CSET_TYPE_ANALOG |	/* is analog */
+			 ZIO_DIR_INPUT		/* is input */,
+	},
+};
 static struct zio_device ad788x_tmpl[] = {
+	[ID_AD7476] = { /* ad7476 template */
+			.owner = THIS_MODULE,
+			.flags = 0,
+			.cset = ad7476_ain_cset,
+			.n_cset = ARRAY_SIZE(ad7476_ain_cset),
+			.zattr_set = {
+				.std_zattr = zattr_dev_ad7476,
+			},
+	},
 	[ID_AD7887] = { /* ad7887 template */
 			.owner = THIS_MODULE,
 			.s_op = &ad788x_s_op,
@@ -293,6 +320,7 @@ static int ad788x_zio_probe(struct zio_device *zdev)
 }
 
 static const struct zio_device_id ad788x_table[] = {
+	{"ad7476", &ad788x_tmpl[ID_AD7476]},
 	{"ad7887", &ad788x_tmpl[ID_AD7887]},
 	{"ad7888", &ad788x_tmpl[ID_AD7888]},
 	{},
