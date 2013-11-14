@@ -154,16 +154,25 @@ static int ad788x_input_cset(struct zio_cset *cset)
 	nsamples = cset->chan->current_ctrl->nsamples;
 	size = (context->chan_enable * nsamples * 2) + 2; /* +2 for SPI */
 
+	spi_message_init(&context->message);
+	context->message.complete = ad788x_complete;
+	context->message.context = context;
+	context->cset = cset;
 	context->nsamples = nsamples;
-	context->transfer.tx_buf = kmalloc(size, GFP_ATOMIC);
-	context->transfer.rx_buf = kmalloc(size, GFP_ATOMIC);
-	if (!context->transfer.tx_buf || !context->transfer.rx_buf) {
-		kfree(context->transfer.tx_buf);
-		kfree(context->transfer.rx_buf);
-		return -ENOMEM;
-	}
 	context->transfer.len = size;
+
+	context->transfer.rx_buf = kmalloc(size, GFP_ATOMIC);
+	if (!context->transfer.rx_buf) {
+		err = -ENOMEM;
+		goto err_alloc_rx;
+	}
+
 	/* configure transfer buffer*/
+	context->transfer.tx_buf = kmalloc(size, GFP_ATOMIC);
+	if (!context->transfer.tx_buf) {
+		err = -ENOMEM;
+		goto err_alloc_tx;
+	}
 	command = (uint16_t *)context->transfer.tx_buf;
 	/* configure transfer buffer*/
 	for (i = 0,  k = 0; i < nsamples; ++i)
@@ -172,10 +181,6 @@ static int ad788x_input_cset(struct zio_cset *cset)
 							ad788x->cmd;
 	command[k] = ad788x->cmd;
 
-	spi_message_init(&context->message);
-	context->message.complete = ad788x_complete;
-	context->message.context = context;
-	context->cset = cset;
 	spi_message_add_tail(&context->transfer, &context->message);
 
 	/* start acquisition */
@@ -184,7 +189,9 @@ static int ad788x_input_cset(struct zio_cset *cset)
 		return -EAGAIN;
 
 	kfree(context->transfer.tx_buf);
+err_alloc_tx:
 	kfree(context->transfer.rx_buf);
+err_alloc_rx:
 	kfree(context);
 	return err;
 }
