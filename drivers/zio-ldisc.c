@@ -39,6 +39,11 @@ ZIO_PARAM_TRIGGER(zld_trigger);
 static int zld_open(struct tty_struct *tty);
 static void zld_close(struct tty_struct *tty);
 
+
+struct zld_instance {
+	struct zio_device *zhw;
+	struct zio_device *zdev;
+};
 /*
  * identification counter, used to assign a different dev_id for each
  * zio device instance
@@ -107,7 +112,8 @@ static int __zld_parse(struct zio_cset *cset, unsigned char *b, int blen)
 static void zld_receive_buf(struct tty_struct *tty, const unsigned char *cp,
 			 char *fp, int count)
 {
-	struct zio_device *zdev = tty->disc_data;
+	struct zld_instance *zldi = tty->disc_data;
+	struct zio_device *zdev = zldi->zdev;
 	static unsigned char buffer[512]; /* FIXME: only one instance by now */
 	static int bpos;
 	int eaten;
@@ -163,37 +169,57 @@ static struct zio_device zld_dev_tmpl = {
 
 static int zld_open(struct tty_struct *tty)
 {
+	struct zld_instance *zldi;
 	struct zio_device *zdev;
 	int err;
 
+	zldi = kmalloc(sizeof(struct zld_instance), GFP_KERNEL);
+	if (!zldi)
+		return -ENOMEM;
+
 	zdev = zio_allocate_device();
-	if (IS_ERR(zdev))
-		return PTR_ERR(zdev);
+	if (IS_ERR(zdev)) {
+		err = PTR_ERR(zdev);
+		goto err_zio_alloc;
+	}
 
 	zdev->owner = THIS_MODULE;
-	tty->disc_data = (void *) zdev;
+	tty->disc_data = (void *) zldi;
+	zdev->priv_d = (void *) zldi;
 	err = zio_register_device(zdev, KBUILD_MODNAME, id_counter);
 	if (err)
-		return err;
+		goto err_zio_reg;
 
 	id_counter++;
 	tty->receive_room = 65536;
 
 	pr_info("%s: activated ldisc for ADC\n", __func__);
 	return 0;
+
+err_zio_reg:
+	zio_free_device(zdev);
+err_zio_alloc:
+	kfree(zldi);
+	return err;
 }
 
 static void zld_close(struct tty_struct *tty)
 {
-	struct zio_device *zdev = tty->disc_data;
+	struct zld_instance *zldi = tty->disc_data;
+	struct zio_device *zdev = zldi->zhw;
 
 	zio_unregister_device(zdev);
 	zio_free_device(zdev);
+	kfree(zldi);
 	pr_info("%s: released ZIO ldisc\n", __func__);
 }
 
 static int zld_probe(struct zio_device *zdev)
 {
+	struct zld_instance *zldi = zdev->priv_d;
+
+	zldi->zdev = zdev;
+
 	return 0;
 }
 
