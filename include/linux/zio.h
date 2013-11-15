@@ -397,5 +397,17 @@ void zio_ffa_reset(struct zio_ffa *ffa);
 /* from config.c */
 int zio_configure(struct zio_channel *chan, struct zio_control *ctrl);
 
+/*
+ * It tries to apply a configuration to a channel and its hierarchy
+ */
+static inline int zio_try_configure(struct zio_channel *chan, struct zio_control *ctrl)
+{
+	if (ctrl->flags & ZIO_CONTROL_TRY_CONFIGURE) {
+		zio_configure(chan, ctrl);
+	}
+
+	return 0;
+}
+
 #endif /* __KERNEL__ */
 #endif /* __ZIO_H__ */

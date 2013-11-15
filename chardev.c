@@ -500,6 +500,7 @@ static ssize_t zio_generic_write(struct file *f, const char __user *ubuf,
 	struct zio_channel *chan = priv->chan;
 	struct zio_bi *bi = chan->bi;
 	struct zio_block *block;
+	struct zio_control *ctrl;
 	int (*can_write)(struct zio_f_priv *);
 	int fault, wflags;
 
@@ -541,10 +542,11 @@ static ssize_t zio_generic_write(struct file *f, const char __user *ubuf,
 			 * we are currently discarding it
 			 */
 			block->uoff = 0;
-			fault = copy_from_user(zio_get_ctrl(block), ubuf,
-					       count);
+			ctrl = zio_get_ctrl(block);
+			fault = copy_from_user(ctrl, ubuf, count);
 			/* FIXME: preserve some fields in the output ctrl */
 			if (!fault && !chan->cset->ssize) {
+				ctrl->flags |= ZIO_CONTROL_TRY_CONFIGURE;
 				zio_buffer_store_block(bi, block); /* 0-size */
 				chan->user_block = NULL;
 			}

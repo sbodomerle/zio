@@ -182,8 +182,13 @@ static inline int zio_generic_data_done(struct zio_cset *cset)
 		return (self_timed ? 1 : 0);
 
 	/* Only for output: prepare the next event if any is ready */
-	chan_for_each(chan, cset)
+	chan_for_each(chan, cset) {
 		chan->active_block = zio_buffer_retr_block(chan->bi);
+		if (likely(chan->active_block)) {
+			ctrl = zio_get_ctrl(chan->active_block);
+			zio_try_configure(chan, ctrl);
+		}
+	}
 
 	return (self_timed ? 1 : 0);
 }
@@ -204,6 +209,13 @@ static inline int zio_trigger_try_push(struct zio_bi *bi,
 
 	/* Keep the lock, but mark we are pushing so trigger-user won't retr */
 	bi->flags |= ZIO_BI_PUSHING;
+	/*
+	 * Here we are configuring and then pushing. If the push fails it is
+	 * not a problem because we are on output and the configuration is
+	 * overwritte every time. More over, on failure, this block will be
+	 * the next one, so the configuration is already there.
+	 */
+	zio_try_configure(chan, zio_get_ctrl(block));
 	pushed = (ti->t_op->push_block(ti, chan, block) == 0);
 	bi->flags &=  ~ZIO_BI_PUSHING;
 	return pushed;
