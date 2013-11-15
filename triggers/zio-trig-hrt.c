@@ -94,7 +94,7 @@ static int ztt_conf_set(struct device *dev, struct zio_attribute *zattr,
 		ztt->ts.tv_nsec = usr_val;
 		break;
 	case ZTT_ATTR_EXP_SEC:
-		if (usr_val < 3600) {
+		if (usr_val < 10) {
 			getnstimeofday(&now);
 			usr_val += now.tv_sec;
 		}

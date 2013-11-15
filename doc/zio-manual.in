@@ -2708,8 +2708,9 @@ This release of ZIO includes the following trigger types:
 @item hrt
 
 	High-resolution timer.  This trigger can work as both periodic
-        and one-shot.  It is configured for absolute times or for some
-        delay in the future (to ease testing with shell scripts). It accepts
+        and one-shot.  It is configured for absolute times, but
+        ``absolute'' times less than 10s are considered relative
+        (to ease testing with shell scripts). The trigger accepts
         both scalar nanoseconds (as low-half and high-half values) and
         seconds + nanoseconds. Another attribute specifies the allowed
         slack to be used in programming the kernel resource.
