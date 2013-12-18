@@ -12,6 +12,7 @@
 #include <linux/fs.h>
 #include <linux/cdev.h>
 #include <linux/device.h>
+#include <linux/sched.h>
 #include <linux/spinlock.h>
 #include <linux/sysfs.h>
 #include <linux/version.h>
@@ -418,10 +419,9 @@ static void __zobj_enable(struct device *dev, unsigned int enable)
 		dev_dbg(dev, "(dev)\n");
 
 		zdev = to_zio_dev(dev);
-		/* enable/disable all cset */
+		/* enable/disable all csets */
 		for (i = 0; i < zdev->n_cset; ++i)
 			__zobj_enable(&zdev->cset[i].head.dev, enable);
-		/* device callback */
 		break;
 	case ZIO_CSET:
 		dev_dbg(dev, "(cset)\n");
@@ -429,10 +429,9 @@ static void __zobj_enable(struct device *dev, unsigned int enable)
 		cset = to_zio_cset(dev);
 		/* enable/disable trigger instance */
 		__zobj_enable(&cset->ti->head.dev, enable);
-		/* enable/disable all channel*/
+		/* enable/disable all channels */
 		for (i = 0; i < cset->n_chan; ++i)
 			__zobj_enable(&cset->chan[i].head.dev, enable);
-		/* cset callback */
 		break;
 	case ZIO_CHAN:
 		dev_dbg(dev, "(chan)\n");
@@ -443,23 +442,25 @@ static void __zobj_enable(struct device *dev, unsigned int enable)
 			__ctrl_update_nsamples(chan->cset->ti);
 			__chan_enable_interleave(chan, enable);
 		}
-
-		/* channel callback */
 		break;
 	case ZIO_TI:
 		dev_dbg(dev, "(ti)\n");
 
 		ti = to_zio_ti(dev);
+		cset = ti->cset;
 		zio_trigger_abort_disable(ti->cset, 0);
 		spin_lock_irqsave(&ti->cset->lock, flags);
-		/* trigger instance callback */
 		if (ti->t_op->change_status)
 			ti->t_op->change_status(ti, status);
 		spin_unlock_irqrestore(&ti->cset->lock, flags);
+		/* A user-forced disable sends POLLERR to waiters */
+		for (i = 0; i < cset->n_chan; ++i) {
+			chan = cset->chan + i;
+			wake_up_interruptible(&chan->bi->q);
+		}
 		break;
+
 	/* following objects can't be enabled/disabled */
-	case ZIO_BUF:
-	case ZIO_TRG:
 	case ZIO_BI:
 		dev_dbg(dev, "(buf)\n");
 		/*
@@ -469,6 +470,8 @@ static void __zobj_enable(struct device *dev, unsigned int enable)
 		 * the channel is disabled. Only ZIO can disable a buffer
 		 * instance during flush.
 		 */
+	case ZIO_BUF:
+	case ZIO_TRG:
 		break;
 	default:
 		WARN(1, "ZIO: unknown zio object %i\n", head->zobj_type);
@@ -558,18 +561,14 @@ static ssize_t zobj_store_enable(struct device *dev,
 	spinlock_t *lock;
 
 	err = strict_strtol(buf, 0, &val);
-	if (err)
+	if (err || val < 0 || val > 1)
 		return -EINVAL;
 
 	lock = __get_spinlock(to_zio_head(dev));
-	/* change enable status */
-	if (unlikely(strcmp(attr->attr.name, ZOBJ_SYSFS_ENABLE) == 0 &&
-	    (val == 0 || val == 1))) {
-		spin_lock(lock);
-		__zobj_enable(dev, val);
-		spin_unlock(lock);
-		return count;
-	}
+	spin_lock(lock);
+	__zobj_enable(dev, val);
+	spin_unlock(lock);
+	return count;
 
 	return count;
 }

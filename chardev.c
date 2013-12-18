@@ -290,7 +290,7 @@ static int zio_can_r_ctrl(struct zio_f_priv *priv)
 {
 	struct zio_channel *chan = priv->chan;
 	struct zio_bi *bi = chan->bi;
-	const int can_read =  POLLIN | POLLRDNORM;
+	const int ret_ok =  POLLIN | POLLRDNORM;
 	int ret;
 
 	dev_dbg(&bi->head.dev, "%s: channel %d in cset %d", __func__,
@@ -306,12 +306,18 @@ static int zio_can_r_ctrl(struct zio_f_priv *priv)
 			chan->user_block = NULL;
 		} else{
 			mutex_unlock(&chan->user_lock);
-			return can_read;
+			return ret_ok;
 		}
 	}
+
 	/* We want to re-read control. Get a new block */
 	chan->user_block = zio_buffer_retr_block(bi);
-	ret = chan->user_block ? can_read : 0;
+	ret = 0;
+	if (chan->user_block)
+		ret = ret_ok;
+	else if (unlikely(bi->cset->ti->flags & ZIO_DISABLED))
+		ret = POLLERR;
+
 	mutex_unlock(&chan->user_lock);
 	return ret;
 }
@@ -321,7 +327,7 @@ static int zio_can_r_data(struct zio_f_priv *priv)
 	struct zio_channel *chan = priv->chan;
 	struct zio_block *block;
 	struct zio_bi *bi = chan->bi;
-	const int can_read =  POLLIN | POLLRDNORM;
+	const int ret_ok =  POLLIN | POLLRDNORM;
 
 	if (!chan->cset->ssize)
 		return 0;
@@ -330,12 +336,12 @@ static int zio_can_r_data(struct zio_f_priv *priv)
 	block = chan->user_block;
 	if (block) {
 		mutex_unlock(&chan->user_lock);
-		return can_read;
+		return ret_ok;
 	}
 	block = chan->user_block = zio_buffer_retr_block(bi);
 	mutex_unlock(&chan->user_lock);
 	if (block)
-		return can_read;
+		return ret_ok;
 	return 0;
 }
 
@@ -354,7 +360,8 @@ static int zio_can_w_ctrl(struct zio_f_priv *priv)
 	struct zio_bi *bi = chan->bi;
 	struct zio_block *block;
 	struct zio_control *ctrl;
-	const int can_write = POLLOUT | POLLWRNORM;
+	const int ret_ok = POLLOUT | POLLWRNORM;
+	int ret;
 
 	/*
 	 * A control can always be written. Writing a control means a
@@ -378,8 +385,12 @@ static int zio_can_w_ctrl(struct zio_f_priv *priv)
 	/* if no block is there, get a new one */
 	if (!block)
 		block = chan->user_block = __zio_write_allocblock(bi);
-	mutex_unlock(&chan->user_lock);
-	return block ? can_write : 0;
+	ret = 0;
+	if (block)
+		ret = ret_ok;
+	else if (unlikely(bi->cset->ti->flags & ZIO_DISABLED))
+		ret = POLLERR;
+	return ret;
 }
 
 static int zio_can_w_data(struct zio_f_priv *priv)
@@ -387,7 +398,7 @@ static int zio_can_w_data(struct zio_f_priv *priv)
 	struct zio_channel *chan = priv->chan;
 	struct zio_bi *bi = chan->bi;
 	struct zio_block *block;
-	const int can_write = POLLOUT | POLLWRNORM;
+	const int ret_ok = POLLOUT | POLLWRNORM;
 
 	if (!chan->cset->ssize)
 		return 0;
@@ -397,7 +408,7 @@ static int zio_can_w_data(struct zio_f_priv *priv)
 	if (!block)
 		block = chan->user_block = __zio_write_allocblock(bi);
 	mutex_unlock(&chan->user_lock);
-	return block ? can_write : 0;
+	return block ? ret_ok : 0;
 }
 
 /*
@@ -413,7 +424,7 @@ static ssize_t zio_generic_read(struct file *f, char __user *ubuf,
 	struct zio_bi *bi = chan->bi;
 	struct zio_block *block;
 	int (*can_read)(struct zio_f_priv *);
-	int fault;
+	int fault, rflags;
 
 	dev_dbg(&bi->head.dev, "%s:%d type %s\n", __func__, __LINE__,
 		priv->type == ZIO_CDEV_CTRL ? "ctrl" : "data");
@@ -429,7 +440,8 @@ static ssize_t zio_generic_read(struct file *f, char __user *ubuf,
 	}
 
 	while (1) {
-		if (!can_read(priv)) {
+		rflags = can_read(priv);
+		if (rflags == 0 || rflags == POLLERR) {
 			if (f->f_flags & O_NONBLOCK)
 				return -EAGAIN;
 			wait_event_interruptible(bi->q, can_read(priv));
@@ -486,7 +498,7 @@ static ssize_t zio_generic_write(struct file *f, const char __user *ubuf,
 	struct zio_bi *bi = chan->bi;
 	struct zio_block *block;
 	int (*can_write)(struct zio_f_priv *);
-	int fault;
+	int fault, wflags;
 
 	dev_dbg(&bi->head.dev, "%s:%d type %s\n", __func__, __LINE__,
 		priv->type == ZIO_CDEV_CTRL ? "ctrl" : "data");
@@ -502,7 +514,8 @@ static ssize_t zio_generic_write(struct file *f, const char __user *ubuf,
 	}
 
 	while(1) {
-		if (!can_write(priv)) {
+		wflags = can_write(priv);
+		if (wflags == 0 || wflags == POLLERR) {
 			if (f->f_flags & O_NONBLOCK)
 				return -EAGAIN;
 			wait_event_interruptible(bi->q, can_write(priv));
