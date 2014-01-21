@@ -34,7 +34,7 @@
 @comment %**end of header
 
 @setchapternewpage off
-@set update-month January 2013
+@set update-month January 2014
 @finalout
 @c #################################################################
 @titlepage
@@ -1927,6 +1927,7 @@ or used by the developer are:
 @cindex ZIO_CSET_TYPE_DIGITAL
 @cindex ZIO_CSET_TYPE_ANALOG
 @cindex ZIO_CSET_TYPE_TIME
+@cindex ZIO_CSET_TYPE_RAW
 @cindex ZIO_CSET_SELF_TIMED
 @cindex ZIO_DIR_INPUT
 @cindex ZIO_DIR_OUTPUT
@@ -1934,7 +1935,8 @@ or used by the developer are:
 
 	A few flags, the most important being the type of cset:
         @code{ZIO_CSET_TYPE_DIGITAL},
-        @code{ZIO_CSET_TYPE_ANALOG} or @code{ZIO_CSET_TYPE_TIME} (other types
+        @code{ZIO_CSET_TYPE_ANALOG}, @code{ZIO_CSET_TYPE_TIME}
+        or @code{ZIO_CSET_TYPE_RAW} (other types
         may be added in the future, we reserved for 8 of them), OR'd with
         @t{ZIO_DIR_INPUT} or @t{ZIO_DIR_OUTPUT}.  Then, if you set
         @t{ZIO_CSET_SELF_TIMED} for an input cset, the trigger will be
@@ -1966,6 +1968,46 @@ or used by the developer are:
 	A private pointer for the device, in case it needs it.
 
 @end table
+
+@c --------------------------------------------------------------------------
+@node The Cset Types
+@subsection The Cset Types
+
+@cindex ZIO_CSET_TYPE_DIGITAL
+@cindex ZIO_CSET_TYPE_ANALOG
+@cindex ZIO_CSET_TYPE_TIME
+@cindex ZIO_CSET_TYPE_RAW
+ZIO was born as a transport for analog and digital I/O, supporting
+driver-independent applications, like monitoring and
+diagnostics. Thus, each cset had to claim to eithe be
+@t{ZIO_CSET_TYPE_DIGITAL} or @t{ZIO_CSET_TYPE_ANALOG}.  For digital
+I/O, each bit in the sample represents an input or output line, for
+analog, each sample represents a single value.  In both situations,
+the @i{nbits} field repsents the actual data width.
+
+Our use case, however, included the requirement to acquire
+high-precision time stamps for the raising edge of input pulses, or
+produce high-precision pulses. Those applications are called TDC and
+DTC (time to digital converter, and the reverse).  TDC devices have
+been used measuring the speed of neutrinos, for example.
+
+Thus, @t{ZIO_CSET_TYPE_TIME} represents channel sets that input or
+output a data-less event, using the timestamp field of the control
+structure.  Two software-only examples are @t{zio-fake-dtc} and
+@t{zio-irq-tdc}, part of this package.
+
+Sometimes, however, expecially for fast operations, users may prever
+to avoid using a standard representation for their data, using the ZIO
+transport to carry opaque data instead. By using @t{ZIO_CSET_TYPE_RAW}
+developers can prevent generic applications from trying to make sense
+of the data block. 
+
+Typically, a @t{RAW} input sample is the snapshot of a set of machine
+registers when some event happened.  Converting the registers to
+well-laid-out ZIO attributes, or calibrated analog values may be
+unfeasible; by passing @t{TYPE_RAW} data blocks developers can achieve
+better perfomance figures while still leveraging on a consistent
+framework.
 
 @c --------------------------------------------------------------------------
 @node The Channel

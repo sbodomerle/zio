@@ -206,6 +206,7 @@ enum zio_cset_flags {
 	ZIO_CSET_TYPE_DIGITAL	=  0x00,
 	ZIO_CSET_TYPE_ANALOG	=  0x10,
 	ZIO_CSET_TYPE_TIME	=  0x20,
+	ZIO_CSET_TYPE_RAW	=  0x30,
 	ZIO_CSET_CHAN_TEMPLATE	=  0x80, /* 1 if channels from template */
 	ZIO_CSET_SELF_TIMED	= 0x100, /* for trigger use (see docs) */
 	ZIO_CSET_CHAN_INTERLEAVE= 0x200, /* 1 if cset can interleave */
