@@ -390,6 +390,7 @@ static int zio_can_w_ctrl(struct zio_f_priv *priv)
 		ret = ret_ok;
 	else if (unlikely(bi->cset->ti->flags & ZIO_DISABLED))
 		ret = POLLERR;
+	mutex_unlock(&chan->user_lock);
 	return ret;
 }
 
