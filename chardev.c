@@ -158,7 +158,7 @@ int zio_minorbase_get(struct zio_cset *zcset)
 	int nminors = zcset->n_chan * 2;
 
 	zio_ffa_reset(zstat->minors); /* always start from zero */
-	i = zio_ffa_alloc(zstat->minors, nminors, GFP_KERNEL);
+	i = zio_ffa_alloc(zstat->minors, nminors, GFP_ATOMIC);
 	if (i == ZIO_FFA_NOSPACE)
 		return -ENOMEM;
 	zcset->minor = i;

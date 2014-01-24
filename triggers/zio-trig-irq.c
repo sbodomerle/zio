@@ -96,7 +96,7 @@ static struct zio_ti *zti_create(struct zio_trigger_type *trig,
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
 
-	ti = kzalloc(sizeof(*ti), GFP_KERNEL);
+	ti = kzalloc(sizeof(*ti), GFP_ATOMIC);
 	if (!ti)
 		return ERR_PTR(-ENOMEM);
 	ti->flags = ZIO_DISABLED;

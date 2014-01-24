@@ -220,7 +220,7 @@ static struct zio_ti *ztt_create(struct zio_trigger_type *trig,
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
 
-	ztt = kzalloc(sizeof(struct ztt_instance), GFP_KERNEL);
+	ztt = kzalloc(sizeof(struct ztt_instance), GFP_ATOMIC);
 	if (!ztt)
 		return ERR_PTR(-ENOMEM);
 	ti = &ztt->ti;

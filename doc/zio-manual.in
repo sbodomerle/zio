@@ -2300,7 +2300,9 @@ The detailed meaning of the operations is as follows:
         (resp. de-associated from) a new cset. @code{create} returns
         a disabled trigger instance structure, which is usually part of a larger
         structure, accessed by using
-        @code{container_of}. Please look at existing triggers for details.
+        @code{container_of}. Allocations at create time must be @t{GFP_ATOMIC}
+        because the kernel holds a mutex when creating a trigger instance.
+        Please look at existing triggers for details.
 
 @findex push_block
 @item push_block
@@ -2465,6 +2467,8 @@ This is the specific role of each method in the structure:
         is usually be part of a bigger structure, accessible using
         @code{container_of}. If creation
         fails, the method must return an @t{ERR_PTR} value, not NULL.
+        Allocations at create time must be @t{GFP_ATOMIC}
+        because the kernel holds a mutex when creating a trigger instance.
 @c FIXME: check ERR_PTR use
 
 @findex alloc_block

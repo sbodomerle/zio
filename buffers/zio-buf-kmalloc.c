@@ -229,7 +229,7 @@ static struct zio_bi *zbk_create(struct zio_buffer_type *zbuf,
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
 
-	zbki = kzalloc(sizeof(*zbki), GFP_KERNEL);
+	zbki = kzalloc(sizeof(*zbki), GFP_ATOMIC);
 	if (!zbki)
 		return ERR_PTR(-ENOMEM);
 	INIT_LIST_HEAD(&zbki->list);

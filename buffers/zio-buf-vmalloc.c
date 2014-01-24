@@ -331,7 +331,7 @@ static struct zio_bi *zbk_create(struct zio_buffer_type *zbuf,
 
 	size = 1024 * zbuf->zattr_set.std_zattr[ZIO_ATTR_ZBUF_MAXKB].value;
 
-	zbki = kzalloc(sizeof(*zbki), GFP_KERNEL);
+	zbki = kzalloc(sizeof(*zbki), GFP_ATOMIC);
 	ffa = zio_ffa_create(0, size);
 	data = vmalloc(size);
 	if (!zbki || !ffa || !data)
