@@ -91,9 +91,7 @@ static int __zio_arm_input_trigger(struct zio_ti *ti)
 		chan->active_block = block;
 	}
 	i = cset->raw_io(cset);
-	if (!i) {
-		zio_trigger_data_done(cset); /* Succeeded */
-	} else if (i != -EAGAIN) {
+	if (i && i != -EAGAIN) {
 		/* Error: Free blocks */
 		dev_err(&ti->head.dev,
 			"raw_io failed (%i), cannot arm trigger\n", i);
@@ -114,10 +112,10 @@ static int __zio_arm_output_trigger(struct zio_ti *ti)
 
 	/* We are expected to already have a block in active channels */
 	i = cset->raw_io(cset);
-	if (!i)
-		zio_trigger_data_done(cset); /* Succeeded */
 	return i;
 }
+
+static int __zio_trigger_data_done(struct zio_cset *cset);
 
 /*
  * When a software trigger fires, it should call this function. It
@@ -127,30 +125,36 @@ static int __zio_arm_output_trigger(struct zio_ti *ti)
 void zio_arm_trigger(struct zio_ti *ti)
 {
 	unsigned long flags;
-	int ret;
+	int ret, rearm;
 
-	pr_debug("%s:%d\n", __func__, __LINE__);
-	/* check if trigger is disabled or previous instance is pending */
-	spin_lock_irqsave(&ti->cset->lock, flags);
-	if (unlikely((ti->flags & ZIO_STATUS) == ZIO_DISABLED ||
-		     (ti->flags & ZIO_TI_ARMED))) {
+	do {
+		pr_debug("%s:%d\n", __func__, __LINE__);
+		/* if trigger is disabled or already pending, return */
+		spin_lock_irqsave(&ti->cset->lock, flags);
+		if (unlikely((ti->flags & ZIO_STATUS) == ZIO_DISABLED ||
+			     (ti->flags & ZIO_TI_ARMED))) {
+			spin_unlock_irqrestore(&ti->cset->lock, flags);
+			return;
+		}
+		ti->flags |= ZIO_TI_ARMED;
+		getnstimeofday(&ti->tstamp);
 		spin_unlock_irqrestore(&ti->cset->lock, flags);
-		return;
-	}
-	ti->flags |= ZIO_TI_ARMED;
-	getnstimeofday(&ti->tstamp);
-	spin_unlock_irqrestore(&ti->cset->lock, flags);
 
-	if (ti->t_op->arm)
-		ret = ti->t_op->arm(ti);
-	else if (likely((ti->flags & ZIO_DIR) == ZIO_DIR_INPUT))
-		ret = __zio_arm_input_trigger(ti);
-	else
-		ret = __zio_arm_output_trigger(ti);
+		if (ti->t_op->arm)
+			ret = ti->t_op->arm(ti);
+		else if (likely((ti->flags & ZIO_DIR) == ZIO_DIR_INPUT))
+			ret = __zio_arm_input_trigger(ti);
+		else
+			ret = __zio_arm_output_trigger(ti);
 
-	/* already succeeded or accepted for later */
-	if (!ret || ret == -EAGAIN)
+		/* error or -EGAINA */
+		if (ret)
+			break;
+	} while (__zio_trigger_data_done(ti->cset));
+
+	if (ret == -EAGAIN)
 		return;
+
 	/* real error: un-arm */
 	spin_lock_irqsave(&ti->cset->lock, flags);
 	ti->flags &= ~ZIO_TI_ARMED;
@@ -163,38 +167,39 @@ EXPORT_SYMBOL(zio_arm_trigger);
  * This is a ZIO helper to invoke the data_done trigger operation when a data
  * transfer is over and we need to complete the operation. The trigger
  * is in "ARMED" state when this is called, and is not any more when
- * the function returns. Please note that  we keep the cset lock
- * for the duration of the whole function, which must be atomic.
+ * the function returns.
  *
- * The data_done trigger operation returns an integer [0, 1] which mean if the
- * trigger must be re-armed or not. The rearm value it is returned to the caller
+ * The data_done trigger operation returns an integer [0, 1] which tells if the
+ * trigger must be re-armed. The value it is returned to the caller
  * to notify if the trigger was rearmed or not.
  */
-int zio_trigger_data_done(struct zio_cset *cset)
+
+/* Internal version, doesn't rearm. Called by zio_fire_trigger() above */
+static int __zio_trigger_data_done(struct zio_cset *cset)
 {
 	unsigned long flags;
-	int rearm;
+	int must_rearm;
 
 	spin_lock_irqsave(&cset->lock, flags);
 
 	if (cset->ti->t_op->data_done)
-		rearm = cset->ti->t_op->data_done(cset);
+		must_rearm = cset->ti->t_op->data_done(cset);
 	else
-		rearm = zio_generic_data_done(cset);
+		must_rearm = zio_generic_data_done(cset);
 
 	cset->ti->flags &= ~ZIO_TI_ARMED;
 	spin_unlock_irqrestore(&cset->lock, flags);
 
-	/*
-	 * zio_arm_trigger() needs to lock, so it's correct we
-	 * released the lock above. No race is expected, because
-	 * self-timed devices need to run the transparent trigger. But
-	 * if the cset is misconfigured and somebody arm the trigger
-	 * in this small window, no harm is done anyways.
-	 */
-	if (rearm == 1)
+	return must_rearm;
+}
+
+int zio_trigger_data_done(struct zio_cset *cset)
+{
+	int must_rearm = __zio_trigger_data_done(cset);
+
+	if (must_rearm)
 		zio_arm_trigger(cset->ti);
 
-	return rearm;
+	return must_rearm; /* Actually, "already_rearmed" */
 }
 EXPORT_SYMBOL(zio_trigger_data_done);
