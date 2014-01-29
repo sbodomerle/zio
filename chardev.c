@@ -437,6 +437,7 @@ static ssize_t zio_generic_read(struct file *f, char __user *ubuf,
 	if (unlikely(priv->type == ZIO_CDEV_CTRL)) {
 		if (count < zio_control_size(chan))
 			return -EINVAL;
+		count = zio_control_size(chan);
 		can_read = zio_can_r_ctrl;
 	}
 
