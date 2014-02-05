@@ -75,6 +75,7 @@ static int ztt_conf_set(struct device *dev, struct zio_attribute *zattr,
 	struct zio_ti *ti = to_zio_ti(dev);
 	struct ztt_instance *ztt = to_ztt_instance(ti);
 	struct timespec now;
+	uint64_t now_ns;
 	ktime_t ktime;
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
@@ -97,12 +98,17 @@ static int ztt_conf_set(struct device *dev, struct zio_attribute *zattr,
 		ztt->ts.tv_nsec = usr_val;
 		break;
 	case ZTT_ATTR_EXP_SEC:
+		getnstimeofday(&now);
+
 		if (usr_val < 10) {
-			getnstimeofday(&now);
 			usr_val += now.tv_sec;
 		}
 		ztt->ts.tv_sec = usr_val;
 		ztt->scalar = ztt->ts.tv_sec * NSEC_PER_SEC + ztt->ts.tv_nsec;
+		if (ztt->ts.tv_sec < now.tv_sec) {
+			/* Read comment in ZTT_ATTR_EXP_SCALAR_H */
+			ztt->scalar += 100000000;
+		}
 		ktime = timespec_to_ktime(ztt->ts),
 		ztt->flags |= ZTT_FLAGS_PENDING;
 		hrtimer_start_range_ns(&ztt->timer, ktime, ztt->slack,
@@ -117,10 +123,22 @@ static int ztt_conf_set(struct device *dev, struct zio_attribute *zattr,
 		ztt->scalar_l = usr_val;
 		break;
 	case ZTT_ATTR_EXP_SCALAR_H:
+		getnstimeofday(&now);
+		now_ns = ktime_to_ns(timespec_to_ktime(now));
+
 		ztt->scalar = (uint64_t)usr_val << 32 | ztt->scalar_l;
 		if (!usr_val) {
-			getnstimeofday(&now);
-			ztt->scalar += ktime_to_ns(timespec_to_ktime(now));
+			/* Use relative time */
+			ztt->scalar += now_ns;
+		} else if (ztt->scalar < now_ns) {
+			/*
+			 * The trigger is programmed in the past. Add a
+			 * delay of 100ms in order to allow the ZIO core
+			 * to propagate the value to the current control.
+			 *
+			 * NOTE: More details in commit message
+			 */
+			ztt->scalar = now_ns + 100000000;
 		}
 		ktime = ns_to_ktime(ztt->scalar);
 		ztt->flags |= ZTT_FLAGS_PENDING;
