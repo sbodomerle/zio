@@ -123,17 +123,15 @@ static int zio_match_device(struct device *dev, struct device_driver *drv)
 	struct zio_device *child;
 	int err = 0;
 
-	pr_debug("%s:%d\n", __func__, __LINE__);
 	if (!zdrv->id_table)
 		return 0;
 	id = zio_match_id(zdrv->id_table, to_zio_head(dev));
 	if (!id)
 		return 0;
-	pr_debug("%s:%d\n", __func__, __LINE__);
+
 	/* device and driver match */
 	if (dev->type == &zdevhw_device_type) {
 		/* Register the real zio device */
-		pr_debug("%s:%d\n", __func__, __LINE__);
 		err = __zdev_register(to_zio_dev(dev), id);
 		if (err) {
 			pr_err("ZIO: Cannot register real zio_device (%d)\n",
@@ -160,7 +158,6 @@ static int zio_match_device(struct device *dev, struct device_driver *drv)
 		put_device(&child->head.dev);
 		return 0;
 	} else if (dev->type == &zdev_device_type) {
-		pr_debug("%s:%d\n", __func__, __LINE__);
 		return 1; /* real device always match*/
 	}
 	return 0;
@@ -206,7 +203,6 @@ static int _zdev_template_check_and_init(struct zio_device *zdev,
 	struct zio_cset *cset;
 	int i;
 
-	pr_debug("%s:%d\n", __func__, __LINE__);
 	if (!zdev) {
 		pr_err("%s:%d missing zio_device template\n",
 				__func__, __LINE__);
@@ -251,7 +247,6 @@ int zio_register_driver(struct zio_driver *zdrv)
 {
 	int i, err;
 
-	pr_debug("%s:%d\n", __func__, __LINE__);
 	if (!zdrv->id_table) {
 		pr_err("ZIO: id_table is mandatory for a zio driver\n");
 		return -EINVAL;

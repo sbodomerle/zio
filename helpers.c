@@ -79,8 +79,6 @@ static int __zio_arm_input_trigger(struct zio_ti *ti)
 	zdev = cset->zdev;
 	zbuf = cset->zbuf;
 
-	pr_debug("%s:%d\n", __func__, __LINE__);
-
 	/* Allocate the buffer for the incoming sample, in active channels */
 	chan_for_each(chan, cset) {
 		ctrl = chan->current_ctrl;
@@ -108,8 +106,6 @@ static int __zio_arm_output_trigger(struct zio_ti *ti)
 	struct zio_cset *cset = ti->cset;
 	int i;
 
-	pr_debug("%s:%d\n", __func__, __LINE__);
-
 	/* We are expected to already have a block in active channels */
 	i = cset->raw_io(cset);
 	return i;
@@ -128,7 +124,6 @@ void zio_arm_trigger(struct zio_ti *ti)
 	int ret, rearm;
 
 	do {
-		pr_debug("%s:%d\n", __func__, __LINE__);
 		/* if trigger is disabled or already pending, return */
 		spin_lock_irqsave(&ti->cset->lock, flags);
 		if (unlikely((ti->flags & ZIO_STATUS) == ZIO_DISABLED ||

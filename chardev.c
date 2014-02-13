@@ -88,8 +88,6 @@ static int zio_f_open(struct inode *ino, struct file *f)
 	unsigned long flags;
 	int err, minor;
 
-	pr_debug("%s:%i\n", __func__, __LINE__);
-
 	minor = iminor(ino);
 	chan = zio_minor_to_chan(minor);
 
@@ -191,7 +189,6 @@ int zio_create_chan_devices(struct zio_channel *chan)
 		return 0;
 
 	devt_c = zstat->basedev + chan->cset->minor + chan->index * 2;
-	pr_debug("%s:%d dev_t=0x%x\n", __func__, __LINE__, devt_c);
 	mask = chan->flags & ZIO_CSET_CHAN_INTERLEAVE ? "%s-%i-i-ctrl" :
 							"%s-%i-%i-ctrl";
 	chan->ctrl_dev = device_create(&zio_cdev_class, &chan->head.dev, devt_c,
@@ -205,7 +202,6 @@ int zio_create_chan_devices(struct zio_channel *chan)
 	}
 
 	devt_d = devt_c + 1;
-	pr_debug("%s:%d dev_t=0x%x\n", __func__, __LINE__, devt_d);
 	mask = chan->flags & ZIO_CSET_CHAN_INTERLEAVE ? "%s-%i-i-data" :
 							"%s-%i-%i-data";
 	chan->data_dev = device_create(&zio_cdev_class, &chan->head.dev, devt_d,

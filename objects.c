@@ -165,7 +165,6 @@ static inline struct zio_object_list_item *__zio_object_get(
 {
 	struct zio_object_list_item *list_item;
 
-	pr_debug("%s:%d\n", __func__, __LINE__);
 	/* search for default trigger */
 	list_item = __find_by_name(zobj_list, name);
 	if (!list_item)
@@ -646,7 +645,6 @@ static uint16_t __get_nbits(struct zio_channel *chan)
 	struct zio_device *zdev;
 	struct zio_cset *cset;
 
-	pr_debug("%s:%d\n", __func__, __LINE__);
 	if (chan->zattr_set.std_zattr)
 		if (chan->zattr_set.std_zattr[ZIO_ATTR_NBITS].value)
 			return chan->zattr_set.std_zattr[ZIO_ATTR_NBITS].value;
@@ -681,7 +679,6 @@ static int chan_register(struct zio_channel *chan, struct zio_channel *chan_t)
 	struct zio_bi *bi;
 	int err, i;
 
-	pr_debug("%s:%d\n", __func__, __LINE__);
 	if (!chan)
 		return -EINVAL;
 	chan->head.zobj_type = ZIO_CHAN;
@@ -787,7 +784,6 @@ static void chan_unregister(struct zio_channel *chan)
 {
 	int i;
 
-	pr_debug("%s:%d\n", __func__, __LINE__);
 	if (!chan)
 		return;
 	zio_destroy_chan_devices(chan);
@@ -887,7 +883,6 @@ static int cset_register(struct zio_cset *cset, struct zio_cset *cset_t)
 	struct zio_channel *chan_tmp;
 	struct zio_ti *ti = NULL;
 
-	pr_debug("%s:%d\n", __func__, __LINE__);
 	cset->head.zobj_type = ZIO_CSET;
 	zio_cset_assign_flags(cset, cset_t);
 	if (cset->flags & ZIO_CSET_CHAN_INTERLEAVE)
@@ -946,7 +941,6 @@ static int cset_register(struct zio_cset *cset, struct zio_cset *cset_t)
 		goto out_trig;
 	}
 	cset->ti = ti;
-	pr_debug("%s:%d\n", __func__, __LINE__);
 
 	/* Allocate a new vector of channel for the new zio cset instance */
 	size = sizeof(struct zio_channel) * cset->n_chan;
@@ -1015,7 +1009,6 @@ static void cset_unregister(struct zio_cset *cset)
 {
 	int i;
 
-	pr_debug("%s:%d\n", __func__, __LINE__);
 	if (!cset)
 		return;
 	/* Remove from csets list*/
@@ -1068,7 +1061,6 @@ static void zobj_unregister(struct zio_object_list *zlist,
 {
 	struct zio_object_list_item *item;
 
-	pr_debug("%s:%d\n", __func__, __LINE__);
 	if (!head)
 		return;
 	list_for_each_entry(item, &zlist->list, list) {
@@ -1262,7 +1254,6 @@ int zio_register_device(struct zio_device *zdev, const char *name,
 {
 	int n_conflict;
 
-	pr_debug("%s:%d\n", __func__, __LINE__);
 	/* Verify if it is a valid name */
 	n_conflict = zobj_unique_name(&zstat->all_devices, name);
 	if (n_conflict < 0)
@@ -1284,7 +1275,6 @@ EXPORT_SYMBOL(zio_register_device);
  */
 static int __zdev_match_child(struct device *dev, void *data)
 {
-	pr_debug("%s:%d\n", __func__, __LINE__);
 	if (dev->type == &zdev_device_type)
 		return 1;
 	return 0;
@@ -1324,7 +1314,7 @@ EXPORT_SYMBOL(zio_unregister_device);
 int zio_register_buf(struct zio_buffer_type *zbuf, const char *name)
 {
 	int err;
-	pr_debug("%s:%d\n", __func__, __LINE__);
+
 	if (!zbuf)
 		return -EINVAL;
 	if (!zbuf->f_op) {

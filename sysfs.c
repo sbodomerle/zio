@@ -181,7 +181,6 @@ static void __zattr_propagate_value(struct zio_obj_head *head,
 	if (!(zattr->flags & ZIO_ATTR_CONTROL))
 		return; /* the attribute is not in the control */
 
-	pr_debug("%s\n", __func__);
 	switch (head->zobj_type) {
 	case ZIO_DEV:
 		zdev = to_zio_dev(&head->dev);
@@ -335,7 +334,6 @@ int __zattr_dev_init_ctrl(struct zio_device *zdev)
 	struct zio_attribute *zattr;
 	int i, err, start = 0;
 
-	pr_debug("%s\n", __func__);
 	/* Device level */
 	/* Fix device extended attribute index */
 	zattr = zdev->zattr_set.ext_zattr;
@@ -592,7 +590,6 @@ static ssize_t zattr_show(struct device *dev, struct device_attribute *attr,
 	struct zio_attribute *zattr = to_zio_zattr(attr);
 	ssize_t len = 0;
 
-	pr_debug("%s\n", __func__);
 	if (!zattr->s_op)
 		goto out;
 	if (zattr->s_op->info_get) {
@@ -623,8 +620,6 @@ static ssize_t zattr_store(struct device *dev, struct device_attribute *attr,
 	spinlock_t *lock;
 	long val;
 	int err;
-
-	pr_debug("%s\n", __func__);
 
 	if (strict_strtol(buf, 0, &val))
 		return -EINVAL;
@@ -1040,7 +1035,6 @@ int zattr_set_create(struct zio_obj_head *head,
 	struct zio_attribute *zattr;
 	struct attribute *attr;
 
-	pr_debug("%s\n", __func__);
 	zattr_set = zio_get_from_obj(head, zattr_set);
 	if (!zattr_set)
 		return -EINVAL; /* message already printed */
