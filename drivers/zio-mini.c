@@ -139,3 +139,5 @@ module_exit(zmini_exit);
 
 MODULE_VERSION(GIT_VERSION); /* Defined in local Makefile */
 MODULE_LICENSE("GPL and additional rights");
+
+CERN_SUPER_MODULE;

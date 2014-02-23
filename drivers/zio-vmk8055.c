@@ -601,3 +601,5 @@ MODULE_AUTHOR("Federico Vaga <federico.vaga@gmail.com>");
 MODULE_VERSION(GIT_VERSION);
 MODULE_DESCRIPTION("A zio driver for Velleman USB board K8055");
 MODULE_LICENSE("GPL");
+
+CERN_SUPER_MODULE;

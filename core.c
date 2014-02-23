@@ -178,3 +178,5 @@ MODULE_AUTHOR("Federico Vaga and Alessandro Rubini");
 /* Federico wrote the core, Alessandro wrote default trigger and buffer */
 MODULE_DESCRIPTION("ZIO - ZIO Input Output");
 MODULE_LICENSE("GPL");
+
+CERN_SUPER_MODULE;

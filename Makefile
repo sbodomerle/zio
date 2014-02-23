@@ -16,6 +16,13 @@ obj-m += triggers/
 
 GIT_VERSION = $(shell cd $(src); git describe --dirty --long --tags)
 
+# For this CSM_VERSION, please see ohwr.org/csm documentation
+ifdef CONFIG_CSM_VERSION
+  ccflags-y += -D"CERN_SUPER_MODULE=MODULE_VERSION(\"$(CONFIG_CSM_VERSION)\")"
+else
+  ccflags-y += -DCERN_SUPER_MODULE=""
+endif
+
 # WARNING: the line below doesn't work in-kernel if you compile with O=
 ccflags-y += -I$(src)/include/ -DGIT_VERSION=\"$(GIT_VERSION)\"
 

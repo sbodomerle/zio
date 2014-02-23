@@ -425,3 +425,5 @@ MODULE_VERSION(GIT_VERSION); /* Defined in local Makefile */
 MODULE_AUTHOR("Federico Vaga <federico.vaga@gmail.com>");
 MODULE_DESCRIPTION("AD788x driver for ZIO framework");
 MODULE_LICENSE("GPL");
+
+CERN_SUPER_MODULE;

@@ -242,3 +242,5 @@ module_exit(ztt_exit);
 MODULE_VERSION(GIT_VERSION); /* Defined in local Makefile */
 MODULE_AUTHOR("Alessandro Rubini");
 MODULE_LICENSE("GPL");
+
+CERN_SUPER_MODULE;

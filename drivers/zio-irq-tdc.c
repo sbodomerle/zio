@@ -250,3 +250,4 @@ module_exit(ztdc_exit);
 MODULE_VERSION(GIT_VERSION); /* Defined in local Makefile */
 MODULE_LICENSE("GPL");
 
+CERN_SUPER_MODULE;
