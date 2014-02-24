@@ -177,7 +177,13 @@ static int ad788x_input_cset(struct zio_cset *cset)
 
 	/* prepare SPI message and transfer */
 	nsamples = cset->chan->current_ctrl->nsamples;
-	size = (context->chan_enable * nsamples * 2) + 2; /* +2 for SPI */
+
+	/*
+	 * Calculate buffer size
+	 * nsamples + 1: we need one extra fake sample because SPI answer is
+	 *               shifted by 1
+	 */
+	size = (context->chan_enable * (nsamples + 1) * cset->ssize);
 
 	spi_message_init(&context->message);
 	context->message.complete = ad788x_complete;
