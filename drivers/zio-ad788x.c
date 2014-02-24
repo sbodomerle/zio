@@ -147,10 +147,14 @@ static inline uint16_t *ad788x_build_command(struct ad788x *ad788x,
 		return ERR_PTR(-ENOMEM);
 	}
 	/* configure transfer buffer*/
-	for (i = 0,  k = 0; i < context->nsamples; ++i)
-		chan_for_each(chan, context->cset)
+	for (i = 0,  k = 0; i < context->nsamples; ++i) {
+		chan_for_each(chan, context->cset) {
+			if (!chan->active_block)
+				continue;
 			command[k++] = (chan->index << AD788x_ADDR_SHIFT) |
 							ad788x->cmd;
+		}
+	}
 	command[k] = ad788x->cmd;
 
 	return command;
