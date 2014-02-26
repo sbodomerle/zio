@@ -130,7 +130,7 @@ static int __zio_trigger_data_done(struct zio_cset *cset);
 void zio_arm_trigger(struct zio_ti *ti)
 {
 	unsigned long flags;
-	int ret, rearm;
+	int ret;
 
 	do {
 		/* if trigger is disabled or already pending, return */
