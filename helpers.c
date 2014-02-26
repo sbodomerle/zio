@@ -9,6 +9,7 @@
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/types.h>
+#include <linux/delay.h>
 
 #include <linux/zio.h>
 #include <linux/zio-sysfs.h>
@@ -48,6 +49,14 @@ int zio_trigger_abort_disable(struct zio_cset *cset, int disable)
 	 * there is no concurrency with an already-completing trigger event.
 	 */
 	spin_lock_irqsave(&cset->lock, flags);
+
+	/* The hardware may be active (i.e., DMA is ongoing). Wait for it */
+	while (cset->flags & ZIO_CSET_BUSY) {
+		spin_unlock_irqrestore(&cset->lock, flags);
+		udelay(10);
+		spin_lock_irqsave(&cset->lock, flags);
+	}
+
 	if (ti->flags & ZIO_TI_ARMED) {
 		if (ti->t_op->abort)
 			ti->t_op->abort(ti);
