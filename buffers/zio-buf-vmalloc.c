@@ -81,7 +81,7 @@ static int zbk_conf_set(struct device *dev, struct zio_attribute *zattr,
 	void *data;
 	int ret = 0;
 
-	switch(zattr->id) {
+	switch (zattr->id) {
 	case ZIO_ATTR_ZBUF_MAXKB:
 		/* Lock and disable */
 		spin_lock_irqsave(&bi->lock, flags);
@@ -94,7 +94,7 @@ static int zbk_conf_set(struct device *dev, struct zio_attribute *zattr,
 		spin_unlock_irqrestore(&bi->lock, flags);
 
 		/* Flush the buffer */
-		while((block = bi->b_op->retr_block(bi)))
+		while ((block = bi->b_op->retr_block(bi)))
 			bi->b_op->free_block(bi, block);
 
 		/* Change size */

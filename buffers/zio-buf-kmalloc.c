@@ -43,7 +43,8 @@ struct zbk_item {
 #define to_item(block) container_of(block, struct zbk_item, block)
 
 static ZIO_ATTR_DEFINE_STD(ZIO_BUF, zbk_std_zattr) = {
-	ZIO_ATTR(zbuf, ZIO_ATTR_ZBUF_MAXLEN, ZIO_RW_PERM, ZIO_ATTR_ZBUF_MAXLEN, 16),
+	ZIO_ATTR(zbuf, ZIO_ATTR_ZBUF_MAXLEN, ZIO_RW_PERM,
+		 ZIO_ATTR_ZBUF_MAXLEN, 16),
 	ZIO_ATTR(zbuf, ZIO_ATTR_ZBUF_ALLOC_LEN, ZIO_RO_PERM,
 		 ZIO_ATTR_ZBUF_ALLOC_LEN, 0),
 };
@@ -145,7 +146,7 @@ static void zbk_free_block(struct zio_bi *bi, struct zio_block *block)
 	}
 
 	spin_lock_irqsave(&bi->lock, flags);
-	if ( ((bi->flags & ZIO_DIR) == ZIO_DIR_OUTPUT) &&
+	if (((bi->flags & ZIO_DIR) == ZIO_DIR_OUTPUT) &&
 	     zbki->nitem < bi->zattr_set.std_zattr[ZIO_ATTR_ZBUF_MAXLEN].value)
 		awake = 1;
 	zbki->nitem--;
