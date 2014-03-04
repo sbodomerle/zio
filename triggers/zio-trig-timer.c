@@ -92,8 +92,7 @@ static int ztt_conf_set(struct device *dev, struct zio_attribute *zattr,
 		jval =  msecs_to_jiffies(usr_val);
 		if ((signed)jval < 0)
 			return -EINVAL;
-		if (jval %= ztt->period);
-		ztt->phase = jval;
+		ztt->phase = jval % ztt->period;
 		ztt_resync(ztt);
 		break;
 	case ZTT_ATTR_NSAMPLES:
