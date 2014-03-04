@@ -26,7 +26,7 @@ static struct zio_status *zstat = &zio_global_status; /* Always use ptr */
 
 static int zio_dev_uevent(struct device *dev, struct kobj_uevent_env *env)
 {
-	unsigned long *flags ;
+	unsigned long *flags;
 
 	flags = dev_get_drvdata(dev);
 	add_uevent_var(env, "DEVMODE=%#o", (*flags & ZIO_DIR ? 0220 : 0440));
@@ -57,7 +57,7 @@ static struct zio_channel *zio_minor_to_chan(int minor)
 	int chindex, found = 0;
 
 	list_for_each_entry(zcset, &zstat->list_cset, list_cset) {
-		if (minor >= zcset->minor && minor <= zcset->maxminor ) {
+		if (minor >= zcset->minor && minor <= zcset->maxminor) {
 			found = 1;
 			break;
 		}
@@ -227,7 +227,7 @@ void zio_destroy_chan_devices(struct zio_channel *chan)
 	pr_debug("%s\n", __func__);
 	if ((chan->cset->flags & ZIO_CSET_INTERLEAVE_ONLY) &&
 	    !(chan->flags & ZIO_CSET_CHAN_INTERLEAVE))
-		return ;
+		return;
 
 	device_destroy(&zio_cdev_class, chan->data_dev->devt);
 	device_destroy(&zio_cdev_class, chan->ctrl_dev->devt);
@@ -511,7 +511,7 @@ static ssize_t zio_generic_write(struct file *f, const char __user *ubuf,
 		can_write = zio_can_w_ctrl;
 	}
 
-	while(1) {
+	while (1) {
 		wflags = can_write(priv);
 		if (wflags == 0 || wflags == POLLERR) {
 			if (f->f_flags & O_NONBLOCK)

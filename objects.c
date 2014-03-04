@@ -191,7 +191,8 @@ static struct zio_buffer_type *zio_buffer_get(struct zio_cset *cset,
 		return ERR_PTR(-ENODEV);
 	return container_of(list_item->obj_head, struct zio_buffer_type, head);
 }
-static void zio_buffer_put(struct zio_buffer_type *zbuf, struct module *dev_owner)
+static void zio_buffer_put(struct zio_buffer_type *zbuf,
+			   struct module *dev_owner)
 {
 	if (zbuf->owner != dev_owner)
 		module_put(zbuf->owner);
@@ -211,7 +212,8 @@ static struct zio_trigger_type *zio_trigger_get(struct zio_cset *cset,
 		return ERR_PTR(-ENODEV);
 	return container_of(list_item->obj_head, struct zio_trigger_type, head);
 }
-static void zio_trigger_put(struct zio_trigger_type *trig, struct module *dev_owner)
+static void zio_trigger_put(struct zio_trigger_type *trig,
+			    struct module *dev_owner)
 {
 	if (trig->owner != dev_owner)
 		module_put(trig->owner);
@@ -438,7 +440,7 @@ int zio_change_current_trigger(struct zio_cset *cset, char *name)
 		return PTR_ERR(trig);
 
 	if ((cset->flags & ZIO_DIR_OUTPUT) && !trig->t_op->push_block) {
-		dev_err(&cset->head.dev, 
+		dev_err(&cset->head.dev,
 			"%s: trigger \"%s\" lacks mandatory push_block operation\n",
 			__func__, name);
 		err = -EINVAL;
@@ -464,8 +466,8 @@ int zio_change_current_trigger(struct zio_cset *cset, char *name)
 	err = device_rename(&ti->head.dev, "trigger");
 	spin_unlock_irqrestore(&cset->lock, flags);
 
-	WARN(err, "%s: cannot rename trigger folder for"
-	     " cset%d\n", __func__, cset->index);
+	WARN(err, "%s: cannot rename trigger folder for cset%d\n", __func__,
+	     cset->index);
 
 	/* Update current control for each channel */
 	for (i = 0; i < cset->n_chan; ++i)
@@ -576,9 +578,8 @@ int zio_change_current_buffer(struct zio_cset *cset, char *name)
 	return 0;
 
 out_create:
-	for (j = i-1; j >= 0; --j) {
+	for (j = i-1; j >= 0; --j)
 		__bi_destroy(zbuf, bi_vector[j]);
-	}
 	kfree(bi_vector);
 out_put:
 	zio_buffer_put(zbuf, cset->zdev->owner);
@@ -737,7 +738,7 @@ static int chan_register(struct zio_channel *chan, struct zio_channel *chan_t)
 		goto out_ctrl_bits;
 	if (ZIO_HAS_BINARY_CONTROL) {
 		for (i = 0; i < __ZIO_BIN_ATTR_NUM; ++i) {
-			/* Create the sysfs binary file for the current control */
+			/* Create the sysfs binary file for current control */
 			err = sysfs_create_bin_file(&chan->head.dev.kobj,
 						    &zio_bin_attr[i]);
 			if (err)

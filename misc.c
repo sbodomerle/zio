@@ -33,7 +33,7 @@
 #undef CONFIG_TRACE_FFA
 
 #ifdef CONFIG_TRACE_FFA
-#define TRACE_FFA(ffa, name) ({pr_info(name "\n"); zio_ffa_dump(ffa);})
+#define TRACE_FFA(ffa, name) ({pr_info(name "\n"); zio_ffa_dump(ffa); })
 #else
 #define TRACE_FFA(ffa, name)
 #endif
@@ -65,7 +65,7 @@ static inline struct ffa_cell *__ffa_next(struct ffa_cell *c,
 }
 
 #define cell_for_each(c, ffa) \
-        for (c = (ffa)->cell; c; c = __ffa_next(c, (ffa)))
+	for (c = (ffa)->cell; c; c = __ffa_next(c, (ffa)))
 
 
 /* The create and destroy must be called in non-atomic context and don't lock */

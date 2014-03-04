@@ -512,7 +512,7 @@ static ssize_t zobj_store_cur_trig(struct device *dev,
 	int err = 0;
 
 	dev_dbg(dev, "Changing trigger to: %s\n", buf);
-	if (strlen(buf) > ZIO_OBJ_NAME_LEN+1)
+	if (strlen(buf) > ZIO_OBJ_NAME_LEN + 1)
 		return -EINVAL; /* name too long */
 	sscanf(buf, "%s\n", buf_tmp);
 	cset = to_zio_cset(dev);
@@ -537,7 +537,7 @@ static ssize_t zobj_store_cur_zbuf(struct device *dev,
 	int err = 0;
 
 	dev_dbg(dev, "Changing buffer to: %s\n", buf);
-	if (strlen(buf) > ZIO_OBJ_NAME_LEN+1)
+	if (strlen(buf) > ZIO_OBJ_NAME_LEN + 1)
 		return -EINVAL; /* name too long */
 	sscanf(buf, "%s\n", buf_tmp);
 	cset = to_zio_cset(dev);
@@ -711,7 +711,7 @@ static ssize_t zio_store_alarm(struct device *dev,
 	struct zio_control *ctrl = chan->current_ctrl;
 	unsigned int v1, v2;
 
-	switch(sscanf(buf, "%i %i", &v1, &v2)) {
+	switch (sscanf(buf, "%i %i", &v1, &v2)) {
 	case 2:
 		ctrl->drv_alarms &= (~v2);
 	case 1:
@@ -752,7 +752,7 @@ static ssize_t zio_buf_flush(struct device *dev,
 	spin_unlock_irqrestore(&bi->lock, flags);
 
 	/* Flushing blocks. It does not use helpers to prevent deadlock */
-	while((block = bi->b_op->retr_block(bi))) {
+	while ((block = bi->b_op->retr_block(bi))) {
 		dev_dbg(dev, "Flushing ... (%d)\n", n++);
 		bi->b_op->free_block(bi, block);
 	}
@@ -770,7 +770,7 @@ static ssize_t zio_buf_flush(struct device *dev,
  * zobj_read_cur_ctrl
  * it returns the current control to userspace through binary sysfs file
  */
-ssize_t zobj_read_cur_ctrl(struct file *file,struct kobject *kobj,
+ssize_t zobj_read_cur_ctrl(struct file *file, struct kobject *kobj,
 			   struct bin_attribute *bin_attr,
 			   char *buf, loff_t off, size_t count)
 {
@@ -793,7 +793,7 @@ ssize_t zobj_read_cur_ctrl(struct file *file,struct kobject *kobj,
 	return count;
 }
 
-static ssize_t zobj_show_address(struct file *file,struct kobject *kobj,
+static ssize_t zobj_show_address(struct file *file, struct kobject *kobj,
 				 struct bin_attribute *bin_attr,
 				 char *buf, loff_t off, size_t count)
 {
@@ -945,7 +945,7 @@ const struct attribute_group *def_chan_groups_ptr[] = {
 const struct attribute_group *def_ti_groups_ptr[] = {
 	&zio_groups[ZIO_DAG_ALL],
 	NULL,
- };
+};
 /* default groups for buffer instance */
 const struct attribute_group *def_bi_groups_ptr[] = {
 	&zio_groups[ZIO_DAG_BI],
@@ -1067,8 +1067,8 @@ int zattr_set_create(struct zio_obj_head *head,
 		zattr = &zattr_set->std_zattr[i];
 		attr = &zattr->attr.attr;
 		err = __check_attr(attr, s_op);
-		dev_vdbg(&head->dev, "%s(std): %s %d %s\n", __func__, head->name, i,
-			attr->name);
+		dev_vdbg(&head->dev, "%s(std): %s %d %s\n", __func__,
+			head->name, i, attr->name);
 		switch (err) {
 		case 0:
 			/* valid attribute */
@@ -1103,8 +1103,8 @@ ext:
 		err = __check_attr(attr, s_op);
 		if (err)
 			return err;
-		dev_vdbg(&head->dev, "%s(ext): %s %d %s\n", __func__, head->name, i,
-			attr->name);
+		dev_vdbg(&head->dev, "%s(ext): %s %d %s\n", __func__,
+			head->name, i, attr->name);
 		/* valid attribute */
 		groups[g]->attrs[a_count++] = attr;
 
