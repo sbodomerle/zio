@@ -167,7 +167,7 @@ static int zloop_raw_output(struct zio_cset *cset)
 
 	pr_debug("%s -- cset %i\n", __func__, cset->index);
 
-	switch(cset->index) {
+	switch (cset->index) {
 	case ZLOOP_CSET_OUT_LOOP:
 		return zloop_try_complete(cset->zdev, cset->index);
 
@@ -191,7 +191,7 @@ static int zloop_raw_input(struct zio_cset *cset)
 {
 	pr_debug("%s -- cset %i\n", __func__, cset->index);
 
-	switch(cset->index) {
+	switch (cset->index) {
 	case ZLOOP_CSET_IN_LOOP:
 		return zloop_try_complete(cset->zdev, cset->index);
 	case ZLOOP_CSET_IN_DATA:
@@ -448,9 +448,9 @@ static int zloop_register_miscdevs(void)
 	}
 	if (err == 0)
 		return 0;
-	for ( i-- ; i >= 0; i--) {
+	for (i--; i >= 0; i--)
 		misc_deregister(zloop_misc + i);
-	}
+
 	return err;
 }
 

@@ -178,7 +178,8 @@ static void zvmk80xx_send_urb(unsigned long arg)
 		"Message to send: 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x",
 		buf[0], buf[1], buf[2], buf[3],
 		buf[4], buf[5], buf[6], buf[7]);
-	if ((status = usb_submit_urb(zvmk80xx_cset->urb, GFP_ATOMIC))) {
+	status = usb_submit_urb(zvmk80xx_cset->urb, GFP_ATOMIC);
+	if (status) {
 		buf = zvmk80xx_cset->msg;
 		dev_err(&zvmk80xx_cset->cset->head.dev,
 			"Cannot send URB (%d)\n", status);
@@ -211,7 +212,8 @@ static int zvmk80xx_generic_raw_io(struct zio_cset *cset)
 	dev_dbg(&cset->head.dev, "%s:%d\n", __func__, __LINE__);
 	zvmk80xx_cset->next_run = jiffies;
 	zvmk80xx_cset->pkt_sent = 0;
-	zvmk80xx_cset->period = msecs_to_jiffies(cset->zattr_set.ext_zattr[0].value);
+	zvmk80xx_cset->period =
+			msecs_to_jiffies(cset->zattr_set.ext_zattr[0].value);
 	/* Program the next usb transfer */
 	zvmk80xx_send_urb((unsigned long)zvmk80xx_cset);
 
@@ -261,16 +263,20 @@ static int zvmk80xx_init_cset(struct zio_cset *cset)
 
 	/* Prepare the URB */
 	if (cset->flags & ZIO_DIR_OUTPUT) {
-		zvmk80xx_cset->pkt_size = le16_to_cpu(zvmk80xx->ep_tx->wMaxPacketSize);
+		zvmk80xx_cset->pkt_size =
+				le16_to_cpu(zvmk80xx->ep_tx->wMaxPacketSize);
 		usb_fill_int_urb(zvmk80xx_cset->urb, zvmk80xx->udev,
-			usb_sndintpipe(zvmk80xx->udev, zvmk80xx->ep_tx->bEndpointAddress),
+			usb_sndintpipe(zvmk80xx->udev,
+				       zvmk80xx->ep_tx->bEndpointAddress),
 			zvmk80xx_cset->msg, zvmk80xx_cset->pkt_size,
 			zvmk80xx_urb_callback, zvmk80xx_cset,
 			zvmk80xx->ep_tx->bInterval);
 	} else {
-		zvmk80xx_cset->pkt_size = le16_to_cpu(zvmk80xx->ep_tx->wMaxPacketSize);
+		zvmk80xx_cset->pkt_size =
+				le16_to_cpu(zvmk80xx->ep_tx->wMaxPacketSize);
 		usb_fill_int_urb(zvmk80xx_cset->urb, zvmk80xx->udev,
-			usb_rcvintpipe(zvmk80xx->udev, zvmk80xx->ep_rx->bEndpointAddress),
+			usb_rcvintpipe(zvmk80xx->udev,
+				       zvmk80xx->ep_rx->bEndpointAddress),
 			zvmk80xx_cset->msg, zvmk80xx_cset->pkt_size,
 			zvmk80xx_urb_callback, zvmk80xx_cset,
 			zvmk80xx->ep_rx->bInterval);

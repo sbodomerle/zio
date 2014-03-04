@@ -116,7 +116,7 @@ static void ad788x_complete(void *cont)
 {
 	struct ad788x_context *context = (struct ad788x_context *) cont;
 	struct zio_channel *chan;
-	struct zio_cset *cset ;
+	struct zio_cset *cset;
 	uint16_t *data, *buf;
 	int i, j = 0;
 
@@ -152,9 +152,9 @@ static inline uint16_t *ad788x_build_command(struct ad788x *ad788x,
 
 	/* configure transfer buffer*/
 	command = kmalloc(size, GFP_ATOMIC);
-	if (!command) {
+	if (!command)
 		return ERR_PTR(-ENOMEM);
-	}
+
 	/* configure transfer buffer*/
 	for (i = 0,  k = 0; i < context->nsamples; ++i) {
 		chan_for_each(chan, context->cset) {

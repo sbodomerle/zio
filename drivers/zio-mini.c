@@ -95,7 +95,7 @@ static int __init zmini_init(void)
 		       zmini_ndev);
 		return -EINVAL;
 	}
-	zmini_dev_array = kzalloc(zmini_ndev *sizeof(*zdev), GFP_KERNEL);
+	zmini_dev_array = kzalloc(zmini_ndev * sizeof(*zdev), GFP_KERNEL);
 	for (i = 0; i < zmini_ndev; i++) {
 		zdev = zio_allocate_device();
 		if (IS_ERR(zdev)) {

@@ -30,7 +30,8 @@ static enum hrtimer_restart zdtc_fn(struct hrtimer *timer)
 	struct timespec ts;
 
 	getnstimeofday(&ts);
-	printk("%s: %9li.%09li\n", __func__, ts.tv_sec, ts.tv_nsec);
+	dev_dbg(&zdtc.cset->head.dev, "%s: %9li.%09li\n", __func__,
+		ts.tv_sec, ts.tv_nsec);
 	zio_trigger_data_done(zdtc.cset);
 	return HRTIMER_NORESTART;
 }
@@ -42,7 +43,7 @@ static enum hrtimer_restart zdtc_fn(struct hrtimer *timer)
  */
 static void zdtc_stop_io(struct zio_cset *cset)
 {
-	pr_debug("%s\n", __func__);
+	dev_dbg(&cset->head.dev, "%s\n", __func__);
 	hrtimer_cancel(&zdtc.timer);
 	zio_generic_data_done(cset);
 }
