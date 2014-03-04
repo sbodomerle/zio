@@ -509,12 +509,17 @@ static ssize_t zobj_store_cur_trig(struct device *dev,
 {
 	char buf_tmp[ZIO_OBJ_NAME_LEN];
 	struct zio_cset *cset;
-	int err = 0;
+	int err = 0, ret;
 
 	dev_dbg(dev, "Changing trigger to: %s\n", buf);
 	if (strlen(buf) > ZIO_OBJ_NAME_LEN + 1)
 		return -EINVAL; /* name too long */
-	sscanf(buf, "%s\n", buf_tmp);
+	ret = sscanf(buf, "%s\n", buf_tmp);
+	if (ret != 1) {
+		dev_err(dev, "cannot extract string from sysfs input buffer");
+		return -EINVAL;
+	}
+
 	cset = to_zio_cset(dev);
 	/* change trigger only if is different then current */
 	if (strcmp(buf_tmp, cset->trig->head.name))
@@ -534,12 +539,17 @@ static ssize_t zobj_store_cur_zbuf(struct device *dev,
 {
 	char buf_tmp[ZIO_OBJ_NAME_LEN];
 	struct zio_cset *cset;
-	int err = 0;
+	int err = 0, ret;
 
 	dev_dbg(dev, "Changing buffer to: %s\n", buf);
 	if (strlen(buf) > ZIO_OBJ_NAME_LEN + 1)
 		return -EINVAL; /* name too long */
-	sscanf(buf, "%s\n", buf_tmp);
+	ret = sscanf(buf, "%s\n", buf_tmp);
+	if (ret != 1) {
+		dev_err(dev, "cannot extract string from sysfs input buffer");
+		return -EINVAL;
+	}
+
 	cset = to_zio_cset(dev);
 	/* change buffer only if is different then current */
 	if (strcmp(buf_tmp, cset->trig->head.name))
