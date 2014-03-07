@@ -51,7 +51,7 @@ int zio_trigger_abort_disable(struct zio_cset *cset, int disable)
 	spin_lock_irqsave(&cset->lock, flags);
 
 	/* The hardware may be active (i.e., DMA is ongoing). Wait for it */
-	while (cset->flags & ZIO_CSET_BUSY) {
+	while (cset->flags & ZIO_CSET_HW_BUSY) {
 		spin_unlock_irqrestore(&cset->lock, flags);
 		udelay(10);
 		spin_lock_irqsave(&cset->lock, flags);

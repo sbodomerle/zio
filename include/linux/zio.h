@@ -211,7 +211,7 @@ enum zio_cset_flags {
 	ZIO_CSET_SELF_TIMED	= 0x100, /* for trigger use (see docs) */
 	ZIO_CSET_CHAN_INTERLEAVE= 0x200, /* 1 if cset can interleave */
 	ZIO_CSET_INTERLEAVE_ONLY= 0x400, /* 1 if interleave only */
-	ZIO_CSET_BUSY		= 0x800, /* set by driver, delays abort */
+	ZIO_CSET_HW_BUSY	= 0x800, /* set by driver, delays abort */
 };
 
 /* Check the flags so we know whether to arm immediately or not */
