@@ -2,6 +2,7 @@
 #ifndef __ZIO_TRIGGER_H__
 #define __ZIO_TRIGGER_H__
 
+#include <linux/delay.h>
 #include <linux/zio.h>
 #include <linux/zio-buffer.h>
 
@@ -111,7 +112,21 @@ struct zio_trigger_operations {
 };
 
 int zio_trigger_data_done(struct zio_cset *cset);
-int zio_trigger_abort_disable(struct zio_cset *cset, int disable);
+
+/* This, in helpers.c, uses the cset spinlock and may return -EAGAIN */
+int __zio_trigger_abort_disable(struct zio_cset *cset, int disable);
+
+/* This can only be called in non-atomic context */
+static inline int zio_trigger_abort_disable(struct zio_cset *cset, int disable)
+{
+	int ret;
+	do {
+		ret = __zio_trigger_abort_disable(cset, disable);
+		if (ret == -EAGAIN)
+			msleep(1);
+	} while (ret == -EAGAIN);
+	return ret;
+}
 
 /*
  * This generic_data_done can be used by triggers, as part of their own.

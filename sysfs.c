@@ -56,7 +56,7 @@ const char zio_zbuf_attr_names[_ZIO_BUF_ATTR_STD_NUM][ZIO_NAME_LEN] = {
 };
 EXPORT_SYMBOL(zio_zbuf_attr_names);
 
-static void __zobj_enable(struct device *dev, unsigned int enable);
+static int __zobj_enable(struct device *dev, unsigned int enable);
 
 static struct zio_attribute *__zattr_clone(const struct zio_attribute *src,
 		unsigned int n)
@@ -400,7 +400,7 @@ static void __chan_enable_interleave(struct zio_channel *chan,
  * enable/disable a zio object
  * must be called while holding the zio_device spinlock
  */
-static void __zobj_enable(struct device *dev, unsigned int enable)
+static int __zobj_enable(struct device *dev, unsigned int enable)
 {
 	unsigned long *zf, flags;
 	int i, status;
@@ -417,7 +417,7 @@ static void __zobj_enable(struct device *dev, unsigned int enable)
 	status = !((*zf) & ZIO_STATUS);
 	/* if the status is not changing */
 	if (!(enable ^ status))
-		return;
+		return 0;
 	/* change status */
 	*zf = (*zf & (~ZIO_STATUS)) | status;
 	switch (head->zobj_type) {
@@ -454,7 +454,12 @@ static void __zobj_enable(struct device *dev, unsigned int enable)
 
 		ti = to_zio_ti(dev);
 		cset = ti->cset;
-		zio_trigger_abort_disable(ti->cset, 0);
+
+		/* The abort_disable() in helpers.c may fail, if hw-busy */
+		i = __zio_trigger_abort_disable(ti->cset, 0);
+		if (i < 0)
+			return i;
+
 		spin_lock_irqsave(&ti->cset->lock, flags);
 		if (ti->t_op->change_status)
 			ti->t_op->change_status(ti, status);
@@ -482,6 +487,7 @@ static void __zobj_enable(struct device *dev, unsigned int enable)
 	default:
 		WARN(1, "ZIO: unknown zio object %i\n", head->zobj_type);
 	}
+	return 0;
 }
 
 /* Print the name of a zio object */
@@ -581,11 +587,13 @@ static ssize_t zobj_store_enable(struct device *dev,
 		return -EINVAL;
 
 	lock = __get_spinlock(to_zio_head(dev));
-	spin_lock(lock);
-	__zobj_enable(dev, val);
-	spin_unlock(lock);
-	return count;
-
+	do {
+		spin_lock(lock);
+		err = __zobj_enable(dev, val);
+		spin_unlock(lock);
+		if (err == -EAGAIN)
+			msleep(1);
+	} while (err  == -EAGAIN);
 	return count;
 }
 /*
