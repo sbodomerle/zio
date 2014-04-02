@@ -334,7 +334,7 @@ static struct zio_driver ad788x_zdrv = {
 	.probe = ad788x_zio_probe,
 };
 
-static int __devinit ad788x_spi_probe(struct spi_device *spi)
+static int ad788x_spi_probe(struct spi_device *spi)
 {
 	const struct spi_device_id *spi_id;
 	struct zio_device *zdev;
@@ -372,7 +372,7 @@ static int __devinit ad788x_spi_probe(struct spi_device *spi)
 	return err;
 }
 
-static int __devexit ad788x_spi_remove(struct spi_device *spi)
+static int ad788x_spi_remove(struct spi_device *spi)
 {
 	struct zio_device *zdev;
 	struct ad788x *ad788x;
@@ -394,7 +394,7 @@ static struct spi_driver ad788x_driver = {
 	},
 	.id_table	= ad788x_id,
 	.probe		= ad788x_spi_probe,
-	.remove		= __devexit_p(ad788x_spi_remove),
+	.remove		= ad788x_spi_remove,
 };
 
 static int __init ad788x_init(void)
