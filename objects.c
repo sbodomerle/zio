@@ -40,8 +40,7 @@ static void __zdev_release(struct device *dev)
 	dev_dbg(dev, "releasing device\n");
 
 	zobj_unregister(&zstat->all_devices, &zdev->head);
-	zattr_set_remove(&zdev->head);
-	__zattr_set_free(&zdev->zattr_set);
+	zio_destroy_attributes(&zdev->head);
 	kfree(zdev->cset);
 	kfree(zdev);
 }
@@ -58,8 +57,7 @@ static void __cset_release(struct device *dev)
 	cset->zbuf = NULL;
 
 	/* Release attributes */
-	zattr_set_remove(&cset->head);
-	__zattr_set_free(&cset->zattr_set);
+	zio_destroy_attributes(&cset->head);
 
 	/* Release the group of minors */
 	zio_minorbase_put(cset);
@@ -77,9 +75,7 @@ static void __chan_release(struct device *dev)
 	zio_free_control(chan->current_ctrl);
 
 	/* Release attributes*/
-	zattr_set_remove(&chan->head);
-	if (chan->cset->flags & ZIO_CSET_CHAN_TEMPLATE)
-		__zattr_set_free(&chan->zattr_set);
+	zio_destroy_attributes(&chan->head);
 }
 
 static void __ti_release(struct device *dev)
@@ -88,9 +84,7 @@ static void __ti_release(struct device *dev)
 
 	dev_dbg(dev, "releasing trigger\n");
 	/* Remove zio attributes */
-	zattr_set_remove(&ti->head);
-	/* Release attributes */
-	__zattr_set_free(&ti->zattr_set);
+	zio_destroy_attributes(&ti->head);
 	/* Destroy trigger instance. It frees trigger resources */
 	ti->t_op->destroy(ti);
 }
@@ -102,9 +96,7 @@ static void __bi_release(struct device *dev)
 	dev_dbg(dev, "releasing buffer\n");
 
 	/* Remove zio attribute */
-	zattr_set_remove(&bi->head);
-	/* Release attributes */
-	__zattr_set_free(&bi->zattr_set);
+	zio_destroy_attributes(&bi->head);
 	/* Destroy buffer instance. It frees buffer resources */
 	bi->b_op->destroy(bi);
 
@@ -269,15 +261,9 @@ static struct zio_bi *__bi_create(struct zio_buffer_type *zbuf,
 
 
 	/* Copy sysfs attribute from buffer type */
-	err = __zattr_set_copy(&bi->zattr_set, &zbuf->zattr_set);
+	zio_create_attributes(&bi->head, zbuf->s_op, &zbuf->zattr_set);
 	if (err)
 		goto out_destory;
-
-	/* Create attributes */
-	err = zattr_set_create(&bi->head, zbuf->s_op);
-	if (err)
-		goto out_free;
-
 
 	/* Register buffer instance */
 	err = device_register(&bi->head.dev);
@@ -296,9 +282,7 @@ static struct zio_bi *__bi_create(struct zio_buffer_type *zbuf,
 	return bi;
 
 out_remove:
-	zattr_set_remove(&bi->head);
-out_free:
-	__zattr_set_free(&bi->zattr_set);
+	zio_destroy_attributes(&bi->head);
 out_destory:
 	zbuf->b_op->destroy(bi);
 out:
@@ -369,14 +353,9 @@ static struct zio_ti *__ti_create(struct zio_trigger_type *trig,
 
 
 	/* Copy sysfs attribute from trigger type */
-	err = __zattr_set_copy(&ti->zattr_set, &trig->zattr_set);
+	err = zio_create_attributes(&ti->head, trig->s_op, &trig->zattr_set);
 	if (err)
 		goto out_destroy;
-
-	/* Create attributes group */
-	err = zattr_set_create(&ti->head, trig->s_op);
-	if (err)
-		goto out_free;
 
 	/* Special case: nsamples */
 	__ctrl_update_nsamples(ti);
@@ -394,9 +373,7 @@ static struct zio_ti *__ti_create(struct zio_trigger_type *trig,
 	return ti;
 
 out_remove:
-	zattr_set_remove(&ti->head);
-out_free:
-	__zattr_set_free(&ti->zattr_set);
+	zio_destroy_attributes(&ti->head);
 out_destroy:
 	trig->t_op->destroy(ti);
 out:
@@ -688,14 +665,15 @@ static int chan_register(struct zio_channel *chan, struct zio_channel *chan_t)
 		chan->flags |= chan_t->flags;
 		if (chan_t->zattr_set.std_zattr)
 			chan_t->zattr_set.n_std_attr = _ZIO_DEV_ATTR_STD_NUM;
-		err = __zattr_set_copy(&chan->zattr_set, &chan_t->zattr_set);
+		err = zio_create_attributes(&chan->head, chan->cset->zdev->s_op,
+					    &chan_t->zattr_set);
+		if (err)
+			goto out_zattr_copy;
+	} else {
+		err = zio_create_attributes(&chan->head, chan->cset->zdev->s_op, NULL);
 		if (err)
 			goto out_zattr_copy;
 	}
-
-	err = zattr_set_create(&chan->head, chan->cset->zdev->s_op);
-	if (err)
-		goto out_zattr_create;
 	/* Check attribute hierarchy */
 	err = __check_dev_zattr(&chan->cset->zattr_set, &chan->zattr_set);
 	if (err)
@@ -772,10 +750,7 @@ out_bin_attr:
 out_ctrl_bits:
 	zio_free_control(ctrl);
 out_zattr_check:
-	zattr_set_remove(&chan->head);
-out_zattr_create:
-	if (chan_t)
-		__zattr_set_free(&chan->zattr_set);
+	zio_destroy_attributes(&chan->head);
 out_zattr_copy:
 	return err;
 }
@@ -898,12 +873,12 @@ static int cset_register(struct zio_cset *cset, struct zio_cset *cset_t)
 	/* Copy from template, initialize and verify zio attributes */
 	if (cset_t->zattr_set.std_zattr)
 		cset_t->zattr_set.n_std_attr = _ZIO_DEV_ATTR_STD_NUM;
-	err = __zattr_set_copy(&cset->zattr_set, &cset_t->zattr_set);
+
+	err = zio_create_attributes(&cset->head, cset->zdev->s_op,
+				    &cset_t->zattr_set);
 	if (err)
 		goto out_zattr_copy;
-	err = zattr_set_create(&cset->head, cset->zdev->s_op);
-	if (err)
-		goto out_zattr_create;
+
 	err = __check_dev_zattr(&cset->zdev->zattr_set, &cset->zattr_set);
 	if (err)
 		goto out_zattr_check;
@@ -997,9 +972,7 @@ out_trig:
 out_buf:
 	device_unregister(&cset->head.dev);
 out_zattr_check:
-	zattr_set_remove(&cset->head);
-out_zattr_create:
-	__zattr_set_free(&cset->zattr_set);
+	zio_destroy_attributes(&cset->head);
 out_zattr_copy:
 	zio_minorbase_put(cset);
 	return err;
@@ -1118,12 +1091,9 @@ int __zdev_register(struct zio_device *parent,
 	if (tmpl->zattr_set.std_zattr)
 		tmpl->zattr_set.n_std_attr = _ZIO_DEV_ATTR_STD_NUM;
 	/* Create standard and extended sysfs attribute for device */
-	err = __zattr_set_copy(&zdev->zattr_set, &tmpl->zattr_set);
+	err = zio_create_attributes(&zdev->head, zdev->s_op, &tmpl->zattr_set);
 	if (err)
 		goto out_copy;
-	err = zattr_set_create(&zdev->head, zdev->s_op);
-	if (err)
-		goto out_create;
 
 	/* Register zio device */
 	err = zobj_register(&zstat->all_devices, &zdev->head, zdev->owner);
@@ -1164,9 +1134,7 @@ out_alloc_cset:
 out_dev:
 	zobj_unregister(&zstat->all_devices, &zdev->head);
 out_reg:
-	zattr_set_remove(&zdev->head);
-out_create:
-	__zattr_set_free(&zdev->zattr_set);
+	zio_destroy_attributes(&zdev->head);
 out_copy:
 	kfree(zdev);
 	return err;

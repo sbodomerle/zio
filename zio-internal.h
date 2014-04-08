@@ -73,17 +73,15 @@ extern int zio_default_trigger_init(void);
 extern void zio_default_trigger_exit(void);
 
 /* Defined in sysfs.c */
-extern int __zattr_set_copy(struct zio_attribute_set *dest,
-			    struct zio_attribute_set *src);
-extern void __zattr_set_free(struct zio_attribute_set *zattr_set);
-extern int zattr_set_create(struct zio_obj_head *head,
-			    const struct zio_sysfs_operations *s_op);
-extern void zattr_set_remove(struct zio_obj_head *head);
 extern void __ctrl_update_nsamples(struct zio_ti *ti);
 extern void __zattr_trig_init_ctrl(struct zio_ti *ti, struct zio_control *ctrl);
 extern int __check_dev_zattr(struct zio_attribute_set *parent,
 		      struct zio_attribute_set *this);
 extern int __zattr_dev_init_ctrl(struct zio_device *zdev);
+extern int zio_create_attributes(struct zio_obj_head *head,
+				 const struct zio_sysfs_operations *s_op,
+				 struct zio_attribute_set *zattr_set_tmpl);
+extern void zio_destroy_attributes(struct zio_obj_head *head);
 
 /* Defined in objects.c */
 extern int __zdev_register(struct zio_device *parent,

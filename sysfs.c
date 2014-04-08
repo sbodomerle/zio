@@ -81,8 +81,8 @@ static void __zattr_unclone(struct zio_attribute *zattr)
 	kfree(zattr);
 }
 
-int __zattr_set_copy(struct zio_attribute_set *dest,
-		     struct zio_attribute_set *src)
+static int __zattr_set_copy(struct zio_attribute_set *dest,
+			    struct zio_attribute_set *src)
 {
 	if (!dest || !src)
 		return -EINVAL;
@@ -93,7 +93,7 @@ int __zattr_set_copy(struct zio_attribute_set *dest,
 
 	return 0;
 }
-void __zattr_set_free(struct zio_attribute_set *zattr_set)
+static void __zattr_set_free(struct zio_attribute_set *zattr_set)
 {
 	if (!zattr_set)
 		return;
@@ -1044,7 +1044,7 @@ static struct attribute_group *__allocate_group(int n_attr)
 }
 
 /* create a set of zio attributes: the standard one and the extended one */
-int zattr_set_create(struct zio_obj_head *head,
+static int zattr_set_create(struct zio_obj_head *head,
 		     const struct zio_sysfs_operations *s_op)
 {
 	int i, err, a_count, g_count = 0, g = 0;
@@ -1141,7 +1141,7 @@ out:
 	return 0;
 }
 /* Remove an existent set of attributes */
-void zattr_set_remove(struct zio_obj_head *head)
+static void zattr_set_remove(struct zio_obj_head *head)
 {
 	struct zio_attribute_set *zattr_set;
 	int i;
@@ -1155,4 +1155,61 @@ void zattr_set_remove(struct zio_obj_head *head)
 		kfree(head->dev.groups[i]->attrs);
 		kfree(head->dev.groups[i]);
 	}
+}
+
+/*
+ * zio_create_attributes
+ * @head: the head of the ZIO object where creates attributes
+ * @s_op: the sysfs operations to associte do the attributes
+ * @zattr_set_tmpl: the attribute template to use
+ *
+ * This function copies a set of attributes from a given template and then
+ * it creates the attribute group for a given ZIO object.
+ */
+int zio_create_attributes(struct zio_obj_head *head,
+			  const struct zio_sysfs_operations *s_op,
+			  struct zio_attribute_set *zattr_set_tmpl)
+{
+	struct zio_attribute_set *zattr_set;
+	int err;
+
+	zattr_set = zio_get_from_obj(head, zattr_set);
+	if (!zattr_set)
+		return -EINVAL; /* message already printed */
+
+	if (zattr_set_tmpl) {
+		/* Copy sysfs attribute from template to ZIO object */
+		err = __zattr_set_copy(zattr_set, zattr_set_tmpl);
+		if (err)
+			return err;
+	}
+
+	/* Create attributes */
+	err = zattr_set_create(head, s_op);
+	if (err) {
+		__zattr_set_free(zattr_set);
+		return err;
+	}
+
+	return 0;
+}
+
+/*
+ * zio_destroy_attributes
+ * @head: the head of the ZIO object where destroy attributes
+ *
+ * This function removes attributes from a ZIO object and it releases memory.
+ */
+void zio_destroy_attributes(struct zio_obj_head *head)
+{
+	struct zio_attribute_set *zattr_set;
+
+	zattr_set = zio_get_from_obj(head, zattr_set);
+	if (!zattr_set)
+		return; /* message already printed */
+
+	/* Remove zio attribute from the zio object */
+	zattr_set_remove(head);
+	/* Release attributes from memory */
+	__zattr_set_free(zattr_set);
 }
