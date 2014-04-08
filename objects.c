@@ -373,14 +373,13 @@ static struct zio_ti *__ti_create(struct zio_trigger_type *trig,
 	if (err)
 		goto out_destroy;
 
-	/* Special case: nsamples */
-	__ctrl_update_nsamples(ti);
-
 	/* Create attributes group */
 	err = zattr_set_create(&ti->head, trig->s_op);
 	if (err)
 		goto out_free;
 
+	/* Special case: nsamples */
+	__ctrl_update_nsamples(ti);
 
 	/* Register trigger instance */
 	err = device_register(&ti->head.dev);
