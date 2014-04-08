@@ -81,26 +81,6 @@ static void __zattr_unclone(struct zio_attribute *zattr)
 	kfree(zattr);
 }
 
-static int __zattr_set_copy(struct zio_attribute_set *dest,
-			    struct zio_attribute_set *src)
-{
-	if (!dest || !src)
-		return -EINVAL;
-	dest->n_std_attr = src->n_std_attr;
-	dest->n_ext_attr = src->n_ext_attr;
-	dest->std_zattr = __zattr_clone(src->std_zattr, dest->n_std_attr);
-	dest->ext_zattr = __zattr_clone(src->ext_zattr, dest->n_ext_attr);
-
-	return 0;
-}
-static void __zattr_set_free(struct zio_attribute_set *zattr_set)
-{
-	if (!zattr_set)
-		return;
-	__zattr_unclone(zattr_set->ext_zattr);
-	__zattr_unclone(zattr_set->std_zattr);
-}
-
 /* When touching attributes, we always use the spinlock for the hosting dev */
 static spinlock_t *__get_spinlock(struct zio_obj_head *head)
 {
@@ -1179,15 +1159,19 @@ int zio_create_attributes(struct zio_obj_head *head,
 
 	if (zattr_set_tmpl) {
 		/* Copy sysfs attribute from template to ZIO object */
-		err = __zattr_set_copy(zattr_set, zattr_set_tmpl);
-		if (err)
-			return err;
+		zattr_set->n_std_attr = zattr_set_tmpl->n_std_attr;
+		zattr_set->n_ext_attr = zattr_set_tmpl->n_ext_attr;
+		zattr_set->std_zattr = __zattr_clone(zattr_set_tmpl->std_zattr,
+						     zattr_set->n_std_attr);
+		zattr_set->ext_zattr = __zattr_clone(zattr_set_tmpl->ext_zattr,
+						     zattr_set->n_ext_attr);
 	}
 
 	/* Create attributes */
 	err = zattr_set_create(head, s_op);
 	if (err) {
-		__zattr_set_free(zattr_set);
+		__zattr_unclone(zattr_set->ext_zattr);
+		__zattr_unclone(zattr_set->std_zattr);
 		return err;
 	}
 
@@ -1211,5 +1195,6 @@ void zio_destroy_attributes(struct zio_obj_head *head)
 	/* Remove zio attribute from the zio object */
 	zattr_set_remove(head);
 	/* Release attributes from memory */
-	__zattr_set_free(zattr_set);
+	__zattr_unclone(zattr_set->ext_zattr);
+	__zattr_unclone(zattr_set->std_zattr);
 }
