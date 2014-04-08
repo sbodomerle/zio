@@ -93,7 +93,7 @@ static void ztdc_stop_io(struct zio_cset *cset)
 		if (!block)
 			continue;
 		if (!block->uoff) {/* Empty: just free it */
-			cset->zbuf->b_op->free_block(chan->bi, block);
+			zio_buffer_free_block(chan->bi, block);
 			chan->active_block = 0;
 		} else {
 			/* Close up the partial block, and return it */
