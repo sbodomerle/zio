@@ -7,6 +7,7 @@
 
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/version.h>
 #include <linux/init.h>
 #include <linux/types.h>
 
@@ -59,14 +60,31 @@ static ssize_t zio_show_triggers(struct bus_type *bus, char *buf)
 	return len;
 }
 
-
+enum zio_bus_attributs_enumeration {
+	ZIO_DAN_BUS_VERSION,
+	ZIO_DAN_BUS_TRIGGERS,
+	ZIO_DAN_BUS_BUFFERS,
+};
 static struct bus_attribute def_bus_attrs[] = {
-	__ATTR(version, ZIO_RO_PERM, zio_show_version, NULL),
-	__ATTR(available_buffers, ZIO_RO_PERM, zio_show_buffers, NULL),
-	__ATTR(available_triggers, ZIO_RO_PERM, zio_show_triggers, NULL),
+	[ZIO_DAN_BUS_VERSION] = __ATTR(version, ZIO_RO_PERM,
+					zio_show_version, NULL),
+	[ZIO_DAN_BUS_TRIGGERS] = __ATTR(available_buffers, ZIO_RO_PERM,
+					zio_show_buffers, NULL),
+	[ZIO_DAN_BUS_BUFFERS] = __ATTR(available_triggers, ZIO_RO_PERM,
+					zio_show_triggers, NULL),
 	__ATTR_NULL,
 };
 
+#if LINUX_VERSION_CODE > KERNEL_VERSION(3,11,0)
+static struct attribute *zio_bus_def_attrs[] = {
+	&def_bus_attrs[ZIO_DAN_BUS_VERSION].attr,
+	&def_bus_attrs[ZIO_DAN_BUS_TRIGGERS].attr,
+	&def_bus_attrs[ZIO_DAN_BUS_BUFFERS].attr,
+};
+
+ATTRIBUTE_GROUPS(zio_bus_def);
+
+#endif
 
 /*
  * zio_match_id
@@ -165,7 +183,11 @@ static int zio_match_device(struct device *dev, struct device_driver *drv)
 
 struct bus_type zio_bus_type = {
 	.name = "zio",
+#if LINUX_VERSION_CODE > KERNEL_VERSION(3,11,0)
+	.bus_groups = zio_bus_def_groups,
+#else
 	.bus_attrs = def_bus_attrs,
+#endif
 	.match = zio_match_device,
 };
 
