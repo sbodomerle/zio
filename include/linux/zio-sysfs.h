@@ -71,37 +71,6 @@ struct zio_attribute_set {
 	unsigned int		n_ext_attr;
 };
 
-#define ZIO_ATTR_VERSION (ZIO_MAX_STD_ATTR - 1)
-enum zio_dev_std_attr {
-	ZIO_ATTR_NBITS,			/* number of bits per sample */
-	ZIO_ATTR_GAIN,			/* gain for signal, 0.001 steps */
-	ZIO_ATTR_OFFSET,		/* microvolts */
-	ZIO_ATTR_MAXRATE,		/* hertz */
-	ZIO_ATTR_VREFTYPE,		/* source of Vref (0 = default) */
-
-	/* Specials attributes */
-	ZIO_ATTR_DEV_VERSION = ZIO_ATTR_VERSION,	/* attribute set version */
-	_ZIO_DEV_ATTR_STD_NUM,		/* used to size arrays */
-};
-enum zio_trg_std_attr {
-	ZIO_ATTR_TRIG_N_SHOTS = 0,	/* trigger programmed shots (0: infinite) */
-	ZIO_ATTR_TRIG_POST_SAMP,	/* samples after trigger fire */
-	ZIO_ATTR_TRIG_PRE_SAMP,		/* samples before trigger fire */
-
-	/* Specials attributes */
-	ZIO_ATTR_TRIG_VERSION = ZIO_ATTR_VERSION,	/* attribute set version */
-	_ZIO_TRG_ATTR_STD_NUM,		/* used to size arrays */
-};
-enum zio_buf_std_attr {
-	ZIO_ATTR_ZBUF_MAXLEN = 0,/* max number of element in buffer */
-	ZIO_ATTR_ZBUF_MAXKB,	/* max number of kB in buffer */
-	ZIO_ATTR_ZBUF_ALLOC_LEN,/* number of allocated elements in buffer */
-	ZIO_ATTR_ZBUF_ALLOC_KB,	/* number of allocated  kB in buffer */
-
-	/* Specials attributes */
-	ZIO_ATTR_ZBUF_VERSION = ZIO_ATTR_VERSION,	/* attribute set version */
-	_ZIO_BUF_ATTR_STD_NUM,		/* used to size arrays */
-};
 enum zio_chn_bin_attr {
 	ZIO_BIN_CTRL = 0,		/* current control */
 	ZIO_BIN_ADDR,			/* zio_address */
