@@ -23,7 +23,8 @@
  *
  * A zio_attribute provides a generic way to access those registers
  *
- * @attribute: standard attribute structure used to create a sysfs access
+ * @parent: ponter to the zio object where this attribute is declared
+ * @attr: standard attribute structure used to create a sysfs access
  * @flags: to set attribute capabilities
  * @index [INTERNAL]: index within a group of attribute (standard or extended)
  * @id: something unique to identify the attribute. It can be the register
@@ -34,6 +35,7 @@
  * @store: is equivalent to  conf_set from zio_operations
  */
 struct zio_attribute {
+	struct zio_obj_head			*parent;
 	struct device_attribute			attr;
 	uint32_t				flags;
 	int					index;

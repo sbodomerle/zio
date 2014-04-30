@@ -1085,6 +1085,7 @@ static int zattr_set_create(struct zio_obj_head *head,
 				zattr->s_op = s_op;
 			}
 			zattr->index = i;
+			zattr->parent = head;
 			break;
 		case -EINVAL: /* unused std attribute */
 			zattr->index = ZIO_ATTR_INDEX_NONE;
@@ -1111,11 +1112,11 @@ ext:
 			head->name, i, attr->name);
 		/* valid attribute */
 		groups[g]->attrs[a_count++] = attr;
-
 		zattr->attr.show = zattr_show;
 		zattr->attr.store = zattr_store;
 		zattr->s_op = s_op;
 		zattr->index = i;
+		zattr->parent = head;
 		zattr->flags |= ZIO_ATTR_TYPE_EXT;
 	}
 	++g;
