@@ -56,8 +56,6 @@ const char zio_zbuf_attr_names[_ZIO_BUF_ATTR_STD_NUM][ZIO_NAME_LEN] = {
 };
 EXPORT_SYMBOL(zio_zbuf_attr_names);
 
-static int __zobj_enable(struct device *dev, unsigned int enable);
-
 static struct zio_attribute *__zattr_clone(const struct zio_attribute *src,
 		unsigned int n)
 {
@@ -369,7 +367,7 @@ static void __chan_enable_interleave(struct zio_channel *chan,
 	 */
 	if (chan->flags & ZIO_CSET_CHAN_INTERLEAVE) { /* Interleaved channel */
 		for (i = 0; i < cset->n_chan - 1; ++i)
-			__zobj_enable(&cset->chan[i].head.dev, !enable);
+			__zio_object_enable(&cset->chan[i].head, !enable);
 	} else { /* Normal channel */
 		if (!(cset->interleave->flags & ZIO_DISABLED)) {
 			/*
@@ -386,20 +384,18 @@ static void __chan_enable_interleave(struct zio_channel *chan,
  * enable/disable a zio object
  * must be called while holding the zio_device spinlock
  */
-static int __zobj_enable(struct device *dev, unsigned int enable)
+int __zio_object_enable(struct zio_obj_head *head, unsigned int enable)
 {
 	unsigned long *zf, flags;
 	int i, status;
-	struct zio_obj_head *head;
 	struct zio_channel *chan;
 	struct zio_device *zdev;
 	struct zio_cset *cset;
 	struct zio_ti *ti;
 
-	dev_dbg(dev, "enable = %d\n", enable);
-	head = to_zio_head(dev);
+	dev_dbg(&head->dev, "enable = %d\n", enable);
 
-	zf = zio_get_from_obj(to_zio_head(dev), flags);
+	zf = zio_get_from_obj(head, flags);
 	status = !((*zf) & ZIO_STATUS);
 	/* if the status is not changing */
 	if (!(enable ^ status))
@@ -408,27 +404,27 @@ static int __zobj_enable(struct device *dev, unsigned int enable)
 	*zf = (*zf & (~ZIO_STATUS)) | status;
 	switch (head->zobj_type) {
 	case ZIO_DEV:
-		dev_dbg(dev, "(dev)\n");
+		dev_dbg(&head->dev, "(dev)\n");
 
-		zdev = to_zio_dev(dev);
+		zdev = to_zio_dev(&head->dev);
 		/* enable/disable all csets */
 		for (i = 0; i < zdev->n_cset; ++i)
-			__zobj_enable(&zdev->cset[i].head.dev, enable);
+			__zio_object_enable(&zdev->cset[i].head, enable);
 		break;
 	case ZIO_CSET:
-		dev_dbg(dev, "(cset)\n");
+		dev_dbg(&head->dev, "(cset)\n");
 
-		cset = to_zio_cset(dev);
+		cset = to_zio_cset(&head->dev);
 		/* enable/disable trigger instance */
-		__zobj_enable(&cset->ti->head.dev, enable);
+		__zio_object_enable(&cset->ti->head, enable);
 		/* enable/disable all channels */
 		for (i = 0; i < cset->n_chan; ++i)
-			__zobj_enable(&cset->chan[i].head.dev, enable);
+			__zio_object_enable(&cset->chan[i].head, enable);
 		break;
 	case ZIO_CHAN:
-		dev_dbg(dev, "(chan)\n");
+		dev_dbg(&head->dev, "(chan)\n");
 
-		chan = to_zio_chan(dev);
+		chan = to_zio_chan(&head->dev);
 
 		if (chan->cset->flags & ZIO_CSET_CHAN_INTERLEAVE) {
 			__ctrl_update_nsamples(chan->cset->ti);
@@ -436,9 +432,9 @@ static int __zobj_enable(struct device *dev, unsigned int enable)
 		}
 		break;
 	case ZIO_TI:
-		dev_dbg(dev, "(ti)\n");
+		dev_dbg(&head->dev, "(ti)\n");
 
-		ti = to_zio_ti(dev);
+		ti = to_zio_ti(&head->dev);
 		cset = ti->cset;
 
 		/* The abort_disable() in helpers.c may fail, if hw-busy */
@@ -459,7 +455,7 @@ static int __zobj_enable(struct device *dev, unsigned int enable)
 
 	/* following objects can't be enabled/disabled */
 	case ZIO_BI:
-		dev_dbg(dev, "(buf)\n");
+		dev_dbg(&head->dev, "(buf)\n");
 		/*
 		 * The buffer instance cannot be enabled/disabled by sysfs. A
 		 * buffer instance is usually enabled, even if its channel is
@@ -564,6 +560,7 @@ static ssize_t zobj_store_enable(struct device *dev,
 				 struct device_attribute *attr,
 				 const char *buf, size_t count)
 {
+	struct zio_obj_head *head = to_zio_head(dev);
 	long val;
 	int err;
 	spinlock_t *lock;
@@ -572,10 +569,10 @@ static ssize_t zobj_store_enable(struct device *dev,
 	if (err || val < 0 || val > 1)
 		return -EINVAL;
 
-	lock = __get_spinlock(to_zio_head(dev));
+	lock = __get_spinlock(head);
 	do {
 		spin_lock(lock);
-		err = __zobj_enable(dev, val);
+		err = __zio_object_enable(head, val);
 		spin_unlock(lock);
 		if (err == -EAGAIN)
 			msleep(1);

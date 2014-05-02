@@ -82,6 +82,7 @@ extern int zio_create_attributes(struct zio_obj_head *head,
 				 const struct zio_sysfs_operations *s_op,
 				 struct zio_attribute_set *zattr_set_tmpl);
 extern void zio_destroy_attributes(struct zio_obj_head *head);
+extern int __zio_object_enable(struct zio_obj_head *head, unsigned int enable);
 
 /* Defined in objects.c */
 extern int __zdev_register(struct zio_device *parent,
