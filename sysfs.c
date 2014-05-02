@@ -80,7 +80,7 @@ static void __zattr_unclone(struct zio_attribute *zattr)
 }
 
 /* When touching attributes, we always use the spinlock for the hosting dev */
-static spinlock_t *__get_spinlock(struct zio_obj_head *head)
+spinlock_t *__zio_get_dev_spinlock(struct zio_obj_head *head)
 {
 	spinlock_t *lock;
 
@@ -569,7 +569,7 @@ static ssize_t zobj_store_enable(struct device *dev,
 	if (err || val < 0 || val > 1)
 		return -EINVAL;
 
-	lock = __get_spinlock(head);
+	lock = __zio_get_dev_spinlock(head);
 	do {
 		spin_lock(lock);
 		err = __zio_object_enable(head, val);
@@ -598,7 +598,7 @@ static ssize_t zattr_show(struct device *dev, struct device_attribute *attr,
 		spinlock_t *lock;
 		int err = 0;
 
-		lock = __get_spinlock(head);
+		lock = __zio_get_dev_spinlock(head);
 		spin_lock(lock);
 		err = zattr->s_op->info_get(dev, zattr, &zattr->value);
 		spin_unlock(lock);
@@ -632,7 +632,7 @@ static ssize_t zattr_store(struct device *dev, struct device_attribute *attr,
 	dev_dbg(dev, "writing value %ld to sysfs attribute %s\n",
 		val, attr->attr.name);
 
-	lock = __get_spinlock(head);
+	lock = __zio_get_dev_spinlock(head);
 	spin_lock(lock);
 	err = zattr->s_op->conf_set(dev, zattr, (uint32_t)val);
 	if (err) {
