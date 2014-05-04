@@ -218,3 +218,16 @@ int zio_trigger_data_done(struct zio_cset *cset)
 	return must_rearm; /* Actually, "already_rearmed" */
 }
 EXPORT_SYMBOL(zio_trigger_data_done);
+
+int zio_generic_config_device(struct zio_device *zdev,
+			      struct zio_attr_config *zattr_cfg)
+{
+	return zio_generic_config(zattr_cfg);
+}
+EXPORT_SYMBOL(zio_generic_config_device);
+int zio_generic_config_trigger(struct zio_ti *ti,
+			       struct zio_attr_config *zattr_cfg)
+{
+	return zio_generic_config(zattr_cfg);
+}
+EXPORT_SYMBOL(zio_generic_config_trigger);

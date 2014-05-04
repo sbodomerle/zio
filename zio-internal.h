@@ -97,4 +97,7 @@ extern struct zio_device *zio_device_find_child(struct zio_device *parent);
 extern int zio_change_current_trigger(struct zio_cset *cset, char *name);
 extern int zio_change_current_buffer(struct zio_cset *cset, char *name);
 
+/* Defined in config.c */
+extern int zio_generic_config(struct zio_attr_config *zattr_cfg);
+
 #endif /* ZIO_INTERNAL_H_ */

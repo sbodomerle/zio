@@ -209,4 +209,9 @@ static inline int zio_trigger_try_push(struct zio_bi *bi,
 	return pushed;
 }
 
+/* Internal trigger operations */
+int zio_generic_config_trigger(struct zio_ti *ti,
+			       struct zio_attr_config *zattr_cfg);
+
+
 #endif /* __ZIO_TRIGGER_H__ */

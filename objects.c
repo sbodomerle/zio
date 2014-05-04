@@ -1088,6 +1088,11 @@ int __zdev_register(struct zio_device *parent,
 	zdev->preferred_trigger = tmpl->preferred_trigger;
 	zdev->n_cset = tmpl->n_cset;
 
+	/* use generic_config in driver operation is missing */
+	if (tmpl->config)
+		zdev->config = tmpl->config;
+	else
+		zdev->config = zio_generic_config_device;
 
 	if (tmpl->zattr_set.std_zattr)
 		tmpl->zattr_set.n_std_attr = _ZIO_DEV_ATTR_STD_NUM;

@@ -165,6 +165,10 @@ int __must_check zio_register_device(struct zio_device *zdev, const char *name,
 void zio_unregister_device(struct zio_device *zdev);
 struct zio_device *zio_find_device(char *name, uint32_t dev_id);
 
+/* Configuration prototype, from config.c */
+int zio_generic_config_device(struct zio_device *zdev,
+			      struct zio_attr_config *zattr_cfg);
+
 /*
  * zio_cset -- channel set: a group of channels with the same features
  */
@@ -389,6 +393,9 @@ unsigned long zio_ffa_alloc(struct zio_ffa *ffa, size_t size, gfp_t gfp);
 void zio_ffa_free_s(struct zio_ffa *ffa, unsigned long addr, size_t size);
 void zio_ffa_dump(struct zio_ffa *ffa); /* diagnostics */
 void zio_ffa_reset(struct zio_ffa *ffa);
+
+/* from config.c */
+int zio_configure(struct zio_channel *chan, struct zio_control *ctrl);
 
 #endif /* __KERNEL__ */
 #endif /* __ZIO_H__ */
