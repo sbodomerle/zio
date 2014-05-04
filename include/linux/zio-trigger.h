@@ -92,7 +92,7 @@ struct zio_trigger_operations {
 					      struct zio_channel *chan);
 
 	int			(*config)(struct zio_ti *ti,
-					  struct zio_control *ctrl);
+					  struct zio_attr_config *zattr_cfg);
 
 	struct zio_ti *		(*create)(struct zio_trigger_type *trig,
 					  struct zio_cset *cset,

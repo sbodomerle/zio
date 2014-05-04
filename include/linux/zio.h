@@ -59,6 +59,13 @@ struct zio_obj_head {
 #define to_zio_cset(_dev) container_of(_dev, struct zio_cset, head.dev)
 #define to_zio_chan(_dev) container_of(_dev, struct zio_channel, head.dev)
 
+/* Used for configuration */
+struct zio_attr_config {
+	unsigned int n; /* number of zattr */
+	struct zio_attribute **zattr; /* attribute modified*/
+	uint32_t value[ZIO_MAX_STD_ATTR + ZIO_MAX_EXT_ATTR]; /* new values */
+};
+
 /*
  * __get_from_zobj: is used to get a zio object element that can be (with the
  *                  same name) in different zio object.
@@ -140,7 +147,8 @@ struct zio_device {
 	unsigned long				flags;
 	struct zio_attribute_set		zattr_set;
 	const struct zio_sysfs_operations	*s_op;
-
+	int (*config)(struct zio_device *zdev,
+		      struct zio_attr_config *zattr_cfg);
 	/* The full device is an array of csets */
 	struct zio_cset			*cset;
 	unsigned int			n_cset;
