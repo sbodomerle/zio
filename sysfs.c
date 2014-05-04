@@ -145,8 +145,8 @@ void __ctrl_update_nsamples(struct zio_ti *ti)
 			ti->nsamples *= (cset->n_chan - 1);
 	}
 }
-static void __zattr_propagate_value(struct zio_obj_head *head,
-			       struct zio_attribute *zattr)
+void __zio_attr_propagate_value(struct zio_obj_head *head,
+			     struct zio_attribute *zattr)
 {
 	int i, j;
 	unsigned long flags, tflags;
@@ -626,7 +626,7 @@ int __zio_conf_set(struct zio_obj_head *head, struct zio_attribute *zattr,
 	if (err)
 		return err;
 	zattr->value = (uint32_t)val;
-	__zattr_propagate_value(head, zattr);
+	__zio_attr_propagate_value(head, zattr);
 
 
 	return 0;
