@@ -84,6 +84,8 @@ extern int zio_create_attributes(struct zio_obj_head *head,
 extern void zio_destroy_attributes(struct zio_obj_head *head);
 extern int __zio_object_enable(struct zio_obj_head *head, unsigned int enable);
 extern spinlock_t *__zio_get_dev_spinlock(struct zio_obj_head *head);
+extern int __zio_conf_set(struct zio_obj_head *head,
+			  struct zio_attribute *zattr, uint32_t val);
 
 /* Defined in objects.c */
 extern int __zdev_register(struct zio_device *parent,

@@ -613,10 +613,28 @@ out:
 	return len;
 }
 
+int __zio_conf_set(struct zio_obj_head *head, struct zio_attribute *zattr,
+		   uint32_t val)
+{
+	int err;
+
+	/* device attributes */
+	if (!zattr->s_op->conf_set)
+		return -EINVAL;
+
+	err = zattr->s_op->conf_set(&head->dev, zattr, val);
+	if (err)
+		return err;
+	zattr->value = (uint32_t)val;
+	__zattr_propagate_value(head, zattr);
+
+
+	return 0;
+}
+
 static ssize_t zattr_store(struct device *dev, struct device_attribute *attr,
 			   const char *buf, size_t count)
 {
-	struct zio_attribute *zattr = to_zio_zattr(attr);
 	struct zio_obj_head *head = to_zio_head(dev);
 	spinlock_t *lock;
 	long val;
@@ -625,25 +643,12 @@ static ssize_t zattr_store(struct device *dev, struct device_attribute *attr,
 	if (strict_strtol(buf, 0, &val))
 		return -EINVAL;
 
-	/* device attributes */
-	if (!zattr->s_op->conf_set)
-		return -EINVAL;
-
-	dev_dbg(dev, "writing value %ld to sysfs attribute %s\n",
-		val, attr->attr.name);
-
 	lock = __zio_get_dev_spinlock(head);
 	spin_lock(lock);
-	err = zattr->s_op->conf_set(dev, zattr, (uint32_t)val);
-	if (err) {
-		spin_unlock(lock);
-		return err;
-	}
-	zattr->value = (uint32_t)val;
-	__zattr_propagate_value(head, zattr);
+	err = __zio_conf_set(head, to_zio_zattr(attr), (uint32_t)val);
 	spin_unlock(lock);
 
-	return count;
+	return err ? err : count;
 }
 
 /*
