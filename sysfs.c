@@ -297,6 +297,12 @@ static int __zattr_cset_init_ctrl(struct zio_cset *cset, unsigned int start)
 		else
 			zattr[i].index = ZIO_ATTR_INDEX_NONE;
 
+	zattr = cset->ti->zattr_set.ext_zattr;
+	for (i = 0; i < cset->ti->zattr_set.n_ext_attr; ++i)
+		if (!(zattr[i].flags & ZIO_ATTR_CONTROL))
+			zattr[i].index = ZIO_ATTR_INDEX_NONE;
+
+
 	for (i = 0; i < cset->n_chan; ++i) {
 		err = __zattr_chan_init_ctrl(&cset->chan[i], start_c);
 		if (err)
