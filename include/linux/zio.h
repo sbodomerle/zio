@@ -3,16 +3,7 @@
 #ifndef __ZIO_H__
 #define __ZIO_H__
 
-/* ZIO_VERSION: is a zio_class attribute to identify the framework version*/
-#define ZIO_MAJOR_VERSION 1
-#define ZIO_MINOR_VERSION 0
-
-/*
- * ZIO_OBJ_NAME_LEN is the name's length used for registered objects
- * (such as trigger_type, buffer_type and zio_device) and thus shown in
- * the control structure.
- */
-#define ZIO_OBJ_NAME_LEN 12
+#include <linux/zio-user.h>
 
 #ifdef __KERNEL__ /* Nothing more is for user space */
 

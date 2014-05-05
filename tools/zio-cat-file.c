@@ -15,7 +15,6 @@
 #include <sys/time.h>
 #include <sys/mman.h>
 
-#include <linux/zio.h>
 #include <linux/zio-user.h>
 
 #define VERBOSE 0

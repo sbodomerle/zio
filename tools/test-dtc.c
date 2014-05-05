@@ -13,7 +13,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#include <linux/zio.h>
 #include <linux/zio-user.h>
 
 #define FNAME "/dev/zdtc-0000-0-0-ctrl"
