@@ -165,7 +165,7 @@ ctrl_read_error:
                         argv[0]);
 		break;
 	default:
-		fprintf(stderr, "%s: control read: expected %i, got %i\n",
+		fprintf(stderr, "%s: control read: expected %zi, got %i\n",
 			argv[0], sizeof(ctrl), i);
 		break;
 	}
