@@ -9,8 +9,6 @@ obj-m += drivers/
 obj-m += buffers/
 obj-m += triggers/
 
-obj-m += tools/
-
 GIT_VERSION = $(shell cd $(src); git describe --dirty --long --tags)
 
 # WARNING: the line below doesn't work in-kernel if you compile with O=

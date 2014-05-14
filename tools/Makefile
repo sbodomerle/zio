@@ -1,20 +1,18 @@
 
 # build user-space tools for zio
 
-HOST_EXTRACFLAGS += -I$(M)/include/
+CFLAGS = -I$(M)/include/ -Wall $(EXTRACFLAGS)
+CC ?= $(CROSS_COMPILE)gcc
 
-HOSTCC ?= gcc
-
-hostprogs-y := zio-dump
-hostprogs-y += zio-cat-file
-hostprogs-y += test-dtc
+progs := zio-dump
+progs += zio-cat-file
+progs += test-dtc
 
 # The following is ugly, please forgive me by now
-user: $(hostprogs-y)
+user: $(progs)
 
 clean:
-	rm -f $(hostprogs-y) *~ *.o
+	rm -f $(progs) *~ *.o
 
 %: %.c
-	$(HOSTCC) $(HOST_EXTRACFLAGS) -Wall $^ -o $@
-
+	$(CC) $(CFLAGS) $^ -o $@
