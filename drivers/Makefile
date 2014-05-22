@@ -2,7 +2,7 @@ LINUX ?= /lib/modules/$(shell uname -r)/build
 
 GIT_VERSION = $(shell cd $(src); git describe --dirty --long --tags)
 
-ccflags-y += -I$(obj)/../include/ -DGIT_VERSION=\"$(GIT_VERSION)\"
+ccflags-y += -I$(src)/../include/ -DGIT_VERSION=\"$(GIT_VERSION)\"
 ccflags-$(CONFIG_ZIO_DEBUG) += -DDEBUG
 
 obj-m = zio-zero.o
