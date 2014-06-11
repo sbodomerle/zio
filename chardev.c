@@ -33,7 +33,12 @@ static int zio_dev_uevent(struct device *dev, struct kobj_uevent_env *env)
 
 	return 0;
 }
+
+#if LINUX_VERSION_CODE > KERNEL_VERSION(3,2,0)
+static char *zio_devnode(struct device *dev, umode_t *mode)
+#else
 static char *zio_devnode(struct device *dev, mode_t *mode)
+#endif
 {
 	return kasprintf(GFP_KERNEL, "zio/%s", dev_name(dev));
 }
