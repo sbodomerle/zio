@@ -96,20 +96,14 @@ static int __zio_arm_input_trigger(struct zio_ti *ti)
 		/* If alloc error, it is reported at data_done time */
 		chan->active_block = block;
 	}
-	i = cset->raw_io(cset);
 
-	return i;
+	return 0;
 }
 
 static int __zio_arm_output_trigger(struct zio_ti *ti)
 {
-	struct zio_cset *cset = ti->cset;
-	int i;
-
 	/* We are expected to already have a block in active channels */
-	i = cset->raw_io(cset);
-
-	return i;
+	return 0;
 }
 
 static int __zio_trigger_data_done(struct zio_cset *cset);
@@ -143,6 +137,10 @@ void zio_arm_trigger(struct zio_ti *ti)
 			ret = __zio_arm_input_trigger(ti);
 		else
 			ret = __zio_arm_output_trigger(ti);
+
+
+		if (!ret) /* The trigger is armed, run the acquisition */
+			ret = ti->cset->raw_io(ti->cset);
 
 		/* If arm fails release all active_blocks */
 		if (ret && ret != -EAGAIN) {
