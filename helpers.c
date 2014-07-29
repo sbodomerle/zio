@@ -20,11 +20,11 @@
 static void __zio_internal_abort_free(struct zio_cset *cset)
 {
 	struct zio_channel *chan;
-	struct zio_block *block;
+	unsigned int b;
 
 	chan_for_each(chan, cset) {
-		block = chan->active_block;
-		zio_buffer_free_block(chan->bi, block);
+		for (b = 0; b < ZIO_N_BUFFERING; ++b)
+			zio_buffer_free_block(chan->bi, chan->blocks[b]);
 		chan->active_block = NULL;
 	}
 }
@@ -76,25 +76,30 @@ EXPORT_SYMBOL(__zio_trigger_abort_disable);
 static int __zio_arm_input_trigger(struct zio_ti *ti)
 {
 	struct zio_buffer_type *zbuf;
-	struct zio_block *block;
 	struct zio_device *zdev;
 	struct zio_cset *cset;
 	struct zio_channel *chan;
 	struct zio_control *ctrl;
-	int i, datalen;
+	int i, b, datalen, nbuffer;
 
 	cset = ti->cset;
 	zdev = cset->zdev;
 	zbuf = cset->zbuf;
+
+	if (cset->flags & ZIO_CSET_N_BUFFERING)
+		nbuffer = ZIO_N_BUFFERING;
 
 	/* Allocate the buffer for the incoming sample, in active channels */
 	chan_for_each(chan, cset) {
 		ctrl = chan->current_ctrl;
 		ctrl->nsamples = ti->nsamples;
 		datalen = ctrl->ssize * ti->nsamples;
-		block = zio_buffer_alloc_block(chan->bi, datalen, GFP_ATOMIC);
+		for (b = 0; b < nbuffer; ++b)
+			chan->blocks[b] = zio_buffer_alloc_block(chan->bi,
+								 datalen,
+								 GFP_ATOMIC);
 		/* If alloc error, it is reported at data_done time */
-		chan->active_block = block;
+		chan->active_block = chan->blocks[0];
 	}
 	i = cset->raw_io(cset);
 
@@ -190,12 +195,34 @@ EXPORT_SYMBOL(zio_arm_trigger);
 /* Internal version, doesn't rearm. Called by zio_fire_trigger() above */
 static int __zio_trigger_data_done(struct zio_cset *cset)
 {
+	struct zio_channel *chan;
 	unsigned long flags;
 	int must_rearm;
+
+	/* Set next block as active */
+	chan_for_each(chan, cset)
+		chan->active_block = zio_trigger_next_block(chan);
 
 	spin_lock_irqsave(&cset->lock, flags);
 	if (unlikely(!(cset->ti->flags & ZIO_TI_ARMED)))
 		dev_dbg(&cset->head.dev, "data-done: un-armed trigger\n");
+#if 0
+/* TODO: think about this */
+	if (cset->flags & ZIO_CSET_N_BUFFERING) {
+		/* FIXME: maybe run data_done as workqueue on streaming */
+
+		/*
+		 * We are on streaming acquisition, we do not need to
+		 * arm the trigger. We are still acquiring data for
+		 * the same acquisition context.
+		 *
+		 * We do not need also to clear the ZIO_TI_ARMED flag
+		 * for the same reason. The acquisition context is not
+		 * over.
+		 */
+		return 0;
+	}
+#endif
 
 	if (cset->ti->t_op->data_done)
 		must_rearm = cset->ti->t_op->data_done(cset);

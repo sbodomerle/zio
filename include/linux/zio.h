@@ -204,6 +204,8 @@ enum zio_cset_flags {
 	ZIO_CSET_CHAN_INTERLEAVE= 0x200, /* 1 if cset can interleave */
 	ZIO_CSET_INTERLEAVE_ONLY= 0x400, /* 1 if interleave only */
 	ZIO_CSET_HW_BUSY	= 0x800, /* set by driver, delays abort */
+	ZIO_CSET_N_BUFFERING    = 0x1000, /* 1 to enable N-buffering */
+	/* NOTE: for the time being N = 2 and it is not configurable */
 };
 
 /* Check the flags so we know whether to arm immediately or not */
@@ -217,6 +219,9 @@ static inline int zio_cset_early_arm(struct zio_cset *cset)
 		return 1;
 	return 0;
 }
+
+
+#define ZIO_N_BUFFERING 2
 
 /*
  * zio_channel -- an individual channel within the cset
@@ -241,6 +246,9 @@ struct zio_channel {
 	struct zio_block	*user_block;	/* being transferred w/ user */
 	struct mutex		user_lock;
 	struct zio_block	*active_block;	/* being managed by hardware */
+
+	struct zio_block        *blocks[ZIO_N_BUFFERING];
+	unsigned int            c_block;
 };
 
 /* first 4bit are reserved for zio object universal flags */

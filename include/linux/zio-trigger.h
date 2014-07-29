@@ -128,6 +128,11 @@ static inline int zio_trigger_abort_disable(struct zio_cset *cset, int disable)
 	return ret;
 }
 
+static inline struct zio_block *zio_trigger_next_block(struct zio_channel *chan)
+{
+	return chan->blocks[(chan->c_block + 1) & 0x1];
+}
+
 /*
  * This generic_data_done can be used by triggers, as part of their own.
  * If no trigger-specific function is specified, the core calls this one.
@@ -146,6 +151,7 @@ static inline int zio_generic_data_done(struct zio_cset *cset)
 	struct zio_control *ctrl;
 	struct zio_ti *ti;
 	struct zio_bi *bi;
+	unsigned int c, datalen;
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
 
@@ -154,8 +160,9 @@ static inline int zio_generic_data_done(struct zio_cset *cset)
 
 	/* Input and output are very similar by now */
 	chan_for_each(chan, cset) {
+		c = chan->c_block;
 		bi = chan->bi;
-		block = chan->active_block;
+		block = chan->blocks[c];
 		ctrl = chan->current_ctrl;
 
 		/* Update the current control: sequence and timestamp */
@@ -169,15 +176,28 @@ static inline int zio_generic_data_done(struct zio_cset *cset)
 			continue;
 		}
 
+		chan->blocks[c] = NULL;
+
 		if (unlikely((ti->flags & ZIO_DIR) == ZIO_DIR_OUTPUT)) {
 			zio_buffer_free_block(chan->bi, block);
 		} else { /* DIR_INPUT */
 			memcpy(zio_get_ctrl(block), ctrl,
 			       zio_control_size(chan));
 			zio_buffer_store_block(bi, block);
+			/* On N-Buffering pre-allocate blocks */
+			if (cset->flags & ZIO_CSET_N_BUFFERING) {
+				datalen = ctrl->ssize * ti->nsamples;
+				chan->blocks[c] = zio_buffer_alloc_block(
+						chan->bi, datalen, GFP_ATOMIC);
+			}
 		}
-		chan->active_block = NULL;
+
+		/* point to next block */
+		/* NOTE: change this with real N-buffering (time being N=2)*/
+		chan->c_block = (chan->c_block + 1) & 0x1;
 	}
+
+
 	if (likely((ti->flags & ZIO_DIR) == ZIO_DIR_INPUT))
 		return (self_timed ? 1 : 0);
 
