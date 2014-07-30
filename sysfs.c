@@ -127,6 +127,72 @@ static inline void __zattr_valcpy(struct zio_ctrl_attr *ctrl,
 	}
 }
 
+
+/**
+ *  __zio_update_nshots
+ * It updates the number of shots for each trigger run. In order to do it
+ * in the safest way:
+ * - prepare the new buffering
+ * - on error restore the original conditions
+ * - replace the old buffering with the new one
+ *
+ * It may happen that we fail to restore previous conditions, but it is extreamly
+ * rare, and when it happen, probably we have bigger problem behind.
+ */
+#define __ZMSG_NSHOT_ERR "Combination of too many wrong things while updating nshots, cannot restore a safe status. Try to configure nshots again, but probably there is something wrong in your system.\n"
+static void  __zio_update_nshots(struct zio_ti *ti, struct zio_attribute *zattr)
+{
+	struct zio_cset *cset = ti->cset;
+	struct zio_channel *chan;
+	struct zio_block **blocks[cset->n_chan];
+	unsigned int *nshots;
+	int size, i, err;
+
+	nshots = &zattr->value;
+	if (*nshots == ti->nshots) /* nothing to do */
+		return;
+
+	/* Allocate the new buffer */
+	size = sizeof(struct zio_block *) * (*nshots);
+	chan_for_each(chan, cset) {
+		blocks[chan->index] = kzalloc(size, GFP_KERNEL);
+		if (!blocks[chan->index]) {
+			dev_err(&ti->head.dev,
+				"Cannot update buffering vector\n");
+
+			i = chan->index;
+			while (--i)
+				kfree(blocks[i]);
+
+			/* Restore the previous status */
+			dev_err(&ti->head.dev,
+				"Restore previous nshots value\n");
+			err = zattr->s_op->conf_set(&ti->head.dev,
+						    zattr,
+						    (uint32_t)ti->nshots);
+			zattr->value = ti->nshots;
+			WARN(err, "Cannot restore previous status for nshots\n");
+			return;
+		}
+	}
+
+	/* Everything ok, replace buffering */
+	chan_for_each(chan, cset) {
+		if (chan->blocks) {
+			for (i = 0; i < ti->nshots; ++i) {
+				if (!chan->blocks[i])
+					continue;
+				dev_warn(&ti->head.dev,
+					 "buffering vector was not empty\n");
+			}
+			kfree(chan->blocks);
+		}
+		chan->blocks = blocks[chan->index];
+		chan->c_block = 0;
+	}
+	ti->nshots = *nshots;
+}
+
 void __ctrl_update_nsamples(struct zio_ti *ti)
 {
 	struct zio_cset *cset = ti->cset;
@@ -189,6 +255,9 @@ void __zio_attr_propagate_value(struct zio_obj_head *head,
 		 * So pick the I/O lock to prevent I/O operations and proceed.
 		 */
 		spin_lock_irqsave(&ti->cset->lock, flags);
+		/* Update buffering according to nshots */
+		__zio_update_nshots(ti, zattr);
+
 		__ctrl_update_nsamples(ti);
 		/* Update attributes in all "current_ctrl" struct */
 		for (i = 0; i < ti->cset->n_chan; ++i) {
