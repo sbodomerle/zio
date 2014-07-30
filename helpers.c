@@ -76,7 +76,6 @@ EXPORT_SYMBOL(__zio_trigger_abort_disable);
 static int __zio_arm_input_trigger(struct zio_ti *ti)
 {
 	struct zio_buffer_type *zbuf;
-	struct zio_block *block;
 	struct zio_device *zdev;
 	struct zio_cset *cset;
 	struct zio_channel *chan;
@@ -92,9 +91,13 @@ static int __zio_arm_input_trigger(struct zio_ti *ti)
 		ctrl = chan->current_ctrl;
 		ctrl->nsamples = ti->nsamples;
 		datalen = ctrl->ssize * ti->nsamples;
-		block = zio_buffer_alloc_block(chan->bi, datalen, GFP_ATOMIC);
+		for (i = 0; i < ti->nshots; ++i) {
+			chan->blocks[i] = zio_buffer_alloc_block(chan->bi,
+								 datalen,
+								 GFP_ATOMIC);
+		}
 		/* If alloc error, it is reported at data_done time */
-		chan->active_block = block;
+		chan->active_block = chan->blocks[0];
 	}
 
 	return 0;
@@ -117,7 +120,7 @@ void zio_arm_trigger(struct zio_ti *ti)
 {
 	struct zio_channel *chan;
 	unsigned long flags;
-	int ret;
+	int ret, i;
 
 	do {
 		/* if trigger is disabled or already pending, return */
@@ -142,15 +145,25 @@ void zio_arm_trigger(struct zio_ti *ti)
 		if (!ret) /* The trigger is armed, run the acquisition */
 			ret = ti->cset->raw_io(ti->cset);
 
-		/* If arm fails release all active_blocks */
+
+		/*
+		 * If arm fails release all active_blocks, and buffering blocks
+		 * We do not care if a specific implementation of the ARM
+		 * operation does not need this: at least is useless but not
+		 * dangerous. If you have problem with this, problably your
+		 * implementation of arm() is wrong.
+		 */
 		if (ret && ret != -EAGAIN) {
 			/* Error: Free blocks */
 			dev_err(&ti->head.dev,
 				"raw_io failed (%i), cannot arm trigger\n",
 				ret);
 			chan_for_each(chan, ti->cset) {
-				zio_buffer_free_block(chan->bi,
-						      chan->active_block);
+				for (i = 0; i < ti->nshots; ++i) {
+					zio_buffer_free_block(chan->bi,
+							      chan->blocks[i]);
+					chan->blocks[i] = NULL;
+				}
 				chan->active_block = NULL;
 				chan->current_ctrl->zio_alarms |=
 							ZIO_ALARM_LOST_TRIGGER;

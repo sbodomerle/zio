@@ -69,6 +69,7 @@ static void __cset_release(struct device *dev)
 static void __chan_release(struct device *dev)
 {
 	struct zio_channel *chan = to_zio_chan(dev);
+	int i;
 
 	dev_dbg(dev, "releasing channel\n");
 
@@ -76,6 +77,11 @@ static void __chan_release(struct device *dev)
 
 	/* Release attributes*/
 	zio_destroy_attributes(&chan->head);
+
+	/* Release buffering blocks */
+	for (i = 0; i < chan->cset->ti->nshots; ++i)
+		zio_buffer_free_block(chan->bi, chan->blocks[i]);
+	kfree(chan->blocks);
 }
 
 static void __ti_release(struct device *dev)
@@ -356,6 +362,8 @@ static struct zio_ti *__ti_create(struct zio_trigger_type *trig,
 	err = zio_create_attributes(&ti->head, trig->s_op, &trig->zattr_set);
 	if (err)
 		goto out_destroy;
+
+	ti->nshots = 1;
 
 	/* Special case: nsamples */
 	__ctrl_update_nsamples(ti);
@@ -735,8 +743,16 @@ static int chan_register(struct zio_channel *chan, struct zio_channel *chan_t)
 	if (err)
 		goto out_cdev_create;
 
+	chan->blocks = kzalloc(sizeof(struct zio_block *) * chan->cset->ti->nshots,
+			       GFP_KERNEL);
+	if (!chan->blocks) {
+		err = -ENOMEM;
+		goto out_blocks;
+	}
 	return 0;
 
+out_blocks:
+	zio_destroy_chan_devices(chan);
 out_cdev_create:
 	__bi_destroy(chan->cset->zbuf, bi);
 out_bin_attr:

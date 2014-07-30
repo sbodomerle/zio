@@ -43,6 +43,8 @@ struct zio_ti {
 	struct zio_attribute_set		zattr_set;
 
 	const struct zio_trigger_operations	*t_op;
+
+	unsigned int            nshots; /* num. of blocks for a single run */
 };
 
 /* first 4bit are reserved for zio object universal flags */
