@@ -218,3 +218,16 @@ int zio_trigger_data_done(struct zio_cset *cset)
 	return must_rearm; /* Actually, "already_rearmed" */
 }
 EXPORT_SYMBOL(zio_trigger_data_done);
+
+
+int zio_generic_push_block(struct zio_ti *ti,
+			   struct zio_channel *chan,
+			   struct zio_block *block)
+{
+	if (chan->active_block)
+		return -EBUSY;
+	chan->active_block = block;
+
+	return 0;
+}
+EXPORT_SYMBOL(zio_generic_push_block);

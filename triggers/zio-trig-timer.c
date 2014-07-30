@@ -129,17 +129,6 @@ static void ztt_fn(unsigned long arg)
 /*
  * The trigger operations are the core of a trigger type
  */
-static int ztt_push_block(struct zio_ti *ti, struct zio_channel *chan,
-			  struct zio_block *block)
-{
-	pr_debug("%s:%d\n", __func__, __LINE__);
-
-	if (chan->active_block)
-		return -EBUSY;
-	chan->active_block = block;
-	return 0;
-}
-
 static int ztt_config(struct zio_ti *ti, struct zio_control *ctrl)
 {
 	/* FIXME: config is not supported yet */
@@ -204,7 +193,7 @@ static void ztt_change_status(struct zio_ti *ti, unsigned int status)
 }
 
 static const struct zio_trigger_operations ztt_trigger_ops = {
-	.push_block = ztt_push_block,
+	.push_block = zio_generic_push_block,
 	.pull_block = NULL,
 	.config = ztt_config,
 	.create = ztt_create,

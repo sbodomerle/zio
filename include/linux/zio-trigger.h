@@ -116,6 +116,9 @@ int zio_trigger_data_done(struct zio_cset *cset);
 /* This, in helpers.c, uses the cset spinlock and may return -EAGAIN */
 int __zio_trigger_abort_disable(struct zio_cset *cset, int disable);
 
+int zio_generic_push_block(struct zio_ti *ti,struct zio_channel *chan,
+			   struct zio_block *block);
+
 /* This can only be called in non-atomic context */
 static inline int zio_trigger_abort_disable(struct zio_cset *cset, int disable)
 {

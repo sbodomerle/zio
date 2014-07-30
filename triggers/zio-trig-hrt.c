@@ -172,12 +172,12 @@ static int ztt_push_block(struct zio_ti *ti, struct zio_channel *chan,
 	struct ztt_instance *ztt = to_ztt_instance(ti);
 	struct zio_control *ctrl;
 	ktime_t ktime;
+	int err;
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
-
-	if (chan->active_block)
-		return -EBUSY;
-	chan->active_block = block;
+	err = zio_generic_push_block(ti, chan, block);
+	if (err)
+		return err;
 
 	/* If it is already pending, we are done */
 	if (hrtimer_is_queued(&ztt->timer))

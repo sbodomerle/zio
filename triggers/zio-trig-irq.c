@@ -61,17 +61,6 @@ static irqreturn_t zti_handler(int irq, void *dev_id)
 /*
  * The trigger operations are the core of a trigger type
  */
-static int zti_push_block(struct zio_ti *ti, struct zio_channel *chan,
-			  struct zio_block *block)
-{
-	/* software triggers must store pending stuff in chan->t_priv */
-	pr_debug("%s:%d\n", __func__, __LINE__);
-
-	if (chan->active_block)
-		return -EBUSY;
-	chan->active_block = block;
-	return 0;
-}
 
 static int zti_config(struct zio_ti *ti, struct zio_control *ctrl)
 {
@@ -125,7 +114,7 @@ static void zti_destroy(struct zio_ti *ti)
 }
 
 static const struct zio_trigger_operations zti_trigger_ops = {
-	.push_block = zti_push_block,
+	.push_block = zio_generic_push_block,
 	.pull_block = NULL,
 	.config = zti_config,
 	.create = zti_create,
