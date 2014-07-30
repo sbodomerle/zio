@@ -158,6 +158,9 @@ static inline int zio_generic_data_done(struct zio_cset *cset)
 		block = chan->active_block;
 		ctrl = chan->current_ctrl;
 
+		/* Remove the block from active block */
+		chan->active_block = NULL;
+
 		/* Update the current control: sequence and timestamp */
 		ctrl->seq_num++;
 		ctrl->tstamp.secs = ti->tstamp.tv_sec;
@@ -176,7 +179,6 @@ static inline int zio_generic_data_done(struct zio_cset *cset)
 			       zio_control_size(chan));
 			zio_buffer_store_block(bi, block);
 		}
-		chan->active_block = NULL;
 	}
 	if (likely((ti->flags & ZIO_DIR) == ZIO_DIR_INPUT))
 		return (self_timed ? 1 : 0);
