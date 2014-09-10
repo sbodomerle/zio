@@ -19,7 +19,7 @@ unsigned char buf[1024*1024];
 char *prgname;
 int opt_print_attr;
 int opt_print_memaddr;
-
+int reduce = -1; /**< number of bytes to show at begin/end of the buffer */
 
 void print_attr_set(char *name, int nattr, uint32_t mask, uint32_t *val)
 {
@@ -53,6 +53,19 @@ void print_attributes(struct zio_control *ctrl)
 		       ctrl->attr_trigger.ext_val);
 }
 
+void print_buffer(int start, int end)
+{
+	int j;
+
+	for (j = start; j < end; j++) {
+		if (!(j & 0xf) || j == start)
+			printf("Data:");
+		printf(" %02x", buf[j]);
+		if ((j & 0xf) == 0xf || j == end - 1)
+			putchar('\n');
+	}
+}
+
 static void ziodump_dataeof(int cfd, int dfd, int expected_size)
 {
 	struct stat stbuf;
@@ -78,7 +91,7 @@ void read_channel(int cfd, int dfd, FILE *log)
 {
 	int err = 0;
 	struct zio_control ctrl;
-	int i, j;
+	int i;
 
 	i = read(cfd, &ctrl, sizeof(ctrl));
 	switch (i) {
@@ -186,12 +199,12 @@ void read_channel(int cfd, int dfd, FILE *log)
 	fwrite(buf, 1, i, log);
 
 	/* report data to stdout */
-	for (j = 0; j < i; j++) {
-		if (!(j & 0xf))
-			printf("Data:");
-		printf(" %02x", buf[j]);
-		if ((j & 0xf) == 0xf || j == i - 1)
-			putchar('\n');
+	if (reduce < 0) {
+		print_buffer(0, i);
+	} else {
+		print_buffer(0, reduce);
+		printf("Data: ...\n");
+		print_buffer(i - reduce, i);
 	}
 	putchar('\n');
 }
@@ -208,7 +221,8 @@ void help(char *name)
 		"       -c           1 control only or combined (ctrl+data)\n"
 		"       -s           sniff-device (array of controls)\n"
 		"       -m           print memory address (for mmap)\n"
-		"       -n <number>  stop after that many blocks\n");
+		"       -n <number>  stop after that many blocks\n"
+		"       -r <number>  shown bytes at buffer begin/end\n");
 	exit(1);
 }
 
@@ -226,7 +240,7 @@ int main(int argc, char **argv)
 
 	prgname = argv[0];
 
-	while ((c = getopt (argc, argv, "aAcsmn:")) != -1) {
+	while ((c = getopt (argc, argv, "aAcsmn:r:")) != -1) {
 		switch(c) {
 		case 'a':
 			opt_print_attr = 1;
@@ -249,6 +263,14 @@ int main(int argc, char **argv)
 			if (rest && *rest) {
 				fprintf(stderr, "%s: not a number \"%s\"\n",
 				       argv[0], optarg);
+				help(prgname);
+			}
+			break;
+		case 'r':
+			reduce = strtoul(optarg, &rest, 0);
+			if (rest && *rest) {
+				fprintf(stderr, "%s: not a number \"%s\"\n",
+					argv[0], optarg);
 				help(prgname);
 			}
 			break;
