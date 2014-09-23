@@ -220,35 +220,35 @@ static int zloop_probe(struct zio_device *zdev)
 /* The list of csets: TYPE_DIGITAL is default (0) so it's not written */
 static struct zio_cset zloop_cset[] = {
 	[ZLOOP_CSET_OUT_LOOP] = {
-		SET_OBJ_NAME_NUM("out-loop", ZLOOP_CSET_OUT_LOOP),
+	  //		SET_OBJ_NAME_NUM("out-loop", ZLOOP_CSET_OUT_LOOP),
 		.raw_io =	zloop_raw_output,
 		.flags =	ZIO_DIR_OUTPUT,
 		.n_chan =	2,
 		.ssize =	1,
 	},
 	[ZLOOP_CSET_IN_LOOP] = {
-		SET_OBJ_NAME_NUM("in-loop", ZLOOP_CSET_IN_LOOP),
+	  //	SET_OBJ_NAME_NUM("in-loop", ZLOOP_CSET_IN_LOOP),
 		.raw_io =	zloop_raw_input,
 		.flags =	ZIO_DIR_INPUT,
 		.n_chan =	2,
 		.ssize =	1,
 	},
 	[ZLOOP_CSET_OUT_DATA] = {
-		SET_OBJ_NAME_NUM("out-data", ZLOOP_CSET_OUT_DATA),
+	  //	SET_OBJ_NAME_NUM("out-data", ZLOOP_CSET_OUT_DATA),
 		.raw_io =	zloop_raw_output,
 		.flags =	ZIO_DIR_OUTPUT,
 		.n_chan =	1,
 		.ssize =	1,
 	},
 	[ZLOOP_CSET_IN_DATA] = {
-		SET_OBJ_NAME_NUM("in-data", ZLOOP_CSET_IN_DATA),
+	  //	SET_OBJ_NAME_NUM("in-data", ZLOOP_CSET_IN_DATA),
 		.raw_io =	zloop_raw_input,
 		.flags =	ZIO_DIR_INPUT,
 		.n_chan =	1,
 		.ssize =	1,
 	},
 	[ZLOOP_CSET_OUT_CTRLDATA] = {
-		SET_OBJ_NAME_NUM("out-ctrldata", ZLOOP_CSET_OUT_CTRLDATA),
+	  //	SET_OBJ_NAME_NUM("out-ctrldata", ZLOOP_CSET_OUT_CTRLDATA),
 		.raw_io =	zloop_raw_output,
 		.flags =	ZIO_DIR_OUTPUT,
 		.n_chan =	1,

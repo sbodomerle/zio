@@ -42,7 +42,7 @@ static int zmini_input(struct zio_cset *cset)
 }
 static struct zio_cset zmini_cset[] = {
 	{
-		ZIO_SET_OBJ_NAME("timespec-in"),
+	  //		ZIO_SET_OBJ_NAME("timespec-in"),
 		.raw_io =	zmini_input,
 		.flags =	ZIO_DIR_INPUT,
 		.n_chan =	1, /* changed at insmod */
