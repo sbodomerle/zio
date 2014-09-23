@@ -20,6 +20,7 @@
 #include <linux/cdev.h>
 #include <linux/list.h>
 #include <linux/string.h>
+#include <linux/spinlock.h>
 
 #include <linux/zio-sysfs.h>
 
@@ -301,6 +302,50 @@ struct zio_block {
 	size_t			uoff;
 };
 
+
+/**
+ * Mark the cset as 'busy'
+ * @param cset the cset to set busy
+ * @param locked '1' if you want to protect the operatio, '0' if you will
+ *               protect the operation by yourself
+ */
+static inline void zio_cset_busy_set(struct zio_cset *cset, int locked)
+{
+	unsigned long flags;
+
+	if (locked)
+		spin_lock_irqsave(&cset->lock, flags);
+	cset->flags |= ZIO_CSET_HW_BUSY;
+	if (locked)
+		spin_unlock_irqrestore(&cset->lock, flags);
+}
+
+/**
+ * Mark the cset as 'not busy'
+ * @param cset the cset to set busy
+ * @param locked '1' if you want to protect the operatio, '0' if you will
+ *               protect the operation by yourself
+ */
+static inline void zio_cset_busy_clear(struct zio_cset *cset, int locked)
+{
+	unsigned long flags;
+
+	if (locked)
+		spin_lock_irqsave(&cset->lock, flags);
+	cset->flags &= ~ZIO_CSET_HW_BUSY;
+	if (locked)
+		spin_unlock_irqrestore(&cset->lock, flags);
+}
+
+/**
+ * Check if the cset is marked as 'busy'
+ * @param cset the cset to check
+ */
+static inline int zio_cset_is_busy(struct zio_cset *cset)
+{
+	return !!(cset->flags & ZIO_CSET_HW_BUSY);
+}
+
 /*
  * We must know whether the ctrl block has been filled/read or not: "cdone"
  * No "set_ctrl" or "clr_cdone" are needed, as cdone starts 0 and is only set
@@ -336,7 +381,6 @@ unsigned long zio_ffa_alloc(struct zio_ffa *ffa, size_t size, gfp_t gfp);
 void zio_ffa_free_s(struct zio_ffa *ffa, unsigned long addr, size_t size);
 void zio_ffa_dump(struct zio_ffa *ffa); /* diagnostics */
 void zio_ffa_reset(struct zio_ffa *ffa);
-
 
 #endif /* __KERNEL__ */
 #endif /* __ZIO_H__ */
