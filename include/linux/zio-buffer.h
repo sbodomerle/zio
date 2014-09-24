@@ -117,7 +117,7 @@ struct zio_buffer_operations {
 	struct zio_block *	(*retr_block) (struct zio_bi *bi);
 	int			(*store_block)(struct zio_bi *bi,
 					       struct zio_block *block);
-
+  
 	/* Create returns ERR_PTR on error */
 	struct zio_bi *		(*create)(struct zio_buffer_type *zbuf,
 					  struct zio_channel *chan);

@@ -757,7 +757,8 @@ static ssize_t zio_buf_flush(struct device *dev,
 	bi->flags |= ZIO_DISABLED;
 	spin_unlock_irqrestore(&bi->lock, flags);
 
-	/* Flushing blocks. It does not use helpers to prevent deadlock */
+	/* Flushing blocks. Buffer helpers may use locks, so we not use helpers
+	   here to prevent deadlock */
 	while ((block = bi->b_op->retr_block(bi))) {
 		dev_dbg(dev, "Flushing ... (%d)\n", n++);
 		bi->b_op->free_block(bi, block);

@@ -170,7 +170,7 @@ static inline int zio_generic_data_done(struct zio_cset *cset)
 		}
 
 		if (unlikely((ti->flags & ZIO_DIR) == ZIO_DIR_OUTPUT)) {
-				zbuf->b_op->free_block(chan->bi, block);
+			zio_buffer_free_block(chan->bi, block);
 		} else { /* DIR_INPUT */
 			memcpy(zio_get_ctrl(block), ctrl,
 			       zio_control_size(chan));
