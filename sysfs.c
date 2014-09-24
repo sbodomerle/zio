@@ -149,7 +149,7 @@ void __zio_attr_propagate_value(struct zio_obj_head *head,
 			     struct zio_attribute *zattr)
 {
 	int i, j;
-	unsigned long flags, tflags;
+	unsigned long flags;
 	struct zio_ti *ti;
 	struct zio_device *zdev;
 	struct zio_channel *chan;
@@ -184,11 +184,6 @@ void __zio_attr_propagate_value(struct zio_obj_head *head,
 	case ZIO_TI:
 		ti = to_zio_ti(&head->dev);
 		/*
-		 * If trigger params change, we need to abort ongoing I/O.
-		 * Disable, temporarily, while we change configuration.
-		 */
-		tflags = zio_trigger_abort_disable(ti->cset, 1);
-		/*
 		 * It is disabled, nobody can enable since that is only
 		 * possible through sysfs and we hold the config lock.
 		 * So pick the I/O lock to prevent I/O operations and proceed.
@@ -201,14 +196,7 @@ void __zio_attr_propagate_value(struct zio_obj_head *head,
 			ctrl = chan->current_ctrl;
 			__zattr_valcpy(&ctrl->attr_trigger, zattr);
 		}
-		/* If it was enabled, re-enable it */
-		if ((tflags & ZIO_STATUS) == ZIO_ENABLED)
-			ti->flags = (ti->flags & ~ZIO_STATUS) | ZIO_ENABLED;
 		spin_unlock_irqrestore(&ti->cset->lock, flags);
-		/* Finally, if the trigger was armed, re-arm */
-		if (tflags & ZIO_TI_ARMED)
-			zio_arm_trigger(ti);
-
 		break;
 	default:
 		return;
@@ -624,10 +612,9 @@ int __zio_conf_set(struct zio_obj_head *head, struct zio_attribute *zattr,
 
 	err = zattr->s_op->conf_set(&head->dev, zattr, val);
 	if (err)
-		return err;
+	        return err;
 	zattr->value = (uint32_t)val;
 	__zio_attr_propagate_value(head, zattr);
-
 
 	return 0;
 }
@@ -637,6 +624,8 @@ static ssize_t zattr_store(struct device *dev, struct device_attribute *attr,
 {
 	struct zio_obj_head *head = to_zio_head(dev);
 	struct zio_attribute *zattr = to_zio_zattr(attr);
+	struct zio_ti *ti = NULL;
+	unsigned long tflags = 0;
 	spinlock_t *lock;
 	long val;
 	int err;
@@ -658,7 +647,24 @@ static ssize_t zattr_store(struct device *dev, struct device_attribute *attr,
 
 	lock = __zio_get_dev_spinlock(head);
 	spin_lock(lock);
+
+	/* cannot modify trigger's attributes while is armed */
+	if (head->zobj_type == ZIO_TI) {
+		ti = to_zio_ti(&head->dev);
+		tflags = zio_trigger_abort_disable(ti->cset, 1);
+	}
+
+	/* Configure the attribute */
 	err = __zio_conf_set(head, zattr, (uint32_t)val);
+
+	if (head->zobj_type == ZIO_TI) {
+		/* restore trigger status */
+		if (ti && ((tflags & ZIO_STATUS) == ZIO_ENABLED))
+			ti->flags = (ti->flags & ~ZIO_STATUS) | ZIO_ENABLED;
+		if (ti && (tflags & ZIO_TI_ARMED))
+			zio_arm_trigger(ti);
+	}
+
 	spin_unlock(lock);
 
 	return err ? err : count;
