@@ -636,6 +636,7 @@ static ssize_t zattr_store(struct device *dev, struct device_attribute *attr,
 			   const char *buf, size_t count)
 {
 	struct zio_obj_head *head = to_zio_head(dev);
+	struct zio_attribute *zattr = to_zio_zattr(attr);
 	spinlock_t *lock;
 	long val;
 	int err;
@@ -643,9 +644,21 @@ static ssize_t zattr_store(struct device *dev, struct device_attribute *attr,
 	if (kstrtol(buf, 0, &val))
 		return -EINVAL;
 
+	/*
+	 * If the given value exceed the attribute range, then it's
+	 * an invalid value. When 'min == max' it means that the attribute
+	 * hasn't a range
+	 */
+	if (zattr->min != zattr->max &&
+	    (val < zattr->min || val > zattr->max)) {
+		dev_err(dev, "Value %u exceed range [%u, %u]\n",
+			(uint32_t)val, zattr->min, zattr->max);
+		return -EINVAL;
+	}
+
 	lock = __zio_get_dev_spinlock(head);
 	spin_lock(lock);
-	err = __zio_conf_set(head, to_zio_zattr(attr), (uint32_t)val);
+	err = __zio_conf_set(head, zattr, (uint32_t)val);
 	spin_unlock(lock);
 
 	return err ? err : count;
