@@ -772,6 +772,17 @@ static ssize_t zio_buf_flush(struct device *dev,
 	return count;
 }
 
+/**
+ * It returns the data direction of a given channel set
+ */
+static ssize_t zio_show_dire(struct device *dev,
+			      struct device_attribute *attr, char *buf)
+{
+	struct zio_cset *cset = to_zio_cset(dev);
+
+	return sprintf(buf, "%s\n", cset->flags & ZIO_DIR ? "output" : "input");
+}
+
 #if ZIO_HAS_BINARY_CONTROL
 /*
  * zobj_read_cur_ctrl
@@ -849,6 +860,7 @@ enum zio_default_attribute_numeration {
 	ZIO_DAN_TYPE,	/* devtype */
 	ZIO_DAN_FLUS,	/* flush */
 	ZIO_DAN_ALAR,	/* alarms */
+	ZIO_DAN_DIRE,   /* direction */
 };
 
 /* default zio attributes */
@@ -869,6 +881,8 @@ static struct device_attribute zio_default_attributes[] = {
 				NULL, zio_buf_flush),
 	[ZIO_DAN_ALAR] = __ATTR(alarms, ZIO_RW_PERM,
 				zio_show_alarm, zio_store_alarm),
+	[ZIO_DAN_DIRE] = __ATTR(direction, ZIO_RO_PERM,
+				zio_show_dire, NULL),
 	__ATTR_NULL,
 };
 /* default attributes for most of the zio objects */
@@ -887,6 +901,7 @@ static struct attribute *def_hie_attrs_ptr[] = {
 static struct attribute *def_cset_attrs_ptr[] = {
 	&zio_default_attributes[ZIO_DAN_CTRI].attr,
 	&zio_default_attributes[ZIO_DAN_CBUF].attr,
+	&zio_default_attributes[ZIO_DAN_DIRE].attr,
 	NULL,
 };
 /* default attributes for channel */
