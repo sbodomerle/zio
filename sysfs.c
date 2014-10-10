@@ -1053,25 +1053,14 @@ static int __check_attr(struct attribute *attr,
 	return 0;
 }
 
-static struct attribute_group *__allocate_group(int n_attr)
-{
-	struct attribute_group *group;
-
-	group = kzalloc(sizeof(struct attribute_group), GFP_KERNEL);
-	if (!group)
-		return ERR_PTR(-ENOMEM);
-	group->attrs = kzalloc(sizeof(struct attribute) * n_attr, GFP_KERNEL);
-	if (!group->attrs)
-		return ERR_PTR(-ENOMEM);
-	return group;
-}
 
 /* create a set of zio attributes: the standard one and the extended one */
 static int zattr_set_create(struct zio_obj_head *head,
 		     const struct zio_sysfs_operations *s_op)
 {
-	int i, err, a_count = 0;
+	int i, err, a_count = 0, n_attr;
 	const struct attribute_group **groups;
+	struct attribute_group *group;
 	struct zio_attribute_set *zattr_set;
 	struct zio_attribute *zattr;
 	struct attribute *attr;
@@ -1084,17 +1073,26 @@ static int zattr_set_create(struct zio_obj_head *head,
 		zattr_set->n_std_attr = 0;
 	if (!(zattr_set->ext_zattr && zattr_set->n_ext_attr))
 		zattr_set->n_ext_attr = 0;
-	if (!(zattr_set->n_std_attr + zattr_set->n_ext_attr))
+	n_attr = zattr_set->n_std_attr + zattr_set->n_ext_attr;
+	if (!n_attr)
 		goto out;
+
 
 	/* Allocate needed groups. dev->groups is null ended */
 	groups = kzalloc(sizeof(struct attribute_group *) * 2, GFP_KERNEL);
 	if (!groups)
 		return -ENOMEM;
-	/* allocate an attribute_group */
-	groups[0] = __allocate_group(zattr_set->n_std_attr + zattr_set->n_ext_attr);
-	if (IS_ERR(groups[0]))
-		return PTR_ERR(groups[0]);
+	group = kzalloc(sizeof(struct attribute_group), GFP_KERNEL);
+	if (!group) {
+	        err = -ENOMEM;
+		goto err_grp;
+	}
+	group->attrs = kzalloc(sizeof(struct attribute) * n_attr, GFP_KERNEL);
+	if (!group->attrs) {
+	        err = -ENOMEM;
+		goto err_attrs;
+	}
+
 
 	if (!zattr_set->std_zattr || !zattr_set->n_std_attr)
 		goto ext; /* Continue with extended attributes */
@@ -1108,7 +1106,7 @@ static int zattr_set_create(struct zio_obj_head *head,
 		switch (err) {
 		case 0:
 			/* valid attribute */
-			groups[0]->attrs[a_count++] = attr;
+			group->attrs[a_count++] = attr;
 			if (i == ZIO_ATTR_VERSION) {
 				zattr->attr.show = zio_show_attr_version;
 			} else { /* All other attributes */
@@ -1135,11 +1133,11 @@ ext:
 		attr = &zattr->attr.attr;
 		err = __check_attr(attr, s_op);
 		if (err)
-			return err;
+		        goto err_ext;
 		dev_vdbg(&head->dev, "%s(ext): %s %d %s\n", __func__,
 			head->name, i, attr->name);
 		/* valid attribute */
-		groups[0]->attrs[a_count++] = attr;
+		group->attrs[a_count++] = attr;
 		zattr->attr.show = zattr_show;
 		zattr->attr.store = zattr_store;
 		zattr->s_op = s_op;
@@ -1149,10 +1147,18 @@ ext:
 	}
 
 out_assign:
+	groups[0] = group;
 	groups[1] = NULL;
 	head->dev.groups = groups;
 out:
 	return 0;
+err_ext:
+	kfree(group->attrs);
+err_attrs:
+	kfree(group);
+err_grp:
+	kfree(groups);
+	return err;
 }
 /* Remove an existent set of attributes */
 static void zattr_set_remove(struct zio_obj_head *head)
@@ -1169,6 +1175,7 @@ static void zattr_set_remove(struct zio_obj_head *head)
 		kfree(head->dev.groups[i]->attrs);
 		kfree(head->dev.groups[i]);
 	}
+	kfree(head->dev.groups);
 }
 
 /*
