@@ -1275,7 +1275,7 @@ static int zattr_set_create(struct zio_obj_head *head,
 	        err = -ENOMEM;
 		goto err_attrs;
 	}
-
+	group->name = "instance-attributes";
 
 	if (!zattr_set->std_zattr || !zattr_set->n_std_attr)
 		goto ext; /* Continue with extended attributes */
