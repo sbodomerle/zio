@@ -14,6 +14,7 @@
 #include <linux/string.h>
 #include <linux/zio.h>
 #include <linux/zio-buffer.h>
+#include <linux/zio-trigger.h>
 #include "zio-internal.h"
 
 struct zio_status zio_global_status;
@@ -22,6 +23,32 @@ static struct zio_status *zstat = &zio_global_status; /* Always use ptr */
  * We use a local slab for control structures.
  */
 static struct kmem_cache *zio_ctrl_slab;
+
+void zio_start_acq_work(struct work_struct *work)
+{
+	struct zio_cset *cset = container_of(work, struct zio_cset,
+					     w_start_acq);
+	unsigned long flags;
+	int err;
+
+	spin_lock_irqsave(&cset->lock, flags);
+	cset->flags |= ZIO_CSET_STARTING;
+	spin_unlock_irqrestore(&cset->lock, flags);
+
+	err = cset->raw_io(cset);
+	if (err != 0 && err != -EAGAIN) {
+		dev_err(&cset->head.dev,
+			"Cannot start acquisition (error %d)\n", err);
+		/* disarm the trigger*/
+		err = __zio_trigger_abort_disable(cset, 0);
+		if (err)
+			dev_err(&cset->ti->head.dev,
+				"Cannot abort trigger, we have a serious problem somewhere\n");
+	}
+	spin_lock_irqsave(&cset->lock, flags);
+	cset->flags &= ~ZIO_CSET_STARTING;
+	spin_unlock_irqrestore(&cset->lock, flags);
+}
 
 struct zio_control *zio_alloc_control(gfp_t gfp)
 {
@@ -127,6 +154,11 @@ static int __init zio_init(void)
 	if (err)
 		goto out_cdev;
 
+        zstat->wq_zio = alloc_workqueue("zio-wq",
+					WQ_HIGHPRI | WQ_MEM_RECLAIM, 1);
+	if (!zstat->wq_zio)
+		goto out_wq;
+
 	spin_lock_init(&zstat->lock);
 	INIT_LIST_HEAD(&zstat->all_devices.list);
 	zstat->all_devices.zobj_type = ZIO_DEV;
@@ -148,6 +180,8 @@ static int __init zio_init(void)
 	pr_info("zio-core had been loaded\n");
 	return 0;
 
+out_wq:
+	zio_unregister_cdev();
 out_cdev:
 	bus_unregister(&zio_bus_type);
 out:
@@ -161,6 +195,7 @@ static void __exit zio_exit(void)
 	zio_default_trigger_exit();
 	zio_default_buffer_exit();
 
+	flush_workqueue(zstat->wq_zio);
 	/* Remove char device */
 	zio_unregister_cdev();
 	/* Remove ZIO bus */
