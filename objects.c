@@ -637,6 +637,29 @@ static uint16_t __get_nbits(struct zio_channel *chan)
 	/* The attr. is optional, so devices with no attributes are allowed */
 	return chan->cset->ssize * BITS_PER_BYTE;
 }
+
+static void zobj_create_link(struct zio_obj_head *head)
+{
+	int err;
+
+	/* Create the symlink with custom channel name */
+	if (strlen(head->name) == 0)
+		return;
+
+	err = sysfs_create_link(&head->dev.parent->kobj, &head->dev.kobj,
+				head->name);
+	if (err)
+		pr_warn("ZIO: not able to create the symlinks\n");
+}
+
+static void zobj_remove_link(struct zio_obj_head *head)
+{
+	if (strlen(head->name) == 0)
+		return;
+
+	sysfs_remove_link(&head->dev.parent->kobj, head->name);
+}
+
 /*
  * chan_register
  *
@@ -654,6 +677,8 @@ static int chan_register(struct zio_channel *chan, struct zio_channel *chan_t)
 {
 	struct zio_control *ctrl;
 	struct zio_bi *bi;
+	char *fmtname;
+	char chan_name[ZIO_NAME_LEN];
 	int err, i;
 
 	if (!chan)
@@ -702,15 +727,12 @@ static int chan_register(struct zio_channel *chan, struct zio_channel *chan_t)
 	chan->current_ctrl = ctrl;
 
 	/* Initialize and register channel device */
-	if (strlen(chan->head.name) == 0) {
-		char *mask;
-		mask = chan->flags & ZIO_CSET_CHAN_INTERLEAVE ? "chani" :
-								"chan%i";
-		snprintf(chan->head.name, ZIO_NAME_LEN, mask, chan->index);
-	}
-	dev_set_name(&chan->head.dev, chan->head.name);
+	fmtname = (chan->flags & ZIO_CSET_CHAN_INTERLEAVE) ? "chani" : "chan%i";
+	snprintf(chan_name, ZIO_NAME_LEN, fmtname, chan->index);
+	dev_set_name(&chan->head.dev, chan_name);
 	chan->head.dev.type = &chan_device_type;
 	chan->head.dev.parent = &chan->cset->head.dev;
+
 	err = device_register(&chan->head.dev);
 	if (err)
 		goto out_ctrl_bits;
@@ -723,6 +745,9 @@ static int chan_register(struct zio_channel *chan, struct zio_channel *chan_t)
 				goto out_bin_attr;
 		}
 	}
+
+	zobj_create_link(&chan->head);
+
 	/* Create buffer */
 	bi = __bi_create(chan->cset->zbuf, chan, "buffer");
 	if (IS_ERR(bi)) {
@@ -769,6 +794,7 @@ static void chan_unregister(struct zio_channel *chan)
 		for (i = 0; i < __ZIO_BIN_ATTR_NUM; ++i)
 			sysfs_remove_bin_file(&chan->head.dev.kobj,
 					      &zio_bin_attr[i]);
+	zobj_remove_link(&chan->head);
 	device_unregister(&chan->head.dev);
 }
 
@@ -856,6 +882,7 @@ static int cset_register(struct zio_cset *cset, struct zio_cset *cset_t)
 {
 	int i, j, err = 0, size;
 	unsigned long flags;
+	char cset_name[ZIO_NAME_LEN];
 	struct zio_channel *chan_tmp;
 	struct zio_ti *ti = NULL;
 
@@ -885,15 +912,17 @@ static int cset_register(struct zio_cset *cset, struct zio_cset *cset_t)
 		goto out_zattr_check;
 
 	/* Initialize and register zio device */
-	if (strlen(cset->head.name) == 0)
-		snprintf(cset->head.name, ZIO_NAME_LEN, "cset%i", cset->index);
-	dev_set_name(&cset->head.dev, cset->head.name);
+	snprintf(cset_name, ZIO_NAME_LEN, "cset%i", cset->index);
+	dev_set_name(&cset->head.dev, cset_name);
 	spin_lock_init(&cset->lock);
 	cset->head.dev.type = &cset_device_type;
 	cset->head.dev.parent = &cset->zdev->head.dev;
 	err = device_register(&cset->head.dev);
 	if (err)
 		goto out_zattr_check;
+
+	zobj_create_link(&cset->head);
+
 	/*
 	 * The cset must have a buffer type. If none is associated
 	 * to the cset, ZIO selects the preferred or default one.
@@ -998,6 +1027,7 @@ static void cset_unregister(struct zio_cset *cset)
 	/* destroy instance and decrement trigger usage */
 	__ti_destroy(cset->trig, cset->ti);
 
+	zobj_remove_link(&cset->head);
 	device_unregister(&cset->head.dev);
 }
 
