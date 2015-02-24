@@ -84,7 +84,12 @@ struct zio_bi {
 
 /* first 4bit are reserved for zio object universal flags */
 enum zio_bi_flag_mask {
+	/* Status */
 	ZIO_BI_PUSHING = 0x10,	/* a push is being performed */
+	ZIO_BI_NOSPACE = 0x20, /**< No space left in the buffer
+				  (e.g. buffer is full ) */
+	/* Configuration */
+	ZIO_BI_PREF_NEW = 0x100, /**< prefer new blocks instead old ones */
 };
 
 
@@ -182,7 +187,19 @@ static inline int zio_buffer_free_block(struct zio_bi *bi,
 static inline struct zio_block *zio_buffer_alloc_block(struct zio_bi *bi,
 					size_t datalen, gfp_t gfp)
 {
-	return bi->b_op->alloc_block(bi, datalen, gfp);
+	struct  zio_block *block;
+
+	block = bi->b_op->alloc_block(bi, datalen, gfp);
+	if (!block && (bi->flags & ZIO_BI_NOSPACE)) {
+		/* We cannot allocate because the buffer is full */
+		if (bi->flags & ZIO_BI_PREF_NEW) {
+			/* try by removing the oldest block */
+			block = bi->b_op->retr_block(bi);
+			bi->b_op->free_block(bi, block);
+			block = bi->b_op->alloc_block(bi, datalen, gfp);
+		}
+	}
+	return block;
 }
 
 #endif /* __ZIO_BUFFER_H__ */

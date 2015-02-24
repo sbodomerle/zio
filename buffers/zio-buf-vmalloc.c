@@ -201,8 +201,15 @@ static struct zio_block *zbk_alloc_block(struct zio_bi *bi,
 	return &item->block;
 
 out_free:
-	if (offset != ZIO_FFA_NOSPACE)
+	if (offset != ZIO_FFA_NOSPACE) {
 		zio_ffa_free_s(zbki->ffa, offset, datalen);
+	} else {
+		/* NOSPACE means that the buffer is 'full', there is
+		 * no space for the requested datalen */
+		spin_lock_irqsave(&bi->lock, flags);
+	  	bi->flags |= ZIO_BI_NOSPACE;
+		spin_unlock_irqrestore(&bi->lock, flags);
+	}
 	kmem_cache_free(zbk_slab, item);
 	zio_free_control(ctrl);
 	return NULL;
@@ -229,6 +236,7 @@ static void zbk_free_block(struct zio_bi *bi, struct zio_block *block)
 
 	spin_lock_irqsave(&bi->lock, flags);
 	zbki->alloc_size -= item->len;
+	bi->flags &= ~ZIO_BI_NOSPACE;
 	spin_unlock_irqrestore(&bi->lock, flags);
 
 out_free:

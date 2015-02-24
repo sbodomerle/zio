@@ -791,6 +791,7 @@ static ssize_t zio_buf_flush(struct device *dev,
 	return count;
 }
 
+
 /**
  * It returns the data direction of a given channel set
  */
@@ -801,6 +802,36 @@ static ssize_t zio_show_dire(struct device *dev,
 
 	return sprintf(buf, "%s\n", cset->flags & ZIO_DIR ? "output" : "input");
 }
+
+/**
+ * It configures the buffer preference:
+ * 0 - it will keep the oldest block when the buffer is full
+ * 1 - it will remove old blocks in order to store the new ones
+ */
+static ssize_t zio_store_pref(struct device *dev,
+			      struct device_attribute *attr,
+			      const char *buf, size_t count)
+{
+	struct zio_bi *bi = to_zio_bi(dev);
+	unsigned long flags;
+
+	spin_lock_irqsave(&bi->lock, flags);
+	if (buf[0] == '0')
+		bi->flags &= ~ZIO_BI_PREF_NEW;
+	else
+		bi->flags |= ZIO_BI_PREF_NEW;
+	spin_unlock_irqrestore(&bi->lock, flags);
+
+	return count;
+}
+static ssize_t zio_show_pref(struct device *dev,
+			     struct device_attribute *attr, char *buf)
+{
+	struct zio_bi *bi = to_zio_bi(dev);
+
+	return sprintf(buf, "%d\n", !!(bi->flags & ZIO_BI_PREF_NEW));
+}
+
 
 #if ZIO_HAS_BINARY_CONTROL
 /*
@@ -880,6 +911,7 @@ enum zio_default_attribute_numeration {
 	ZIO_DAN_FLUS,	/* flush */
 	ZIO_DAN_ALAR,	/* alarms */
 	ZIO_DAN_DIRE,   /* direction */
+	ZIO_DAN_PREF,	/* prefer-new */
 };
 
 /* default zio attributes */
@@ -902,6 +934,8 @@ static struct device_attribute zio_default_attributes[] = {
 				zio_show_alarm, zio_store_alarm),
 	[ZIO_DAN_DIRE] = __ATTR(direction, ZIO_RO_PERM,
 				zio_show_dire, NULL),
+	[ZIO_DAN_PREF] = __ATTR(prefer-new, ZIO_RW_PERM,
+				zio_show_pref, zio_store_pref),
 	__ATTR_NULL,
 };
 /* default attributes for most of the zio objects */
@@ -932,6 +966,7 @@ static struct attribute *def_chan_attrs_ptr[] = {
 static struct attribute *def_bi_attrs_ptr[] = {
 	&zio_default_attributes[ZIO_DAN_NAME].attr,
 	&zio_default_attributes[ZIO_DAN_FLUS].attr,
+	&zio_default_attributes[ZIO_DAN_PREF].attr,
 	NULL,
 };
 
