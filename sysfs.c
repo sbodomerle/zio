@@ -565,7 +565,7 @@ static ssize_t zobj_store_enable(struct device *dev,
 	int err;
 	spinlock_t *lock;
 
-	err = strict_strtol(buf, 0, &val);
+	err = kstrtol(buf, 0, &val);
 	if (err || val < 0 || val > 1)
 		return -EINVAL;
 
@@ -640,7 +640,7 @@ static ssize_t zattr_store(struct device *dev, struct device_attribute *attr,
 	long val;
 	int err;
 
-	if (strict_strtol(buf, 0, &val))
+	if (kstrtol(buf, 0, &val))
 		return -EINVAL;
 
 	lock = __zio_get_dev_spinlock(head);
