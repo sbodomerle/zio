@@ -83,6 +83,8 @@ static int zbk_conf_set(struct device *dev, struct zio_attribute *zattr,
 
 	switch (zattr->id) {
 	case ZIO_ATTR_ZBUF_MAXKB:
+		if (usr_val == zattr->value)
+			return 0; /* nothing to do */
 		/* Lock and disable */
 		spin_lock_irqsave(&bi->lock, flags);
 		if (atomic_read(&zbki->map_count)) {
