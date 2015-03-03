@@ -75,9 +75,10 @@ static int zbk_conf_set(struct device *dev, struct zio_attribute *zattr,
 		uint32_t  usr_val)
 {
 	struct zio_bi *bi = to_zio_bi(dev);
+	struct zio_ti *ti = NULL;
 	struct zbk_instance *zbki = to_zbki(bi);
 	struct zio_block *block;
-	unsigned long flags, bflags;
+	unsigned long flags, bflags, tflags;
 	void *data;
 	int ret = 0;
 
@@ -95,6 +96,14 @@ static int zbk_conf_set(struct device *dev, struct zio_attribute *zattr,
 		bi->flags |= ZIO_DISABLED;
 		spin_unlock_irqrestore(&bi->lock, flags);
 
+		/*
+		 * Disable trigger while resizing buffer to avoid
+		 * problems with blocks that point to a different
+		 * vmalloc() area
+		 */
+		ti = bi->cset->ti;
+		tflags = zio_trigger_abort_disable(ti->cset, 1);
+
 		/* Flush the buffer */
 		while ((block = bi->b_op->retr_block(bi)))
 			bi->b_op->free_block(bi, block);
@@ -111,10 +120,18 @@ static int zbk_conf_set(struct device *dev, struct zio_attribute *zattr,
 		} else {
 			ret = -ENOMEM;
 		}
+
 		/* Lock and restore flags */
 		spin_lock_irqsave(&bi->lock, flags);
 		bi->flags = bflags;
 		spin_unlock_irqrestore(&bi->lock, flags);
+
+		/* Restore trigger */
+		if (ti && ((tflags & ZIO_STATUS) == ZIO_ENABLED))
+			ti->flags = (ti->flags & ~ZIO_STATUS) | ZIO_ENABLED;
+		if (ti && (tflags & ZIO_TI_ARMED))
+			zio_arm_trigger(ti);
+
 		return ret;
 
 	case ZBK_ATTR_MERGE_DATA:
