@@ -194,6 +194,8 @@ static int __zio_trigger_data_done(struct zio_cset *cset)
 	int must_rearm;
 
 	spin_lock_irqsave(&cset->lock, flags);
+	if (unlikely(!(cset->ti->flags & ZIO_TI_ARMED)))
+		dev_dbg(&cset->head.dev, "data-done: un-armed trigger\n");
 
 	if (cset->ti->t_op->data_done)
 		must_rearm = cset->ti->t_op->data_done(cset);
