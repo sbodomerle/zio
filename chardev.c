@@ -303,7 +303,7 @@ static int zio_can_r_ctrl(struct zio_f_priv *priv)
 	/* Control: if not yet done, we can read */
 	if (chan->user_block) {
 		if (zio_is_cdone(chan->user_block)) {
-			bi->b_op->free_block(bi, chan->user_block);
+			zio_buffer_free_block(bi, chan->user_block);
 			chan->user_block = NULL;
 		} else{
 			mutex_unlock(&chan->user_lock);
@@ -380,7 +380,7 @@ static int zio_can_w_ctrl(struct zio_f_priv *priv)
 		if (ctrl->nsamples)
 			zio_buffer_store_block(bi, block);
 		else
-			chan->bi->b_op->free_block(chan->bi, block);
+		        zio_buffer_free_block(chan->bi, block);
 		block = NULL;
 	}
 	/* if no block is there, get a new one */
@@ -482,7 +482,7 @@ static ssize_t zio_generic_read(struct file *f, char __user *ubuf,
 			block->uoff += count;
 			if (block->uoff == block->datalen) {
 				chan->user_block = NULL;
-				bi->b_op->free_block(bi, block);
+				zio_buffer_free_block(bi, block);
 			}
 		}
 		mutex_unlock(&chan->user_lock);
@@ -628,7 +628,7 @@ static int zio_generic_release(struct inode *inode, struct file *f)
 
 	mutex_lock(&chan->user_lock);
 	if (atomic_read(&chan->bi->use_count) == 1 && chan->user_block) {
-		chan->bi->b_op->free_block(chan->bi, block);
+		zio_buffer_free_block(chan->bi, block);
 		chan->user_block = NULL;
 	}
 	mutex_unlock(&chan->user_lock);

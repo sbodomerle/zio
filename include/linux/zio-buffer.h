@@ -117,7 +117,7 @@ struct zio_buffer_operations {
 	struct zio_block *	(*retr_block) (struct zio_bi *bi);
 	int			(*store_block)(struct zio_bi *bi,
 					       struct zio_block *block);
-
+  
 	/* Create returns ERR_PTR on error */
 	struct zio_bi *		(*create)(struct zio_buffer_type *zbuf,
 					  struct zio_channel *chan);
@@ -172,6 +172,8 @@ static inline void zio_buffer_store_block(struct zio_bi *bi, struct zio_block *b
 static inline int zio_buffer_free_block(struct zio_bi *bi,
 					struct zio_block *block)
 {
+	if (unlikely(!block))
+		return -1;
 	bi->b_op->free_block(bi, block);
 
 	return 0;

@@ -24,8 +24,7 @@ static void __zio_internal_abort_free(struct zio_cset *cset)
 
 	chan_for_each(chan, cset) {
 		block = chan->active_block;
-		if (block)
-			cset->zbuf->b_op->free_block(chan->bi, block);
+		zio_buffer_free_block(chan->bi, block);
 		chan->active_block = NULL;
 	}
 }
