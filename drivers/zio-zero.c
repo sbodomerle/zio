@@ -32,8 +32,8 @@ ZIO_ATTR_DEFINE_STD(ZIO_DEV, zzero_zattr_cset8) = {
 ZIO_ATTR_DEFINE_STD(ZIO_DEV, zzero_zattr_cset32) = {
 	/* 32 bit -> ssize = 4 */
 	ZIO_ATTR(zdev, ZIO_ATTR_NBITS, ZIO_RO_PERM, 0, 32),
-	ZIO_ATTR(zdev, ZIO_ATTR_OFFSET, ZIO_RW_PERM, 0, 0),
-	ZIO_ATTR(zdev, ZIO_ATTR_GAIN, ZIO_RW_PERM, 0, 1),
+	ZIO_ATTR_RNG(zdev, ZIO_ATTR_OFFSET, ZIO_RW_PERM, 0, 0, 0, 100),
+	ZIO_ATTR_RNG(zdev, ZIO_ATTR_GAIN, ZIO_RW_PERM, 0, 1, 1, 10),
 
 };
 /* This attribute is the sequence point for input channel number 0 of cset 2 */

@@ -41,6 +41,8 @@ struct zio_attribute {
 	int					index;
 	unsigned long				id;
 	uint32_t				value;
+	uint32_t				min; /**< minimum valid value */
+	uint32_t				max; /**< maximum valid value */
 	const struct zio_sysfs_operations	*s_op;
 };
 #define ZIO_ATTR_INDEX_NONE -1
@@ -91,29 +93,35 @@ extern const char zio_zbuf_attr_names[_ZIO_BUF_ATTR_STD_NUM][ZIO_NAME_LEN];
  * @ZIO_ATTR_EXT: define a zio extended attribute
  * @ZIO_PARAM_EXT: define a zio attribute parameter (not included in ctrl)
  */
-#define ZIO_ATTR(zobj, _type, _mode, _add, _val)[_type] = {		\
-		.attr = {						\
-			.attr = {					\
-				.name = zio_##zobj##_attr_names[_type],	\
-				.mode = _mode				\
-			},						\
-		},							\
-		.id = _add,						\
-		.value = _val,						\
-		.flags = ZIO_ATTR_CONTROL,				\
-}
-#define ZIO_ATTR_EXT(_name, _mode, _add, _val) {			\
+#define ZIO_ATTR_DEC(_name, _mode, _add, _val, _min, _max, _flag) {	\
 		.attr = { .attr = {.name = _name, .mode = _mode},},	\
 		.id = _add,						\
 		.value = _val,						\
-		.flags = ZIO_ATTR_CONTROL,				\
+		.min = _min,						\
+		.max = _max,						\
+		.flags = _flag,						\
 }
-#define ZIO_PARAM_EXT(_name, _mode, _add, _val) {			\
-		.attr = { .attr = {.name = _name, .mode = _mode},},	\
-		.id = _add,						\
-		.value = _val,						\
-		.flags = 0,						\
-}
+
+#define ZIO_ATTR(zobj, _type, _mode, _add, _val)[_type] =		\
+	ZIO_ATTR_DEC(zio_##zobj##_attr_names[_type], _mode, _add, _val,	\
+		     0, 0, ZIO_ATTR_CONTROL)
+
+#define ZIO_ATTR_EXT(_name, _mode, _add, _val)			\
+	ZIO_ATTR_DEC(_name, _mode, _add, _val, 0, 0, ZIO_ATTR_CONTROL)
+
+#define ZIO_PARAM_EXT(_name, _mode, _add, _val)			\
+	ZIO_ATTR_DEC(_name, _mode, _add, _val, 0, 0, 0)
+
+#define ZIO_ATTR_RNG(zobj, _type, _mode, _add, _val, _min, _max)[_type] =	\
+	ZIO_ATTR_DEC(zio_##zobj##_attr_names[_type], _mode, _add, _val,		\
+		     _min, _max, ZIO_ATTR_CONTROL)
+
+#define ZIO_ATTR_EXT_RNG(_name, _mode, _add, _val, _min, _max)		\
+	ZIO_ATTR_DEC(_name, _mode, _add, _val, _min, _max, ZIO_ATTR_CONTROL)
+
+#define ZIO_PARAM_RNG(_name, _mode, _add, _val, _min, _max)			\
+	ZIO_ATTR_DEC(_name, _mode, _add, _val, _min, _max, 0)
+
 
 /*
  * This macro defines the standard attribute 'version' for an attribute_set of

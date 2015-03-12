@@ -149,7 +149,7 @@ void __zio_attr_propagate_value(struct zio_obj_head *head,
 			     struct zio_attribute *zattr)
 {
 	int i, j;
-	unsigned long flags, tflags;
+	unsigned long flags;
 	struct zio_ti *ti;
 	struct zio_device *zdev;
 	struct zio_channel *chan;
@@ -184,11 +184,6 @@ void __zio_attr_propagate_value(struct zio_obj_head *head,
 	case ZIO_TI:
 		ti = to_zio_ti(&head->dev);
 		/*
-		 * If trigger params change, we need to abort ongoing I/O.
-		 * Disable, temporarily, while we change configuration.
-		 */
-		tflags = zio_trigger_abort_disable(ti->cset, 1);
-		/*
 		 * It is disabled, nobody can enable since that is only
 		 * possible through sysfs and we hold the config lock.
 		 * So pick the I/O lock to prevent I/O operations and proceed.
@@ -201,14 +196,7 @@ void __zio_attr_propagate_value(struct zio_obj_head *head,
 			ctrl = chan->current_ctrl;
 			__zattr_valcpy(&ctrl->attr_trigger, zattr);
 		}
-		/* If it was enabled, re-enable it */
-		if ((tflags & ZIO_STATUS) == ZIO_ENABLED)
-			ti->flags = (ti->flags & ~ZIO_STATUS) | ZIO_ENABLED;
 		spin_unlock_irqrestore(&ti->cset->lock, flags);
-		/* Finally, if the trigger was armed, re-arm */
-		if (tflags & ZIO_TI_ARMED)
-			zio_arm_trigger(ti);
-
 		break;
 	default:
 		return;
@@ -565,7 +553,7 @@ static ssize_t zobj_store_enable(struct device *dev,
 	int err;
 	spinlock_t *lock;
 
-	err = strict_strtol(buf, 0, &val);
+	err = kstrtol(buf, 0, &val);
 	if (err || val < 0 || val > 1)
 		return -EINVAL;
 
@@ -624,10 +612,9 @@ int __zio_conf_set(struct zio_obj_head *head, struct zio_attribute *zattr,
 
 	err = zattr->s_op->conf_set(&head->dev, zattr, val);
 	if (err)
-		return err;
+	        return err;
 	zattr->value = (uint32_t)val;
 	__zio_attr_propagate_value(head, zattr);
-
 
 	return 0;
 }
@@ -636,16 +623,48 @@ static ssize_t zattr_store(struct device *dev, struct device_attribute *attr,
 			   const char *buf, size_t count)
 {
 	struct zio_obj_head *head = to_zio_head(dev);
+	struct zio_attribute *zattr = to_zio_zattr(attr);
+	struct zio_ti *ti = NULL;
+	unsigned long tflags = 0;
 	spinlock_t *lock;
 	long val;
 	int err;
 
-	if (strict_strtol(buf, 0, &val))
+	if (kstrtol(buf, 0, &val))
 		return -EINVAL;
+
+	/*
+	 * If the given value exceed the attribute range, then it's
+	 * an invalid value. When 'min == max' it means that the attribute
+	 * hasn't a range
+	 */
+	if (zattr->min != zattr->max &&
+	    (val < zattr->min || val > zattr->max)) {
+		dev_err(dev, "Value %u exceed range [%u, %u]\n",
+			(uint32_t)val, zattr->min, zattr->max);
+		return -EINVAL;
+	}
 
 	lock = __zio_get_dev_spinlock(head);
 	spin_lock(lock);
-	err = __zio_conf_set(head, to_zio_zattr(attr), (uint32_t)val);
+
+	/* cannot modify trigger's attributes while is armed */
+	if (head->zobj_type == ZIO_TI) {
+		ti = to_zio_ti(&head->dev);
+		tflags = zio_trigger_abort_disable(ti->cset, 1);
+	}
+
+	/* Configure the attribute */
+	err = __zio_conf_set(head, zattr, (uint32_t)val);
+
+	if (head->zobj_type == ZIO_TI) {
+		/* restore trigger status */
+		if (ti && ((tflags & ZIO_STATUS) == ZIO_ENABLED))
+			ti->flags = (ti->flags & ~ZIO_STATUS) | ZIO_ENABLED;
+		if (ti && (tflags & ZIO_TI_ARMED))
+			zio_arm_trigger(ti);
+	}
+
 	spin_unlock(lock);
 
 	return err ? err : count;
@@ -772,6 +791,17 @@ static ssize_t zio_buf_flush(struct device *dev,
 	return count;
 }
 
+/**
+ * It returns the data direction of a given channel set
+ */
+static ssize_t zio_show_dire(struct device *dev,
+			      struct device_attribute *attr, char *buf)
+{
+	struct zio_cset *cset = to_zio_cset(dev);
+
+	return sprintf(buf, "%s\n", cset->flags & ZIO_DIR ? "output" : "input");
+}
+
 #if ZIO_HAS_BINARY_CONTROL
 /*
  * zobj_read_cur_ctrl
@@ -849,6 +879,7 @@ enum zio_default_attribute_numeration {
 	ZIO_DAN_TYPE,	/* devtype */
 	ZIO_DAN_FLUS,	/* flush */
 	ZIO_DAN_ALAR,	/* alarms */
+	ZIO_DAN_DIRE,   /* direction */
 };
 
 /* default zio attributes */
@@ -869,6 +900,8 @@ static struct device_attribute zio_default_attributes[] = {
 				NULL, zio_buf_flush),
 	[ZIO_DAN_ALAR] = __ATTR(alarms, ZIO_RW_PERM,
 				zio_show_alarm, zio_store_alarm),
+	[ZIO_DAN_DIRE] = __ATTR(direction, ZIO_RO_PERM,
+				zio_show_dire, NULL),
 	__ATTR_NULL,
 };
 /* default attributes for most of the zio objects */
@@ -887,6 +920,7 @@ static struct attribute *def_hie_attrs_ptr[] = {
 static struct attribute *def_cset_attrs_ptr[] = {
 	&zio_default_attributes[ZIO_DAN_CTRI].attr,
 	&zio_default_attributes[ZIO_DAN_CBUF].attr,
+	&zio_default_attributes[ZIO_DAN_DIRE].attr,
 	NULL,
 };
 /* default attributes for channel */
@@ -1019,25 +1053,14 @@ static int __check_attr(struct attribute *attr,
 	return 0;
 }
 
-static struct attribute_group *__allocate_group(int n_attr)
-{
-	struct attribute_group *group;
-
-	group = kzalloc(sizeof(struct attribute_group), GFP_KERNEL);
-	if (!group)
-		return ERR_PTR(-ENOMEM);
-	group->attrs = kzalloc(sizeof(struct attribute) * n_attr, GFP_KERNEL);
-	if (!group->attrs)
-		return ERR_PTR(-ENOMEM);
-	return group;
-}
 
 /* create a set of zio attributes: the standard one and the extended one */
 static int zattr_set_create(struct zio_obj_head *head,
 		     const struct zio_sysfs_operations *s_op)
 {
-	int i, err, a_count, g_count = 0, g = 0;
+	int i, err, a_count = 0, n_attr;
 	const struct attribute_group **groups;
+	struct attribute_group *group;
 	struct zio_attribute_set *zattr_set;
 	struct zio_attribute *zattr;
 	struct attribute *attr;
@@ -1046,31 +1069,35 @@ static int zattr_set_create(struct zio_obj_head *head,
 	if (!zattr_set)
 		return -EINVAL; /* message already printed */
 
-	if (zattr_set->std_zattr && zattr_set->n_std_attr)
-		++g_count;	/* There are standard attributes */
-	else
+	if (!(zattr_set->std_zattr && zattr_set->n_std_attr))
 		zattr_set->n_std_attr = 0;
-	if (zattr_set->ext_zattr && zattr_set->n_ext_attr)
-		++g_count;	/* There are extended attributes */
-	else
+	if (!(zattr_set->ext_zattr && zattr_set->n_ext_attr))
 		zattr_set->n_ext_attr = 0;
-
-	if (!g_count)
+	n_attr = zattr_set->n_std_attr + zattr_set->n_ext_attr;
+	if (!n_attr)
 		goto out;
 
+
 	/* Allocate needed groups. dev->groups is null ended */
-	groups = kzalloc(sizeof(struct attribute_group *) * (g_count + 1),
-			 GFP_KERNEL);
+	groups = kzalloc(sizeof(struct attribute_group *) * 2, GFP_KERNEL);
 	if (!groups)
 		return -ENOMEM;
+	group = kzalloc(sizeof(struct attribute_group), GFP_KERNEL);
+	if (!group) {
+	        err = -ENOMEM;
+		goto err_grp;
+	}
+	group->attrs = kzalloc(sizeof(struct attribute) * n_attr, GFP_KERNEL);
+	if (!group->attrs) {
+	        err = -ENOMEM;
+		goto err_attrs;
+	}
 
-	/* Allocate standard attribute group */
+
 	if (!zattr_set->std_zattr || !zattr_set->n_std_attr)
-		goto ext;
-	groups[g] = __allocate_group(zattr_set->n_std_attr);
-	if (IS_ERR(groups[g]))
-		return PTR_ERR(groups[g]);
-	for (i = 0, a_count = 0; i < zattr_set->n_std_attr; ++i) {
+		goto ext; /* Continue with extended attributes */
+	/* Fill attribute group with standard attributes */
+	for (i = 0; i < zattr_set->n_std_attr; ++i) {
 		zattr = &zattr_set->std_zattr[i];
 		attr = &zattr->attr.attr;
 		err = __check_attr(attr, s_op);
@@ -1079,7 +1106,7 @@ static int zattr_set_create(struct zio_obj_head *head,
 		switch (err) {
 		case 0:
 			/* valid attribute */
-			groups[g]->attrs[a_count++] = attr;
+			group->attrs[a_count++] = attr;
 			if (i == ZIO_ATTR_VERSION) {
 				zattr->attr.show = zio_show_attr_version;
 			} else { /* All other attributes */
@@ -1097,24 +1124,20 @@ static int zattr_set_create(struct zio_obj_head *head,
 			return err;
 		}
 	}
-	++g;
 ext:
-	/* Allocate extended attribute group */
 	if (!zattr_set->ext_zattr || !zattr_set->n_ext_attr)
-		goto out_assign;
-	groups[g] = __allocate_group(zattr_set->n_ext_attr);
-	if (IS_ERR(groups[g]))
-		return PTR_ERR(groups[g]);
-	for (i = 0, a_count = 0; i < zattr_set->n_ext_attr; ++i) {
+		goto out_assign; /* Continue to the assignment */
+	/* Fill attribute group with extended attributes */
+	for (i = 0; i < zattr_set->n_ext_attr; ++i) {
 		zattr = &zattr_set->ext_zattr[i];
 		attr = &zattr->attr.attr;
 		err = __check_attr(attr, s_op);
 		if (err)
-			return err;
+		        goto err_ext;
 		dev_vdbg(&head->dev, "%s(ext): %s %d %s\n", __func__,
 			head->name, i, attr->name);
 		/* valid attribute */
-		groups[g]->attrs[a_count++] = attr;
+		group->attrs[a_count++] = attr;
 		zattr->attr.show = zattr_show;
 		zattr->attr.store = zattr_store;
 		zattr->s_op = s_op;
@@ -1122,13 +1145,20 @@ ext:
 		zattr->parent = head;
 		zattr->flags |= ZIO_ATTR_TYPE_EXT;
 	}
-	++g;
 
 out_assign:
-	groups[g] = NULL;
+	groups[0] = group;
+	groups[1] = NULL;
 	head->dev.groups = groups;
 out:
 	return 0;
+err_ext:
+	kfree(group->attrs);
+err_attrs:
+	kfree(group);
+err_grp:
+	kfree(groups);
+	return err;
 }
 /* Remove an existent set of attributes */
 static void zattr_set_remove(struct zio_obj_head *head)
@@ -1145,6 +1175,7 @@ static void zattr_set_remove(struct zio_obj_head *head)
 		kfree(head->dev.groups[i]->attrs);
 		kfree(head->dev.groups[i]);
 	}
+	kfree(head->dev.groups);
 }
 
 /*
