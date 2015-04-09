@@ -34,8 +34,8 @@ static void __zio_internal_abort_free(struct zio_cset *cset)
  * This is a ZIO helper to invoke the abort function. This must be used when
  * something is going wrong during the acquisition or an armed trigger
  * must be modified. If so requested, the trigger is disabled too.
- * The function returns the previous value of the disabled flags,
- * or -EAGAIN if it cannot disable because of hardware-busy status.
+ * The function returns the previous flags value, or -EAGAIN if it cannot
+ * disable because of hardware-busy status.
  */
 int __zio_trigger_abort_disable(struct zio_cset *cset, int disable)
 {
@@ -51,6 +51,8 @@ int __zio_trigger_abort_disable(struct zio_cset *cset, int disable)
 		return -EAGAIN;
 	}
 
+	/* Save previous flags status */
+	ret = ti->flags;
 	/*
 	 * If the trigger is running (ZIO_TI_ARMED), then abort it.
 	 * Since the whole data_done procedure happens in locked context,
@@ -65,7 +67,6 @@ int __zio_trigger_abort_disable(struct zio_cset *cset, int disable)
 			__zio_internal_abort_free(cset);
 		ti->flags &= (~ZIO_TI_ARMED);
 	}
-	ret = ti->flags & ZIO_STATUS;
 	if (disable)
 		ti->flags |= ZIO_DISABLED;
 	spin_unlock_irqrestore(&cset->lock, flags);
