@@ -206,6 +206,17 @@ static inline struct zio_block *zio_buffer_alloc_block(struct zio_bi *bi,
 			bi->b_op->free_block(bi, block);
 			block = bi->b_op->alloc_block(bi, datalen, gfp);
 		}
+		/*
+		 * NOTE: with this kind of management we'll have problem with
+		 * SELF_TIMED device because they are going to arm as soon as
+		 * they store data. This mean that you should always add extra
+		 * space to your buffer to get the real buffer depth you want.
+		 * The extreme example is kmalloc with buffer length 1: it will
+		 * not work because the arm will always overwrite the data, so
+		 * if you really one a buffer with 1 block, you have to declare
+		 * a buffer length of 2, actually one will be like a temporary
+		 * block
+		 */
 	}
 	return block;
 }
