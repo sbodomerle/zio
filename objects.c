@@ -662,6 +662,7 @@ static int chan_register(struct zio_channel *chan, struct zio_channel *chan_t)
 
 	/* Copy from template, initialize and verify zio attributes */
 	if (chan_t) { /* ZIO_CSET_CHAN_TEMPLATE is set */
+		chan->change_flags = chan_t->change_flags;
 		chan->flags |= chan_t->flags;
 		if (chan_t->zattr_set.std_zattr)
 			chan_t->zattr_set.n_std_attr = _ZIO_DEV_ATTR_STD_NUM;
@@ -710,7 +711,6 @@ static int chan_register(struct zio_channel *chan, struct zio_channel *chan_t)
 	dev_set_name(&chan->head.dev, chan->head.name);
 	chan->head.dev.type = &chan_device_type;
 	chan->head.dev.parent = &chan->cset->head.dev;
-	chan->change_flags = chan_t->change_flags;
 	err = device_register(&chan->head.dev);
 	if (err)
 		goto out_ctrl_bits;
