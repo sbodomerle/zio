@@ -80,6 +80,7 @@ static struct attribute *zio_bus_def_attrs[] = {
 	&def_bus_attrs[ZIO_DAN_BUS_VERSION].attr,
 	&def_bus_attrs[ZIO_DAN_BUS_TRIGGERS].attr,
 	&def_bus_attrs[ZIO_DAN_BUS_BUFFERS].attr,
+	NULL,
 };
 
 ATTRIBUTE_GROUPS(zio_bus_def);
