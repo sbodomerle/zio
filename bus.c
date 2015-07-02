@@ -23,7 +23,9 @@ static struct zio_status *zstat = &zio_global_status; /* Always use ptr */
  */
 static ssize_t zio_show_version(struct bus_type *bus, char *buf)
 {
-	return sprintf(buf, "%d.%d\n", ZIO_MAJOR_VERSION, ZIO_MINOR_VERSION);
+	return sprintf(buf, "%d.%d-%d\n", zio_version_major(zio_version),
+		       zio_version_minor(zio_version),
+		       zio_version_patch(zio_version));
 }
 
 /*

@@ -7,6 +7,8 @@
 
 #ifdef __KERNEL__ /* Nothing more is for user space */
 
+extern const uint32_t zio_version;
+
 /*
  * ZIO_NAME_LEN is the full name length used in the head structures.
  * It is sometimes built at run time, for example buffer instances

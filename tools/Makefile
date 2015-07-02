@@ -1,7 +1,7 @@
 
 # build user-space tools for zio
 
-CFLAGS = -I$(M)/include/ -Wall $(EXTRACFLAGS)
+CFLAGS = -I$(M)/include/ -Wall $(ZIO_VERSION) $(EXTRACFLAGS)
 CC ?= $(CROSS_COMPILE)gcc
 
 progs := zio-dump

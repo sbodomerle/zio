@@ -14,7 +14,11 @@ obj-m += drivers/
 obj-m += buffers/
 obj-m += triggers/
 
-GIT_VERSION = $(shell cd $(src); git describe --dirty --long --tags)
+# src is defined byt the kernel Makefile, but we want to use it also in our
+# local Makefile (tools, lib)
+src ?= $(shell pwd)
+
+GIT_VERSION := $(shell cd $(src); git describe --dirty --long --tags)
 
 # For this CSM_VERSION, please see ohwr.org/csm documentation
 ifdef CONFIG_CSM_VERSION
@@ -23,9 +27,15 @@ else
   ccflags-y += -DCERN_SUPER_MODULE=""
 endif
 
+# Extract major, minor and patch number
+ZIO_VERSION := -D__ZIO_MAJOR_VERSION=$(shell echo $(GIT_VERSION) | cut -d '-' -f 2 | cut -d '.' -f 1; )
+ZIO_VERSION += -D__ZIO_MINOR_VERSION=$(shell echo $(GIT_VERSION) | cut -d '-' -f 2 | cut -d '.' -f 2; )
+ZIO_VERSION += -D__ZIO_PATCH_VERSION=$(shell echo $(GIT_VERSION) | cut -d '-' -f 3)
+export ZIO_VERSION
+
 # WARNING: the line below doesn't work in-kernel if you compile with O=
 ccflags-y += -I$(src)/include/ -DGIT_VERSION=\"$(GIT_VERSION)\"
-
+ccflags-y += $(ZIO_VERSION)
 ccflags-$(CONFIG_ZIO_DEBUG) += -DDEBUG
 
 all: modules tools

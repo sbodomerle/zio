@@ -129,8 +129,8 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	ctrl.major_version = ZIO_MAJOR_VERSION;
-	ctrl.minor_version = ZIO_MINOR_VERSION;
+	ctrl.major_version = __ZIO_MAJOR_VERSION;
+	ctrl.minor_version = __ZIO_MINOR_VERSION;
 	if (verbose) {
 		printf("  time: %9li.%09li\n", ts.tv_sec, ts.tv_nsec);
 		printf("period: %9li.%09li\n", period.tv_sec, period.tv_nsec);
