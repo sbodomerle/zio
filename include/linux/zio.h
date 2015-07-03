@@ -126,6 +126,7 @@ struct zio_driver {
 	int (*probe)(struct zio_device *dev);
 	int (*remove)(struct zio_device *dev);
 	struct device_driver		driver;
+	uint32_t min_version; /**< minimum version required to load it */
 };
 #define to_zio_drv(_drv) container_of(_drv, struct zio_driver, driver)
 extern struct bus_type zio_bus_type;
