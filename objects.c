@@ -1223,6 +1223,9 @@ int zio_register_device(struct zio_device *zdev, const char *name,
 {
 	int n_conflict;
 
+	if (!zdev)
+		return -EINVAL;
+
 	/* Verify if it is a valid name */
 	n_conflict = zobj_unique_name(&zstat->all_devices, name);
 	if (n_conflict < 0)
