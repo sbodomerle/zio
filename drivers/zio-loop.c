@@ -274,6 +274,11 @@ static struct zio_driver zloop_zdrv = {
 	},
 	.id_table = zloop_table,
 	.probe = zloop_probe,
+	/* All drivers compiled within the ZIO projects are compatibile
+	   with the last version */
+	.min_version = ZIO_VERSION(__ZIO_MAJOR_VERSION,
+				   __ZIO_MINOR_VERSION,
+				   __ZIO_PATCH_VERSION),
 };
 
 /*
