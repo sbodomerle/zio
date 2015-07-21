@@ -68,6 +68,11 @@ static struct zio_driver zmini_zdrv = {
 		.owner = THIS_MODULE,
 	},
 	.id_table = zmini_table,
+	/* All drivers compiled within the ZIO projects are compatibile
+	   with the last version */
+	.min_version = ZIO_VERSION(__ZIO_MAJOR_VERSION,
+				   __ZIO_MINOR_VERSION,
+				   __ZIO_PATCH_VERSION),
 };
 
 /* The device is registered in the bus: we can have several */

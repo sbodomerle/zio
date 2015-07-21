@@ -7,6 +7,8 @@
 
 #ifdef __KERNEL__ /* Nothing more is for user space */
 
+extern const uint32_t zio_version;
+
 /*
  * ZIO_NAME_LEN is the full name length used in the head structures.
  * It is sometimes built at run time, for example buffer instances
@@ -124,6 +126,7 @@ struct zio_driver {
 	int (*probe)(struct zio_device *dev);
 	int (*remove)(struct zio_device *dev);
 	struct device_driver		driver;
+	uint32_t min_version; /**< minimum version required to load it */
 };
 #define to_zio_drv(_drv) container_of(_drv, struct zio_driver, driver)
 extern struct bus_type zio_bus_type;

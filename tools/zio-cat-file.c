@@ -90,8 +90,8 @@ int main(int argc, char **argv)
 		if (i != sizeof(ctrl))
 			goto ctrl_read_error;
 		if (!j) {
-			if (ctrl.major_version != ZIO_MAJOR_VERSION
-			    || ctrl.minor_version != ZIO_MINOR_VERSION) {
+			if (ctrl.major_version != __ZIO_MAJOR_VERSION
+			    || ctrl.minor_version != __ZIO_MINOR_VERSION) {
 				fprintf(stderr, "%s: unexpected ZIO version\n",
 					argv[0]);
 				exit(1);

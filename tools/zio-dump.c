@@ -112,18 +112,18 @@ void read_channel(int cfd, int dfd, FILE *log)
 	}
 
 	/* Fail badly if the version is not the right one */
-	if (ctrl.major_version != ZIO_MAJOR_VERSION)
+	if (ctrl.major_version != __ZIO_MAJOR_VERSION)
 		err++;
-	if (ZIO_MAJOR_VERSION == 0 && ctrl.minor_version != ZIO_MINOR_VERSION)
+	if (__ZIO_MAJOR_VERSION == 0 && ctrl.minor_version != __ZIO_MINOR_VERSION)
 		err++;
 	if (err) {
 		fprintf(stderr, "%s: kernel has zio %i.%i, "
 			"but I'm compiled for %i.%i\n", prgname,
 			ctrl.major_version, ctrl.minor_version,
-			ZIO_MAJOR_VERSION, ZIO_MINOR_VERSION);
+			__ZIO_MAJOR_VERSION, __ZIO_MINOR_VERSION);
 		exit(1);
 	}
-	if (ctrl.minor_version != ZIO_MINOR_VERSION) {
+	if (ctrl.minor_version != __ZIO_MINOR_VERSION) {
 		static int warned;
 
 		if (!warned++)

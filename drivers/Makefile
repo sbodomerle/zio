@@ -10,6 +10,7 @@ else
 endif
 
 ccflags-y += -I$(src)/../include/ -DGIT_VERSION=\"$(GIT_VERSION)\"
+ccflags-y += $(ZIO_VERSION)
 ccflags-$(CONFIG_ZIO_DEBUG) += -DDEBUG
 
 obj-m = zio-zero.o

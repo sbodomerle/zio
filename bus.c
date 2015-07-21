@@ -17,13 +17,49 @@
 
 static struct zio_status *zstat = &zio_global_status; /* Always use ptr */
 
+/**
+ * It verifies the compatibility between the current ZIO version and the
+ * given driver
+ */
+static int __zobj_version_check(struct zio_driver *drv)
+{
+	uint32_t min = drv->min_version;
+
+	if (!min) {
+		pr_warn("zio: %s does not have a driver version, cannot verify compatibility",
+			drv->driver.name);
+		return 0;
+	}
+
+	if (min > zio_version)
+		goto out;
+
+	if (zio_version_major(min) != zio_version_major(zio_version))
+		goto out;
+
+	if (zio_version_minor(min) != zio_version_minor(zio_version))
+		goto out;
+
+	return 0;
+out:
+	pr_err("zio: %s require version %d.%d-%d but ZIO is %d.%d-%d\n",
+	       drv->driver.name,
+	       zio_version_major(min), zio_version_minor(min),
+	       zio_version_patch(min), zio_version_major(zio_version),
+	       zio_version_minor(zio_version), zio_version_patch(zio_version));
+	return -1;
+}
+
+
 /*
  * zio_show_version
  * It shows the current version of ZIO
  */
 static ssize_t zio_show_version(struct bus_type *bus, char *buf)
 {
-	return sprintf(buf, "%d.%d\n", ZIO_MAJOR_VERSION, ZIO_MINOR_VERSION);
+	return sprintf(buf, "%d.%d-%d\n", zio_version_major(zio_version),
+		       zio_version_minor(zio_version),
+		       zio_version_patch(zio_version));
 }
 
 /*
@@ -269,6 +305,14 @@ static int _zdev_template_check_and_init(struct zio_device *zdev,
 int zio_register_driver(struct zio_driver *zdrv)
 {
 	int i, err;
+
+	/* Check version compatibility */
+	err = __zobj_version_check(zdrv);
+	if (err) {
+		pr_err("ZIO: Cannot register driver %s: incompatible version\n",
+			zdrv->driver.name);
+		return -EINVAL;
+	}
 
 	if (!zdrv->id_table) {
 		pr_err("ZIO: id_table is mandatory for a zio driver\n");

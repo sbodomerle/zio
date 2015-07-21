@@ -111,6 +111,11 @@ static struct zio_driver zdtc_zdrv = {
 	},
 	.id_table = zdtc_table,
 	.probe = zdtc_probe,
+	/* All drivers compiled within the ZIO projects are compatibile
+	   with the last version */
+	.min_version = ZIO_VERSION(__ZIO_MAJOR_VERSION,
+				   __ZIO_MINOR_VERSION,
+				   __ZIO_PATCH_VERSION),
 };
 
 /* Lazily, use a single global device */

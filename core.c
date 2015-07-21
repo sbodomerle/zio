@@ -16,6 +16,9 @@
 #include <linux/zio-buffer.h>
 #include "zio-internal.h"
 
+const uint32_t zio_version = ZIO_VERSION(__ZIO_MAJOR_VERSION,
+					 __ZIO_MINOR_VERSION,
+					 __ZIO_PATCH_VERSION);
 struct zio_status zio_global_status;
 static struct zio_status *zstat = &zio_global_status; /* Always use ptr */
 /*
@@ -31,8 +34,8 @@ struct zio_control *zio_alloc_control(gfp_t gfp)
 	if (!ctrl)
 		return NULL;
 
-	ctrl->major_version = ZIO_MAJOR_VERSION;
-	ctrl->minor_version = ZIO_MINOR_VERSION;
+	ctrl->major_version = zio_version_major(zio_version);
+	ctrl->minor_version = zio_version_minor(zio_version);
 	if (ntohl(1) == 1)
 		ctrl->flags |= ZIO_CONTROL_BIG_ENDIAN;
 	else

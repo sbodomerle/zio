@@ -8,9 +8,24 @@
 #ifndef __ZIO_USER_H__
 #define __ZIO_USER_H__
 
-/* ZIO_VERSION: is a zio_class attribute to identify the framework version*/
-#define ZIO_MAJOR_VERSION 1
-#define ZIO_MINOR_VERSION 0
+#define ZIO_VERSION(M, m, p) (((M & 0xFF) << 24) | ((m & 0xFF) << 16) | (p & 0xFFFF))
+
+static inline uint8_t zio_version_major(uint32_t version)
+{
+	return (version >> 24) & 0xFF;
+}
+
+static inline uint8_t zio_version_minor(uint32_t version)
+{
+	return (version >> 16) & 0xFF;
+}
+
+
+static inline uint16_t zio_version_patch(uint32_t version)
+{
+	return version & 0xFF;
+}
+
 
 /*
  * ZIO_OBJ_NAME_LEN is the name's length used for registered objects
