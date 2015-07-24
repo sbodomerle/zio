@@ -14,3 +14,6 @@
 .settings
 .*.d
 TAGS*
+GPATH
+GRTAGS
+GTAGS
