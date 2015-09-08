@@ -104,6 +104,7 @@ int zio_sniffdev_release(struct inode *ino, struct file *file)
 	list_for_each_safe(l, n, &f->controls) {
 		c = list_entry(l, struct zio_sniffdev_ctrl, list);
 		list_del(&c->list);
+		kfree(c->ctrl);
 		kfree(c);
 	}
 	return 0;
