@@ -173,6 +173,7 @@ EXPORT_SYMBOL(zio_dma_alloc_sg);
  */
 void zio_dma_free_sg(struct zio_dma_sgt *zdma)
 {
+	sg_free_table(&zdma->sgt);
 	kfree(zdma->sg_blocks);
 	kfree(zdma);
 }
