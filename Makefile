@@ -32,5 +32,6 @@ tools:
 clean:
 	rm -rf `find . -name \*.o -o -name \*.ko -o -name \*~ `
 	rm -rf `find . -name Module.\* -o -name \*.mod.c`
+	rm -rf `find . -name \*.ko.cmd -o -name \*.o.cmd`
 	rm -rf .tmp_versions modules.order
 	$(MAKE) -C tools clean
