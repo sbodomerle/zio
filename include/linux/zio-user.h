@@ -33,6 +33,7 @@ static inline uint16_t zio_version_patch(uint32_t version)
  * the control structure.
  */
 #define ZIO_OBJ_NAME_LEN 12
+#define ZIO_OBJ_NAME_FULL_LEN (ZIO_OBJ_NAME_LEN * 2)
 
 /*
  * Maximum number of standard and extended attributes. These two values
