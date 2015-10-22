@@ -28,6 +28,18 @@ static inline uint16_t zio_version_patch(uint32_t version)
 
 
 /*
+ * We use the same functions to deal with attributes, but the structures
+ * we act on may be different (dev, cset, channel). Thus, all structures
+ * begin with the type identifier, and zio_obj_head is used in container_of
+ */
+enum zio_object_type {
+	ZIO_NONE = 0,	/* reserved for non zio object */
+	ZIO_DEV, ZIO_CSET, ZIO_CHAN,
+	ZIO_TRG, ZIO_TI, /* trigger and trigger instance */
+	ZIO_BUF, ZIO_BI, /* buffer and buffer instance */
+};
+
+/*
  * ZIO_OBJ_NAME_LEN is the name's length used for registered objects
  * (such as trigger_type, buffer_type and zio_device) and thus shown in
  * the control structure.
