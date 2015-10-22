@@ -974,6 +974,7 @@ static struct attribute *def_chan_attrs_ptr[] = {
 /* default attributes for buffer instance */
 static struct attribute *def_bi_attrs_ptr[] = {
 	&zio_default_attributes[ZIO_DAN_NAME].attr,
+	&zio_default_attributes[ZIO_DAN_TYPE].attr,
 	&zio_default_attributes[ZIO_DAN_FLUS].attr,
 	&zio_default_attributes[ZIO_DAN_PREF].attr,
 	NULL,
