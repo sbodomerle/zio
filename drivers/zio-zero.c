@@ -259,4 +259,4 @@ MODULE_AUTHOR("Federico Vaga <federico.vaga@gmail.com>");
 MODULE_DESCRIPTION("A zio driver which fakes zero, random and sawtooth input");
 MODULE_LICENSE("GPL");
 
-CERN_SUPER_MODULE;
+ADDITIONAL_VERSIONS;
