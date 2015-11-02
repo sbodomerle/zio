@@ -16,7 +16,8 @@ obj-m += triggers/
 # src is defined byt the kernel Makefile, but we want to use it also in our
 # local Makefile (tools, lib)
 
-# add versions of supermodule
+# add versions of supermodule. It is useful when ZIO is included as sub-module
+# of a bigger project that we want to track
 ifdef CONFIG_SUPER_REPO
 ifdef CONFIG_SUPER_REPO_VERSION
 SUBMODULE_VERSIONS += MODULE_INFO(version_$(CONFIG_SUPER_REPO),\"$(CONFIG_SUPER_REPO_VERSION)\");
