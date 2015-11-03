@@ -1,3 +1,8 @@
+# include parent_common.mk for buildsystem's defines
+# It allows you to inherit an environment configuration from larger project
+REPO_PARENT=..
+-include $(REPO_PARENT)/parent_common.mk
+
 LINUX ?= /lib/modules/$(shell uname -r)/build
 
 GIT_VERSION := $(shell git describe --dirty --long --tags)
