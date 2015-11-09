@@ -1,13 +1,11 @@
-LINUX ?= /lib/modules/$(shell uname -r)/build
-
-GIT_VERSION = $(shell cd $(src); git describe --dirty --long --tags)
-
-# For this CSM_VERSION, please see ohwr.org/csm documentation
-ifdef CONFIG_CSM_VERSION
-  ccflags-y += -D"CERN_SUPER_MODULE=MODULE_VERSION(\"$(CONFIG_CSM_VERSION)\")"
-else
-  ccflags-y += -DCERN_SUPER_MODULE=""
+# add versions of supermodule
+ifdef CONFIG_SUPER_REPO
+ifdef CONFIG_SUPER_REPO_VERSION
+SUBMODULE_VERSIONS += MODULE_INFO(version_$(CONFIG_SUPER_REPO),\"$(CONFIG_SUPER_REPO_VERSION)\");
 endif
+endif
+
+ccflags-y += -DADDITIONAL_VERSIONS="$(SUBMODULE_VERSIONS)"
 
 ccflags-y += -I$(src)/../include/ -DGIT_VERSION=\"$(GIT_VERSION)\"
 ccflags-y += $(ZIO_VERSION)

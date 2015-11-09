@@ -1,42 +1,19 @@
+# include parent_common.mk for buildsystem's defines
+# It allows you to inherit an environment configuration from larger project
+REPO_PARENT=..
+-include $(REPO_PARENT)/parent_common.mk
+
 LINUX ?= /lib/modules/$(shell uname -r)/build
 
-zio-y := core.o chardev.o sysfs.o misc.o
-zio-y += bus.o objects.o helpers.o dma.o
-zio-y += buffers/zio-buf-kmalloc.o triggers/zio-trig-user.o
-
-# Waiting for Kconfig...
-CONFIG_ZIO_SNIFF_DEV:=y
-
-zio-$(CONFIG_ZIO_SNIFF_DEV) += sniff-dev.o
-
-obj-m = zio.o
-obj-m += drivers/
-obj-m += buffers/
-obj-m += triggers/
-
-# src is defined byt the kernel Makefile, but we want to use it also in our
-# local Makefile (tools, lib)
-src ?= $(shell pwd)
-
-GIT_VERSION := $(shell cd $(src); git describe --dirty --long --tags)
-
-# For this CSM_VERSION, please see ohwr.org/csm documentation
-ifdef CONFIG_CSM_VERSION
-  ccflags-y += -D"CERN_SUPER_MODULE=MODULE_VERSION(\"$(CONFIG_CSM_VERSION)\")"
-else
-  ccflags-y += -DCERN_SUPER_MODULE=""
-endif
+GIT_VERSION := $(shell git describe --dirty --long --tags)
 
 # Extract major, minor and patch number
 ZIO_VERSION := -D__ZIO_MAJOR_VERSION=$(shell echo $(GIT_VERSION) | cut -d '-' -f 2 | cut -d '.' -f 1; )
 ZIO_VERSION += -D__ZIO_MINOR_VERSION=$(shell echo $(GIT_VERSION) | cut -d '-' -f 2 | cut -d '.' -f 2; )
 ZIO_VERSION += -D__ZIO_PATCH_VERSION=$(shell echo $(GIT_VERSION) | cut -d '-' -f 3)
-export ZIO_VERSION
 
-# WARNING: the line below doesn't work in-kernel if you compile with O=
-ccflags-y += -I$(src)/include/ -DGIT_VERSION=\"$(GIT_VERSION)\"
-ccflags-y += $(ZIO_VERSION)
-ccflags-$(CONFIG_ZIO_DEBUG) += -DDEBUG
+export GIT_VERSION
+export ZIO_VERSION
 
 all: modules tools
 
@@ -60,5 +37,6 @@ tools:
 clean:
 	rm -rf `find . -name \*.o -o -name \*.ko -o -name \*~ `
 	rm -rf `find . -name Module.\* -o -name \*.mod.c`
+	rm -rf `find . -name \*.ko.cmd -o -name \*.o.cmd`
 	rm -rf .tmp_versions modules.order
 	$(MAKE) -C tools clean

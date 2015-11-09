@@ -524,4 +524,4 @@ MODULE_AUTHOR("Alessandro Rubini <rubini@.com>");
 MODULE_DESCRIPTION("A zio driver which loops back to zio or a chardev");
 MODULE_LICENSE("GPL");
 
-CERN_SUPER_MODULE;
+ADDITIONAL_VERSIONS;

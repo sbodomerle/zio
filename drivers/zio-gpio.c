@@ -222,4 +222,4 @@ module_exit(zgp_exit);
 MODULE_VERSION(GIT_VERSION); /* Defined in local Makefile */
 MODULE_LICENSE("GPL");
 
-CERN_SUPER_MODULE;
+ADDITIONAL_VERSIONS;
