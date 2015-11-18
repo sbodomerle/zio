@@ -6,6 +6,8 @@
 *.order
 *.symvers
 *.mod.c
+*.mod.d
+*.tmp
 \#*\#
 *.sh
 # eclipse files
