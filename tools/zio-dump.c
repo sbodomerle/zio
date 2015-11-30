@@ -15,6 +15,8 @@
 
 #include <linux/zio-user.h>
 
+static char git_version[] = "version: " GIT_VERSION;
+
 unsigned char buf[1024*1024];
 char *prgname;
 int opt_print_attr;
@@ -222,8 +224,14 @@ void help(char *name)
 		"       -s           sniff-device (array of controls)\n"
 		"       -m           print memory address (for mmap)\n"
 		"       -n <number>  stop after that many blocks\n"
-		"       -r <number>  shown bytes at buffer begin/end\n");
+		"       -r <number>  shown bytes at buffer begin/end\n"
+		"       -V           print version information \n");
 	exit(1);
+}
+
+static void print_version(char *pname)
+{
+	printf("%s %s\n", pname, git_version);
 }
 
 int main(int argc, char **argv)
@@ -240,7 +248,7 @@ int main(int argc, char **argv)
 
 	prgname = argv[0];
 
-	while ((c = getopt (argc, argv, "aAcsmn:r:")) != -1) {
+	while ((c = getopt (argc, argv, "aAcsmn:r:V")) != -1) {
 		switch(c) {
 		case 'a':
 			opt_print_attr = 1;
@@ -274,6 +282,9 @@ int main(int argc, char **argv)
 				help(prgname);
 			}
 			break;
+		case 'V':
+			print_version(argv[0]);
+			exit(0);
 		default:
 			help(prgname);
 		}

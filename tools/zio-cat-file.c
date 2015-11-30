@@ -17,7 +17,14 @@
 
 #include <linux/zio-user.h>
 
+static char git_version[] = "version: " GIT_VERSION;
+
 #define VERBOSE 0
+
+static void print_version(char *pname)
+{
+	printf("%s %s\n", pname, git_version);
+}
 
 int main(int argc, char **argv)
 {
@@ -33,10 +40,15 @@ int main(int argc, char **argv)
 	void *map,*ptr;
 	struct timeval tv1, tv2;
 
+	if ((argc == 2) && (!strcmp(argv[1], "-V"))) {
+		print_version(argv[0]);
+		exit(0);
+	}
 	if (argc != 3) {
 		fprintf(stderr, "%s: Wrong number of arguments\n"
 			"Use: \"%s <data-file> <nblocks>\"\n",
 			argv[0], argv[0]);
+		fprintf(stderr, "Or -V for version details\n");
 		exit(1);
 	}
 	nblocks = atoi(argv[2]);

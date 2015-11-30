@@ -15,6 +15,8 @@
 
 #include <linux/zio-user.h>
 
+static char git_version[] = "version: " GIT_VERSION;
+
 #define FNAME "/dev/zdtc-0000-0-0-ctrl"
 
 void help(char *name)
@@ -25,8 +27,15 @@ void help(char *name)
 		"       -f <file>    default: %s\n"
 		"       -t <time>    default: \"1.5\" (see code for details)\n"
 		"       -p <period>  default: \"0\"\n"
-		"       -n <number>  default: infinite\n", FNAME);
+		"       -n <number>  default: infinite\n"
+		"       -v           increase verbosity\n"
+		"       -V           print version information \n", FNAME);
 	exit(1);
+}
+
+static void print_version(char *pname)
+{
+	printf("%s %s\n", pname, git_version);
 }
 
 /* Boring parsing separated to a separate function (same code as elsewhere) */
@@ -77,7 +86,7 @@ int main(int argc, char **argv)
 	struct timespec period = {0, 0};
 
 	/* -f <filename> -t <[+][secs].frac> -p <.frac> -v */
-	while ((i = getopt (argc, argv, "f:t:p:n:v")) != -1) {
+	while ((i = getopt (argc, argv, "f:t:p:n:vV")) != -1) {
 		switch(i) {
 		case 'f':
 			fname = optarg;
@@ -94,6 +103,9 @@ int main(int argc, char **argv)
 		case 'v':
 			verbose++;
 			break;
+		case 'V':
+			print_version(argv[0]);
+			exit(0);
 		default:
 			help(argv[0]);
 		}
