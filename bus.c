@@ -31,13 +31,13 @@ static int __zobj_version_check(struct zio_driver *drv)
 		return 0;
 	}
 
-	if (min > zio_version)
-		goto out;
-
 	if (zio_version_major(min) != zio_version_major(zio_version))
 		goto out;
 
-	if (zio_version_minor(min) != zio_version_minor(zio_version))
+	if (zio_version_minor(min) > zio_version_minor(zio_version))
+		goto out;
+
+	if (zio_version_patch(min) > zio_version_patch(zio_version))
 		goto out;
 
 	return 0;
