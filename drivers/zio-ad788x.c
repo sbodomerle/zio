@@ -334,9 +334,7 @@ static struct zio_driver ad788x_zdrv = {
 	.probe = ad788x_zio_probe,
 	/* All drivers compiled within the ZIO projects are compatibile
 	   with the last version */
-	.min_version = ZIO_VERSION(__ZIO_MAJOR_VERSION,
-				   __ZIO_MINOR_VERSION,
-				   __ZIO_PATCH_VERSION),
+	.min_version = ZIO_VERSION(1, 1, 0),
 };
 
 static int ad788x_spi_probe(struct spi_device *spi)
