@@ -481,7 +481,10 @@ int __zio_object_enable(struct zio_obj_head *head, unsigned int enable)
 static ssize_t zobj_show_name(struct device *dev,
 			       struct device_attribute *attr, char *buf)
 {
-	return sprintf(buf, "%s\n", to_zio_head(dev)->name);
+	if (strlen(to_zio_head(dev)->name))
+		return sprintf(buf, "%s\n", to_zio_head(dev)->name);
+	else
+		return sprintf(buf, "%s\n", dev_name(dev));
 }
 /* Print the name of a zio object */
 static ssize_t zobj_show_dev_type(struct device *dev,

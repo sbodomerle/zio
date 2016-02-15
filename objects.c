@@ -642,12 +642,10 @@ static void zobj_create_link(struct zio_obj_head *head)
 {
 	int err;
 
-	/* Create the symlink with custom channel name */
-	if (strlen(head->name) == 0) {
-		strncpy(head->name, dev_name(&head->dev), ZIO_OBJ_NAME_LEN);
+	if (strlen(head->name) == 0)
 		return;
-	}
 
+	/* Create the symlink with custom channel name */
 	err = sysfs_create_link(&head->dev.parent->kobj, &head->dev.kobj,
 				head->name);
 	if (err)
