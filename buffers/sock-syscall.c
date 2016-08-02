@@ -378,8 +378,13 @@ static int __zn_get_out_block(struct zn_sock *zsk, struct zn_dest *d,
 		return -ENOMEM;
 
 	if (type == SOCK_RAW)
+		#if LINUX_VERSION_CODE < KERNEL_VERSION(4,0,0)
 		memcpy_fromiovec((unsigned char*)d->chan->current_ctrl,
 				 msg->msg_iov, ctrl_size);
+		#else
+		copy_from_iter((unsigned char*)d->chan->current_ctrl,
+				ctrl_size, &msg->msg_iter);
+		#endif
 
 	memcpy(ctrl, d->bi->chan->current_ctrl, ctrl_size);
 
@@ -418,7 +423,11 @@ static int __zn_prepare_out_block(struct zn_sock *zsk, struct sk_buff **skb,
 
 	len = min_t(size_t, block->datalen - block->uoff, len);
 
+	#if LINUX_VERSION_CODE < KERNEL_VERSION(4,0,0)
 	if (memcpy_fromiovec(block->data + block->uoff, msg->msg_iov, len))
+	#else
+	if (copy_from_iter(block->data + block->uoff, len, &msg->msg_iter))
+	#endif
 		return -EFAULT;
 
 	block->uoff += len;
