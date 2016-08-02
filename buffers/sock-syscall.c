@@ -759,7 +759,11 @@ static int zn_create_sock(struct net *net, struct socket *sock, int protocol,
 		break;
 	}
 
-	sk = sk_alloc(net, PF_ZIO, GFP_KERNEL, &zn_proto);
+	sk = sk_alloc(net, PF_ZIO, GFP_KERNEL, &zn_proto
+			#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,2,0)
+			, 0
+			#endif
+			);
 
 	if (!sk) {
 		printk(KERN_ERR "ZIO - Error while allocating socket\n");
