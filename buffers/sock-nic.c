@@ -6,6 +6,7 @@
  * new software network interface, and a new socket-layer logic.
  */
 #define DEBUG
+#include <linux/version.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/types.h>
@@ -103,11 +104,13 @@ static int zn_header(struct sk_buff *skb, struct net_device *dev,
 	return 0;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,1,0)
 static int zn_rebuild_header(struct sk_buff *skb)
 {
 	pr_debug("%s called\n", __func__);
 	return 0;
 }
+#endif
 
 static void zn_tx_timeout(struct net_device *dev)
 {
@@ -139,6 +142,8 @@ const struct net_device_ops zn_netdev_ops = {
 
 const struct header_ops zn_header_ops = {
 	.create = zn_header,
+	#if LINUX_VERSION_CODE < KERNEL_VERSION(4,1,0)
 	.rebuild = zn_rebuild_header,
+	#endif
 	.cache = NULL,
 };
