@@ -138,8 +138,11 @@ static int __zn_get_skb_block(struct zn_sock *zsk, struct zio_block **blockptr,
 	return 0;
 }
 
-static int zn_recvmsg_dgram(struct kiocb *iocb, struct socket *sock,
-			    struct msghdr *msg, size_t size, int flags)
+static int zn_recvmsg_dgram(
+		#if LINUX_VERSION_CODE < KERNEL_VERSION(4,1,0)
+		struct kiocb *iocb,
+		#endif
+		struct socket *sock, struct msghdr *msg, size_t size, int flags)
 {
 	struct sock *sk = sock->sk;
 	struct zn_sock *zsk = zn_sk(sk);
@@ -193,8 +196,11 @@ static int zn_recvmsg_dgram(struct kiocb *iocb, struct socket *sock,
 	return size;
 }
 
-static int zn_recvmsg_stream(struct kiocb *iocb, struct socket *sock,
-			     struct msghdr *msg, size_t size, int flags)
+static int zn_recvmsg_stream(
+		#if LINUX_VERSION_CODE < KERNEL_VERSION(4,1,0)
+		struct kiocb *iocb,
+		#endif
+		struct socket *sock, struct msghdr *msg, size_t size, int flags)
 {
 	struct sock *sk = sock->sk;
 	struct zn_sock *zsk = zn_sk(sk);
@@ -260,8 +266,11 @@ static int zn_recvmsg_stream(struct kiocb *iocb, struct socket *sock,
 
 }
 
-static int zn_recvmsg_raw(struct kiocb *iocb, struct socket *sock,
-			  struct msghdr *msg, size_t size, int flags)
+static int zn_recvmsg_raw(
+		#if LINUX_VERSION_CODE < KERNEL_VERSION(4,1,0)
+		struct kiocb *iocb,
+		#endif
+		struct socket *sock, struct msghdr *msg, size_t size, int flags)
 {
 	struct sock *sk = sock->sk;
 	struct zn_sock *zsk = zn_sk(sk);
@@ -451,8 +460,11 @@ static int __zn_xmit_block(struct zn_sock *zsk, struct zio_block *block,
 	return 0;
 }
 
-static int zn_sendmsg_dgram(struct kiocb *kiocb, struct socket *sock,
-			    struct msghdr *msg, size_t len)
+static int zn_sendmsg_dgram(
+		#if LINUX_VERSION_CODE < KERNEL_VERSION(4,1,0)
+		struct kiocb *kiocb,
+		#endif
+		struct socket *sock, struct msghdr *msg, size_t len)
 {
 	struct sock *sk = sock->sk;
 	struct zn_sock *zsk = zn_sk(sk);
@@ -496,8 +508,11 @@ static int zn_sendmsg_dgram(struct kiocb *kiocb, struct socket *sock,
 	return len;
 }
 
-static int zn_sendmsg_stream(struct kiocb *kiocb, struct socket *sock,
-			     struct msghdr *msg, size_t len)
+static int zn_sendmsg_stream(
+		#if LINUX_VERSION_CODE < KERNEL_VERSION(4,1,0)
+		struct kiocb *kiocb,
+		#endif
+		struct socket *sock, struct msghdr *msg, size_t len)
 {
 	struct sock *sk = sock->sk;
 	struct zn_sock *zsk = zn_sk(sk);
@@ -544,8 +559,11 @@ static int zn_sendmsg_stream(struct kiocb *kiocb, struct socket *sock,
 	return tot_pushed;
 }
 
-static int zn_sendmsg_raw(struct kiocb *kiocb, struct socket *sock,
-			  struct msghdr *msg, size_t len)
+static int zn_sendmsg_raw(
+		#if LINUX_VERSION_CODE < KERNEL_VERSION(4,1,0)
+		struct kiocb *kiocb,
+		#endif
+		struct socket *sock, struct msghdr *msg, size_t len)
 {
 	struct sock *sk = sock->sk;
 	struct zn_sock *zsk = zn_sk(sk);
