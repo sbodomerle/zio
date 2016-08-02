@@ -158,7 +158,11 @@ static int zn_recvmsg_dgram(struct kiocb *iocb, struct socket *sock,
 	if (size > block->datalen - block->uoff)
 		size = block->datalen - block->uoff;
 
+	#if LINUX_VERSION_CODE < KERNEL_VERSION(3,19,0)
 	err = memcpy_toiovec(msg->msg_iov, block->data + block->uoff, size);
+	#else
+	err = memcpy_to_msg(msg, block->data + block->uoff, size);
+	#endif
 
 	if (unlikely(err))
 		return err;
@@ -211,8 +215,12 @@ static int zn_recvmsg_stream(struct kiocb *iocb, struct socket *sock,
 
 		if (copied + block->datalen - block->uoff > size) {
 			left = size - copied;
+			#if LINUX_VERSION_CODE < KERNEL_VERSION(3,19,0)
 			if (memcpy_toiovec(msg->msg_iov, block->data
 							+ block->uoff, left))
+			#else
+			if (memcpy_to_msg(msg, block->data + block->uoff, left))
+			#endif
 				return -EFAULT;
 			if (!(flags & MSG_PEEK))
 				block->uoff += left;
@@ -221,8 +229,13 @@ static int zn_recvmsg_stream(struct kiocb *iocb, struct socket *sock,
 			return size;
 		}
 
+		#if LINUX_VERSION_CODE < KERNEL_VERSION(3,19,0)
 		if (memcpy_toiovec(msg->msg_iov, block->data + block->uoff,
 						block->datalen - block->uoff))
+		#else
+		if (memcpy_to_msg(msg, block->data + block->uoff,
+						block->datalen - block->uoff))
+		#endif
 			return -EFAULT;
 		copied += block->datalen - block->uoff;
 
@@ -270,10 +283,18 @@ static int zn_recvmsg_raw(struct kiocb *iocb, struct socket *sock,
 	if (size > ctrl_size + block->datalen)
 		size = ctrl_size + block->datalen;
 	ctrl = zio_get_ctrl(block);
+	#if LINUX_VERSION_CODE < KERNEL_VERSION(3,19,0)
 	if (memcpy_toiovec(msg->msg_iov, (unsigned char *)ctrl, ctrl_size))
+	#else
+	if (memcpy_to_msg(msg, (unsigned char *)ctrl, ctrl_size))
+	#endif
 		return -EFAULT;
+	#if LINUX_VERSION_CODE < KERNEL_VERSION(3,19,0)
 	if (memcpy_toiovec(msg->msg_iov, block->data + block->uoff,
 					size - ctrl_size))
+	#else
+	if (memcpy_to_msg(msg, block->data + block->uoff, size - ctrl_size))
+	#endif
 		return -EFAULT;
 
 	if (flags & MSG_PEEK) {
