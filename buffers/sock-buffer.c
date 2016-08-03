@@ -28,7 +28,7 @@
 
 /* We have one attribute only, and we silently accept the changes */
 static ZIO_ATTR_DEFINE_STD(ZIO_BUF, zn_std_zattr) = {
-	ZIO_ATTR(zbuf, ZIO_ATTR_ZBUF_MAXLEN, S_IRUGO | S_IWUGO, 0,
+	ZIO_ATTR(zbuf, ZIO_ATTR_ZBUF_MAXLEN, S_IRUGO | S_IWUSR, 0,
 		 ZN_DEFAULT_BUFFER_LENGTH),
 };
 static int zn_conf_set(struct device *dev, struct zio_attribute *zattr,
