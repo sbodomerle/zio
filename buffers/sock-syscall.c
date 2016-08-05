@@ -382,6 +382,9 @@ static int __zn_get_out_block(struct zn_sock *zsk, struct zn_dest *d,
 	size_t ctrl_size = zio_control_size(d->chan);
 	int datalen;
 
+	if (unlikely(!(d->bi->flags & ZIO_BI_SOCKET)))
+		return -EOPNOTSUPP;
+
 	ctrl = zio_alloc_control(GFP_KERNEL);
 	if (!ctrl)
 		return -ENOMEM;

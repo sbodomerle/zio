@@ -187,6 +187,7 @@ static struct zio_bi *zn_create(struct zio_buffer_type *zbuf,
 	if (!zni)
 		return ERR_PTR(-ENOMEM);
 	INIT_LIST_HEAD(&zni->list);
+	zni->bi.flags = ZIO_BI_SOCKET;
 
 	return &zni->bi;
 }

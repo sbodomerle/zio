@@ -90,6 +90,7 @@ enum zio_bi_flag_mask {
 				  (e.g. buffer is full ) */
 	/* Configuration */
 	ZIO_BI_PREF_NEW = 0x100, /**< prefer new blocks instead old ones */
+	ZIO_BI_SOCKET   = 0x200, /* network capable */
 };
 
 /**
