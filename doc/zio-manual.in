@@ -754,10 +754,9 @@ like this:
 
 @center @image{img/zio-block, 3cm, , simple drawing of a block, gif}
 
-@tindex zio-buffer.h
-At C-language level, the block structure is defined in
-@code{zio-buffer.h}, because buffers are the main ZIO object involved with
-storage of blocks. This is the actual definition:
+@tindex zio.h
+At C-language level, the block structure is defined in @code{zio.h}.
+This is the actual definition:
 
 @tindex zio_block
 @example
@@ -813,8 +812,8 @@ in a single filed in order to avoid wasting bytes and/or break alignment
 of the structure. The same trick is used in the @i{rbtree} implementation
 within the Linux kernel, and it is pretty efficient.
 
-@tindex zio-buffer.h
-@code{zio-buffer.h} defines the following macros to access parts
+@tindex zio.h
+@code{zio.h} defines the following macros to access parts
 of the @code{ctrl_flags} field:
 
 @findex zio_get_ctrl
