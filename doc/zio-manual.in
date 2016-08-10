@@ -939,7 +939,7 @@ the fields are not yet being filled by the core.
 @itemx minor_version
 
 	The version is currently 1.0, as defined by @code{ZIO_MAJOR_VERSION}
-        and @code{ZIO_MINOR_VERSION} (in @code{zio.h}). The version is used
+        and @code{ZIO_MINOR_VERSION}. The version is used
         to ensure all actors agree on the meaning of the fields.
         We warrant that all minor version changes will be compatible (for
         example, 1.1 may have new flags that can be ignored by older code).
