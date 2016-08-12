@@ -97,8 +97,8 @@ enum zio_buf_std_attr {
 #define __ZIO_CONTROL_SIZE	512
 
 /*
- * The timestamp is mostly app-specific. It cam be timspec-alike but
- * indidual devices may do whatever they want to match hardware.
+ * The timestamp is mostly app-specific. It can be timespec-alike but
+ * individual devices may do whatever they want to match hardware.
  */
 struct zio_timestamp {
 	uint64_t secs;
