@@ -72,7 +72,11 @@ static int zn_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	/*Update stats*/
 	stats->tx_packets++;
 	stats->tx_bytes += skb->len;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,7,0)
 	dev->trans_start = jiffies;
+#else
+	netif_trans_update(dev);
+#endif
 	return NETDEV_TX_OK;
 }
 
